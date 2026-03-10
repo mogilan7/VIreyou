@@ -1,3 +1,5 @@
+import { Link } from "@/i18n/routing";
+
 export default function PublicFooter() {
     return (
         <footer className="bg-white py-12 border-t border-brand-sage/50">
@@ -12,12 +14,12 @@ export default function PublicFooter() {
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-6 md:gap-8 text-[10px] tracking-widest font-semibold text-brand-gray-dark uppercase">
-                    <a href="/#philosophy" className="hover:text-brand-leaf">Philosophy</a>
-                    <a href="/diagnostics" className="hover:text-brand-leaf">Diagnostics</a>
-                    <a href="/pricing" className="hover:text-brand-leaf">Pricing</a>
-                    <a href="#" className="hover:text-brand-leaf">Legal Notice</a>
-                    <a href="#" className="hover:text-brand-leaf">Privacy Policy</a>
-                    <a href="#" className="hover:text-brand-leaf">Contact</a>
+                    <Link href="/#philosophy" className="hover:text-brand-leaf">Philosophy</Link>
+                    <Link href="/diagnostics" className="hover:text-brand-leaf">Diagnostics</Link>
+                    <Link href="/pricing" className="hover:text-brand-leaf">Pricing</Link>
+                    <Link href="#" className="hover:text-brand-leaf">Legal Notice</Link>
+                    <Link href="#" className="hover:text-brand-leaf">Privacy Policy</Link>
+                    <Link href="#" className="hover:text-brand-leaf">Contact</Link>
                 </div>
 
                 <div className="text-[10px] text-brand-gray/60 text-center md:text-right">

@@ -8,14 +8,14 @@ export default function HabitHeatmap() {
     const isDark = theme === 'dark';
 
     // Generate static mockup data mimicking the original script
-    const cells = useMemo(() => {
+    const [cells] = React.useState(() => {
         const arr = [];
         for (let i = 0; i < 35; i++) {
             const isActive = i < 30 && Math.random() > 0.3;
             arr.push(isActive);
         }
         return arr;
-    }, []);
+    });
 
     return (
         <div className="grid grid-cols-7 gap-1">

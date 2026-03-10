@@ -17,11 +17,11 @@ export function DashboardThemeProvider({ children }: { children: React.ReactNode
 
     useEffect(() => {
         const savedTheme = localStorage.getItem('dashboard-theme') as Theme;
-        if (savedTheme) {
+        if (savedTheme && savedTheme !== theme) {
             setTheme(savedTheme);
         }
         setMounted(true);
-    }, []);
+    }, [theme]);
 
     useEffect(() => {
         if (mounted) {

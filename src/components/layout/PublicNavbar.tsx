@@ -4,6 +4,105 @@ import { User, Menu, X } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useState, useEffect } from "react";
 
+interface NavLinksProps {
+    mobile?: boolean;
+    isCabinet: boolean;
+    isSpecialist: boolean;
+    t: (key: any) => string;
+    tDashboard: (key: any) => string;
+    setIsMenuOpen: (open: boolean) => void;
+}
+
+const NavLinks = ({ mobile = false, isCabinet, isSpecialist, t, tDashboard, setIsMenuOpen }: NavLinksProps) => {
+    if (isCabinet || isSpecialist) {
+        const clientLinks = [
+            { name: tDashboard('cDash'), href: "/cabinet" },
+            { name: tDashboard('cRes'), href: "/cabinet/results" },
+            { name: tDashboard('cArch'), href: "/cabinet/archive" },
+            { name: tDashboard('cAssgn'), href: "/cabinet/assignments" },
+            { name: tDashboard('cCons'), href: "/cabinet/consultations" },
+            { name: tDashboard('cProf'), href: "/cabinet/profile" },
+        ];
+
+        const specialistLinks = [
+            { name: tDashboard('sDash'), href: "/specialist" },
+            { name: tDashboard('sClient'), href: "/specialist/clients" },
+            { name: tDashboard('sSched'), href: "/specialist/schedule" },
+            { name: tDashboard('sAnalyt'), href: "/specialist/analytics" },
+            { name: tDashboard('sSet'), href: "/specialist/settings" },
+        ];
+
+        const links = isSpecialist ? specialistLinks : clientLinks;
+
+        return (
+            <>
+                {links.map((link) => (
+                    <Link
+                        key={link.href}
+                        href={link.href as any}
+                        onClick={() => setIsMenuOpen(false)}
+                        className={`hover:text-brand-forest transition-colors ${mobile ? 'text-xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
+                    >
+                        {link.name}
+                    </Link>
+                ))}
+                <Link
+                    href="/"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`hover:text-brand-forest transition-colors font-bold ${mobile ? 'text-xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-leaf' : 'text-brand-leaf'}`}
+                >
+                    {t('home')}
+                </Link>
+            </>
+        );
+    }
+
+    return (
+        <>
+            <Link
+                href="/#philosophy"
+                onClick={() => setIsMenuOpen(false)}
+                className={`hover:text-brand-forest transition-colors ${mobile ? 'text-2xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
+            >
+                {t('philosophy')}
+            </Link>
+            <Link
+                href="/diagnostics"
+                onClick={() => setIsMenuOpen(false)}
+                className={`hover:text-brand-forest transition-colors ${mobile ? 'text-2xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
+            >
+                {t('diagnostics')}
+            </Link>
+            <Link
+                href="/pricing"
+                onClick={() => setIsMenuOpen(false)}
+                className={`hover:text-brand-forest transition-colors ${mobile ? 'text-2xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
+            >
+                {t('pricing')}
+            </Link>
+        </>
+    );
+};
+
+interface LangSwitcherProps {
+    mobile?: boolean;
+    pathname: string;
+    toggleLocale: string;
+    locale: string;
+    setIsMenuOpen: (open: boolean) => void;
+}
+
+const LangSwitcher = ({ mobile = false, pathname, toggleLocale, locale, setIsMenuOpen }: LangSwitcherProps) => (
+    <Link
+        href={pathname}
+        locale={toggleLocale}
+        onClick={() => setIsMenuOpen(false)}
+        className={`text-brand-gray/60 hover:text-brand-forest font-bold ${mobile ? 'text-xl py-6 border-b border-brand-sage/20 w-full text-center text-brand-text' : 'text-[10px] tracking-widest'}`}
+    >
+        {locale === 'en' ? 'RU' : 'EN'}
+    </Link>
+);
+
 export default function PublicNavbar() {
     const t = useTranslations('Nav');
     const locale = useLocale();
@@ -26,88 +125,6 @@ export default function PublicNavbar() {
     const isSpecialist = pathname.includes('/specialist');
     const tDashboard = useTranslations('Dashboard.Sidebar');
 
-    const NavLinks = ({ mobile = false }) => {
-        if (isCabinet || isSpecialist) {
-            const clientLinks = [
-                { name: tDashboard('cDash'), href: "/cabinet" },
-                { name: tDashboard('cRes'), href: "/cabinet/results" },
-                { name: tDashboard('cArch'), href: "/cabinet/archive" },
-                { name: tDashboard('cAssgn'), href: "/cabinet/assignments" },
-                { name: tDashboard('cCons'), href: "/cabinet/consultations" },
-                { name: tDashboard('cProf'), href: "/cabinet/profile" },
-            ];
-
-            const specialistLinks = [
-                { name: tDashboard('sDash'), href: "/specialist" },
-                { name: tDashboard('sClient'), href: "/specialist/clients" },
-                { name: tDashboard('sSched'), href: "/specialist/schedule" },
-                { name: tDashboard('sAnalyt'), href: "/specialist/analytics" },
-                { name: tDashboard('sSet'), href: "/specialist/settings" },
-            ];
-
-            const links = isSpecialist ? specialistLinks : clientLinks;
-
-            return (
-                <>
-                    {links.map((link) => (
-                        <Link
-                            key={link.href}
-                            href={link.href as any}
-                            onClick={() => setIsMenuOpen(false)}
-                            className={`hover:text-brand-forest transition-colors ${mobile ? 'text-xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
-                        >
-                            {link.name}
-                        </Link>
-                    ))}
-                    <Link
-                        href="/"
-                        onClick={() => setIsMenuOpen(false)}
-                        className={`hover:text-brand-forest transition-colors font-bold ${mobile ? 'text-xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-leaf' : 'text-brand-leaf'}`}
-                    >
-                        {t('home')}
-                    </Link>
-                </>
-            );
-        }
-
-        return (
-            <>
-                <Link
-                    href="/#philosophy"
-                    onClick={() => setIsMenuOpen(false)}
-                    className={`hover:text-brand-forest transition-colors ${mobile ? 'text-2xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
-                >
-                    {t('philosophy')}
-                </Link>
-                <Link
-                    href="/diagnostics"
-                    onClick={() => setIsMenuOpen(false)}
-                    className={`hover:text-brand-forest transition-colors ${mobile ? 'text-2xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
-                >
-                    {t('diagnostics')}
-                </Link>
-                <Link
-                    href="/pricing"
-                    onClick={() => setIsMenuOpen(false)}
-                    className={`hover:text-brand-forest transition-colors ${mobile ? 'text-2xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
-                >
-                    {t('pricing')}
-                </Link>
-            </>
-        );
-    };
-
-    const LangSwitcher = ({ mobile = false }) => (
-        <Link
-            href={pathname}
-            locale={toggleLocale}
-            onClick={() => setIsMenuOpen(false)}
-            className={`text-brand-gray/60 hover:text-brand-forest font-bold ${mobile ? 'text-xl py-6 border-b border-brand-sage/20 w-full text-center text-brand-text' : 'text-[10px] tracking-widest'}`}
-        >
-            {locale === 'en' ? 'RU' : 'EN'}
-        </Link>
-    );
-
     return (
         <>
             <nav className={`fixed top-0 w-full z-50 py-2 px-6 md:px-12 flex items-center justify-between bg-brand-bg/60 backdrop-blur-[10px] border-b border-brand-sage/20 transition-all duration-300 ${(isCabinet || isSpecialist) ? 'lg:hidden' : ''}`}>
@@ -124,7 +141,15 @@ export default function PublicNavbar() {
 
                 {/* Desktop Navigation */}
                 <div className="hidden md:flex items-center gap-8 text-xs tracking-widest font-semibold text-brand-gray-dark uppercase">
-                    {!(isCabinet || isSpecialist) && <NavLinks />}
+                    {!(isCabinet || isSpecialist) && (
+                        <NavLinks
+                            isCabinet={isCabinet}
+                            isSpecialist={isSpecialist}
+                            t={t}
+                            tDashboard={tDashboard}
+                            setIsMenuOpen={setIsMenuOpen}
+                        />
+                    )}
                     {!(isCabinet || isSpecialist) && (
                         <Link
                             href="/pricing"
@@ -134,7 +159,12 @@ export default function PublicNavbar() {
                         </Link>
                     )}
                     <div className="flex items-center gap-4">
-                        <LangSwitcher />
+                        <LangSwitcher
+                            pathname={pathname}
+                            toggleLocale={toggleLocale}
+                            locale={locale}
+                            setIsMenuOpen={setIsMenuOpen}
+                        />
                         <Link href={isSpecialist ? "/specialist" : "/cabinet"} className="text-brand-gray-dark hover:text-brand-forest">
                             <User size={18} />
                         </Link>
@@ -143,7 +173,12 @@ export default function PublicNavbar() {
 
                 {/* Mobile Actions */}
                 <div className="md:hidden flex items-center gap-4">
-                    <LangSwitcher />
+                    <LangSwitcher
+                        pathname={pathname}
+                        toggleLocale={toggleLocale}
+                        locale={locale}
+                        setIsMenuOpen={setIsMenuOpen}
+                    />
                     <Link href={isSpecialist ? "/specialist" : "/cabinet"} className="text-brand-gray-dark">
                         <User size={20} />
                     </Link>
@@ -159,7 +194,14 @@ export default function PublicNavbar() {
             {/* Mobile Menu Overlay */}
             <div className={`fixed inset-0 bg-white z-[200] transition-all duration-500 md:hidden flex flex-col items-center justify-start overflow-y-auto pt-24 pb-12 px-8 ${isMenuOpen ? 'opacity-100 visible shadow-2xl' : 'opacity-0 invisible pointer-events-none'} ${(isCabinet || isSpecialist) ? 'lg:hidden' : ''}`}>
                 <div className={`flex flex-col items-center gap-1 w-full max-w-xs transition-transform duration-500 transform ${isMenuOpen ? 'translate-y-0' : '-translate-y-10'}`}>
-                    <NavLinks mobile />
+                    <NavLinks
+                        mobile
+                        isCabinet={isCabinet}
+                        isSpecialist={isSpecialist}
+                        t={t}
+                        tDashboard={tDashboard}
+                        setIsMenuOpen={setIsMenuOpen}
+                    />
                     {!(isCabinet || isSpecialist) && (
                         <Link
                             href="/pricing"

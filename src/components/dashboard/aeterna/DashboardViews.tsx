@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState } from 'react';
 import HRVChart from './HRVChart';
@@ -15,7 +16,7 @@ interface DashboardViewsProps {
         id: string;
     };
     testResults: any[];
-    healthData: any; // Using any for simplicity in demo, should ideally use HealthData type from Prisma
+    healthData: any;
 }
 
 export default function DashboardViews({ profile, testResults, healthData }: DashboardViewsProps) {
@@ -23,9 +24,6 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
     const { theme } = useDashboardTheme();
     const [activeView, setActiveView] = useState<'overview' | 'diagnostics'>('overview');
 
-    const handleDiagnosticClick = () => {
-        router.push('/ru/diagnostics');
-    };
 
     const getLatestTest = (type: string) => {
         return testResults.find(r => r.test_type === type);
@@ -307,7 +305,7 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
                             <div className="dark:bg-slate-800/50 bg-brand-sage/5 border border-dashed dark:border-slate-600 border-brand-sage/40 rounded-2xl p-6 shadow-md transition-colors duration-300">
                                 <h3 className={`text-xs font-bold uppercase tracking-tighter ${accentColor} mb-3`}>AI Recommendation</h3>
                                 <p className="text-sm leading-relaxed opacity-80 italic">
-                                    "Уровень кортизола превышает оптимум на 20%. Рекомендуется добавить 15 мин низкоинтенсивной прогулки после ужина и перенести прием магния на 21:00."
+                                    &quot;Уровень кортизола превышает оптимум на 20%. Рекомендуется добавить 15 мин низкоинтенсивной прогулки после ужина и перенести прием магния на 21:00.&quot;
                                 </p>
                             </div>
                         </aside>

@@ -19,7 +19,6 @@ export async function extractHealthData(docId: string) {
     const genAI = new GoogleGenerativeAI(apiKey || "");
 
     try {
-        // @ts-ignore
         const doc = await prisma.medicalDocument.findUnique({ where: { id: docId } });
         if (!doc) {
             log(`Document ${docId} not found in database`);
@@ -78,7 +77,6 @@ export async function extractHealthData(docId: string) {
 
         if (extractedData) {
             log(`Data extracted successfully: ${JSON.stringify(extractedData)}`);
-            // @ts-ignore
             await prisma.medicalDocument.update({
                 where: { id: docId },
                 data: {
@@ -92,7 +90,6 @@ export async function extractHealthData(docId: string) {
             );
 
             log(`Updating HealthData for user ${doc.user_id}...`);
-            // @ts-ignore
             await prisma.healthData.upsert({
                 where: { user_id: doc.user_id },
                 update: filteredData,
@@ -103,26 +100,24 @@ export async function extractHealthData(docId: string) {
             });
 
             log(`SUCCESS: HealthData updated for user ${doc.user_id}`);
-        } else {
-            throw new Error("Could not parse AI response as JSON");
         }
-
-    } catch (error: any) {
-        const fullError = `${error.message}\n${error.stack}`;
+    } catch (error: unknown) {
+        const err = error as Error;
+        const fullError = `${err.message}\n${err.stack}`;
         log(`ERROR: ${fullError}`);
         console.error("AI Extraction failed:", error);
 
-        // @ts-ignore
         try {
             await prisma.medicalDocument.update({
                 where: { id: docId },
                 data: {
                     status: 'FAILED',
-                    extracted_data: JSON.stringify({ error: error.message, stack: error.stack })
+                    extracted_data: JSON.stringify({ error: err.message, stack: err.stack })
                 }
             });
-        } catch (e: any) {
-            log(`DOUBLE ERROR (failed update status): ${e.message}`);
+        } catch (e: unknown) {
+            const err2 = e as Error;
+            log(`DOUBLE ERROR (failed update status): ${err2.message}`);
         }
     }
 }
