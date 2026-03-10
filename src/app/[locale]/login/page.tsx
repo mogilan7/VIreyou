@@ -38,7 +38,7 @@ export default function LoginPage() {
                     }
                 }
             } else {
-                const res = await signup(formData, locale);
+                const res = await signup(formData);
                 if (res?.error) {
                     setErrorMsg(res.error === 'User already registered' ? t('errorRegisterFailed') : res.error);
                 } else if (res?.success) {
@@ -46,9 +46,10 @@ export default function LoginPage() {
                     setIsLogin(true);
                 }
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const error = err as Error;
             // Next.js redirect throws an error, we should not catch it as a real error
-            if (err.message === 'NEXT_REDIRECT') throw err;
+            if (error.message === 'NEXT_REDIRECT') throw error;
             setErrorMsg(t('errorUnknown'));
         } finally {
             setLoading(false);

@@ -86,7 +86,7 @@ export async function extractHealthData(docId: string) {
             });
 
             const filteredData = Object.fromEntries(
-                Object.entries(extractedData).filter(([_, v]) => v !== null)
+                Object.entries(extractedData).filter(([, v]) => v !== null)
             );
 
             log(`Updating HealthData for user ${doc.user_id}...`);
@@ -95,7 +95,7 @@ export async function extractHealthData(docId: string) {
                 update: filteredData,
                 create: {
                     user_id: doc.user_id,
-                    ...filteredData as any
+                    ...(filteredData as Record<string, string | number | boolean | null>)
                 }
             });
 

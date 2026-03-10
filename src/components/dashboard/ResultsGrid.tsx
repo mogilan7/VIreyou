@@ -21,8 +21,7 @@ import {
     Info,
     TrendingUp,
     TrendingDown,
-    Minus,
-    CheckCircle2
+    Minus
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useDashboardTheme } from "./ThemeContext";
@@ -53,7 +52,14 @@ const TrendIcon = ({ current, previous }: { current: number, previous: number })
     return <span title="Без изменений"><Minus className="w-4 h-4 text-slate-500" /></span>;
 };
 
-export default function ResultsGrid({ results }: { results: any[] }) {
+interface TestResult {
+    test_type: string;
+    score: number;
+    interpretation: string;
+    created_at: string;
+}
+
+export default function ResultsGrid({ results }: { results: TestResult[] }) {
     const t = useTranslations('Dashboard.Results');
     const { theme } = useDashboardTheme();
     const [expandedCard, setExpandedCard] = useState<string | null>(null);
@@ -65,7 +71,7 @@ export default function ResultsGrid({ results }: { results: any[] }) {
         }
         acc[result.test_type].push(result);
         return acc;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<string, TestResult[]>);
 
     const getTestConfig = (type: string, score: number) => {
         let severity: 'ok' | 'warn' | 'danger' = 'ok';
@@ -193,13 +199,13 @@ export default function ResultsGrid({ results }: { results: any[] }) {
             {/* Results Container */}
             <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch" : "flex flex-col gap-4 items-stretch w-full"}>
                 {Object.entries(grouped).map(([testType, testResultsList]) => {
-                    const testResults = testResultsList as any[];
+                    const testResults = testResultsList;
                     const isExpanded = expandedCard === testType;
                     const latestResult = testResults[0];
                     const historicalResults = testResults.slice(1);
 
                     const config = getTestConfig(latestResult.test_type, latestResult.score || 0);
-                    const testName = t(`testNames.${latestResult.test_type as any}`) || latestResult.test_type;
+                    const testName = t(`testNames.${latestResult.test_type as keyof typeof t}`) || latestResult.test_type;
                     const isGrid = viewMode === 'grid';
 
                     return (
@@ -269,7 +275,7 @@ export default function ResultsGrid({ results }: { results: any[] }) {
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y dark:divide-white/5 divide-brand-sage/20">
-                                                    {historicalResults.map((record: any, idx: number) => {
+                                                    {historicalResults.map((record: TestResult, idx: number) => {
                                                         return (
                                                             <tr key={idx} className="dark:hover:bg-slate-700/30 hover:bg-brand-sage/5 transition-colors">
                                                                 <td className="px-4 py-3.5 font-medium">{new Date(record.created_at).toLocaleDateString()}</td>

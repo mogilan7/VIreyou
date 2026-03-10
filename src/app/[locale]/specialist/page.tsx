@@ -1,5 +1,5 @@
 import Sidebar from "@/components/dashboard/Sidebar";
-import { Search, MapPin, Upload, FileText, Download, TrendingUp, TrendingDown, Minus, Edit3, CalendarPlus, Clock, MessageSquare, Printer } from "lucide-react";
+import { Search, MapPin, FileText, Download, TrendingUp, TrendingDown, Minus, Edit3, CalendarPlus, Clock, MessageSquare, Printer } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { createClient } from '@/utils/supabase/server';
 
@@ -10,8 +10,11 @@ export default async function SpecialistDashboard() {
     // Get current specialist
     const { data: { user } } = await supabase.auth.getUser();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let assignedClients: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let activeClient: any = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let clientTestResults: any[] = [];
 
     if (user) {
@@ -23,6 +26,7 @@ export default async function SpecialistDashboard() {
 
         if (clients && clients.length > 0) {
             assignedClients = clients;
+            console.log(`Total clients: ${assignedClients.length}`);
             activeClient = clients[0]; // Just showing the first one for now
 
             // Fetch test results for the active client
@@ -44,10 +48,12 @@ export default async function SpecialistDashboard() {
     let biomarkerData = [];
 
     if (clientTestResults.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         biomarkerData = clientTestResults.map((result: any) => {
             // Map our specific test types to realistic looking dashboard displays
             if (result.test_type === 'bio-age') {
-                return { indicator: "Biological Age", reading: `${result.score} yrs`, trend: "up", change: `${result.rawData?.diff > 0 ? '+' : ''}${result.rawData?.diff || 0} yrs`, assessment: result.rawData?.diff <= 0 ? "OPTIMAL" : "SUB-OPTIMAL", color: result.rawData?.diff <= 0 ? "green" : "orange" };
+                const rawData = result.rawData as any;
+                return { indicator: "Biological Age", reading: `${result.score} yrs`, trend: "up", change: `${rawData?.diff > 0 ? '+' : ''}${rawData?.diff || 0} yrs`, assessment: rawData?.diff <= 0 ? "OPTIMAL" : "SUB-OPTIMAL", color: rawData?.diff <= 0 ? "green" : "orange" };
             }
             if (result.test_type === 'score') {
                 return { indicator: "Cardiovascular Risk (SCORE)", reading: `${result.score}%`, trend: result.score > 5 ? "up" : "stable", change: "Current", assessment: result.score < 5 ? "LOW RISK" : "HIGH RISK", color: result.score < 5 ? "green" : "red" };

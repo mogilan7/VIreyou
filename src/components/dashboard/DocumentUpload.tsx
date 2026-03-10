@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useCallback } from 'react';
-import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react';
+import { Upload, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -50,9 +50,8 @@ export default function DocumentUpload({ userId, email, fullName }: { userId: st
             // 1. Upload to Supabase Storage
             const fileExt = file.name.split('.').pop();
             const fileName = `${userId}/${Date.now()}.${fileExt}`;
-            const filePath = `medical-archive/${fileName}`;
 
-            const { error: uploadError, data } = await supabase.storage
+            const { error: uploadError } = await supabase.storage
                 .from('medical-archive')
                 .upload(fileName, file, {
                     cacheControl: '3600',
@@ -95,9 +94,10 @@ export default function DocumentUpload({ userId, email, fullName }: { userId: st
                 router.refresh();
             }, 2000);
 
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const errorObj = err as { message?: string, statusCode?: number };
             console.error('Full upload error object:', err);
-            const detail = err.statusCode ? `(Code: ${err.statusCode}) ${err.message}` : err.message;
+            const detail = errorObj.statusCode ? `(Code: ${errorObj.statusCode}) ${errorObj.message}` : errorObj.message;
             setError(`${t('maError')}: ${detail}`);
             setUploading(false);
         }
@@ -108,7 +108,7 @@ export default function DocumentUpload({ userId, email, fullName }: { userId: st
         setIsDragging(false);
         const file = e.dataTransfer.files[0];
         if (file) handleUpload(file);
-    }, [userId]);
+    }, [handleUpload]);
 
     const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];

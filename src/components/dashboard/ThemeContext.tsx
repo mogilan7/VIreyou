@@ -21,7 +21,8 @@ export function DashboardThemeProvider({ children }: { children: React.ReactNode
             setTheme(savedTheme);
         }
         setMounted(true);
-    }, [theme]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         if (mounted) {

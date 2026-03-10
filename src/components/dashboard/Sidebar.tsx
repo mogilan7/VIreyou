@@ -1,15 +1,15 @@
 "use client";
-import Link from "next/link";
-import { LayoutDashboard, Users, Calendar, Activity, Settings, FileText, CheckSquare, MessageSquare, ClipboardList, LogOut, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, Activity, Settings, FileText, CheckSquare, MessageSquare, LogOut, Sun, Moon } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { Link as IntlLink, usePathname } from "@/i18n/routing";
 import { useDashboardTheme } from "./ThemeContext";
+import { logout } from "@/app/[locale]/login/actions/auth";
+import Image from "next/image";
 
 export default function Sidebar({ role, profileName }: { role: "client" | "specialist", profileName?: string }) {
     const pathname = usePathname();
     const locale = useLocale();
     const t = useTranslations('Dashboard.Sidebar');
-    const { logout } = require("@/app/[locale]/login/actions/auth");
     const { theme, toggleTheme } = useDashboardTheme();
 
     const toggleLocale = locale === 'en' ? 'ru' : 'en';
@@ -43,9 +43,11 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
             {/* Brand */}
             <div className="px-6 flex items-center mb-8">
                 <IntlLink href="/">
-                    <img
+                    <Image
                         src="/logo.png"
                         alt="VIReYou Logo"
+                        width={120}
+                        height={80}
                         className={`h-20 w-auto object-contain ${theme === 'dark' ? 'brightness-0 invert' : ''}`}
                     />
                 </IntlLink>
@@ -59,7 +61,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                         return (
                             <li key={link.name}>
                                 <IntlLink
-                                    href={link.href as any}
+                                    href={link.href as "/cabinet" | "/cabinet/results" | "/cabinet/archive" | "/cabinet/assignments" | "/cabinet/consultations" | "/cabinet/profile" | "/specialist" | "/specialist/clients" | "/specialist/schedule" | "/specialist/analytics" | "/specialist/settings"}
                                     className={`flex items-center gap-4 py-3 px-4 rounded-xl transition-all ${isActive
                                         ? (theme === 'dark' ? "bg-teal-500/10 text-teal-400 font-semibold" : "bg-brand-leaf/10 text-brand-leaf font-semibold")
                                         : (theme === 'dark' ? "text-slate-400 hover:bg-slate-800/50" : "text-brand-gray hover:bg-brand-sage/20 hover:text-brand-text")
@@ -81,7 +83,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                 <div className="flex items-center justify-between mb-4 px-2">
                     <span className="text-[10px] text-brand-gray tracking-widest uppercase font-bold opacity-50">Language</span>
                     <IntlLink
-                        href={pathname as any}
+                        href={pathname as "/cabinet"}
                         locale={toggleLocale}
                         className={`text-[10px] font-bold px-2 py-1 rounded transition-opacity hover:opacity-80 ${theme === 'dark' ? 'bg-slate-800 text-teal-400' : 'bg-brand-sage/20 text-brand-leaf'}`}
                     >
@@ -103,7 +105,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                 {role === "client" ? (
                     <div className="flex items-center gap-3 py-3">
                         <div className="w-10 h-10 rounded-full bg-slate-800 flex-shrink-0 overflow-hidden relative border border-brand-sage/20">
-                            <img src="/andrei-avatar.png" alt={profileName || "User"} className="object-cover w-full h-full" />
+                            <Image src="/andrei-avatar.png" alt={profileName || "User"} width={40} height={40} className="object-cover w-full h-full" />
                         </div>
                         <div>
                             <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight">{profileName || "Пользователь"}</p>
@@ -113,7 +115,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                 ) : (
                     <div className="flex items-center gap-3 py-3">
                         <div className="w-10 h-10 rounded-full bg-brand-sage/50 flex-shrink-0 overflow-hidden relative border border-brand-sage/20">
-                            <img src="/hero-specialist.png" alt="Dr. Valentina" className="object-cover w-full h-full object-[center_top]" />
+                            <Image src="/hero-specialist.png" alt="Dr. Valentina" width={40} height={40} className="object-cover w-full h-full object-[center_top]" />
                         </div>
                         <div>
                             <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight">Valentina S.</p>

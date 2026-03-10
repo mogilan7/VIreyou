@@ -31,7 +31,7 @@ export async function login(formData: FormData, locale: string) {
     redirect({ href: '/cabinet', locale })
 }
 
-export async function signup(formData: FormData, locale: string) {
+export async function signup(formData: FormData) {
     const log = (msg: string) => fs.appendFileSync(logPath, `[${new Date().toISOString()}] AUTH SIGNUP: ${msg}\n`);
     const supabase = await createClient()
 

@@ -8,8 +8,8 @@ interface NavLinksProps {
     mobile?: boolean;
     isCabinet: boolean;
     isSpecialist: boolean;
-    t: (key: any) => string;
-    tDashboard: (key: any) => string;
+    t: (key: string) => string;
+    tDashboard: (key: string) => string;
     setIsMenuOpen: (open: boolean) => void;
 }
 
@@ -39,7 +39,7 @@ const NavLinks = ({ mobile = false, isCabinet, isSpecialist, t, tDashboard, setI
                 {links.map((link) => (
                     <Link
                         key={link.href}
-                        href={link.href as any}
+                        href={link.href as "/cabinet" | "/specialist"}
                         onClick={() => setIsMenuOpen(false)}
                         className={`hover:text-brand-forest transition-colors ${mobile ? 'text-xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
                     >
@@ -131,11 +131,13 @@ export default function PublicNavbar() {
                 {/* Brand Logo */}
                 <div className="flex items-center">
                     <Link href="/" onClick={() => setIsMenuOpen(false)}>
-                        <img
-                            src="/logo.png"
-                            alt="VIReYou Logo"
-                            className="h-20 w-auto object-contain mix-blend-multiply brightness-[1.05] contrast-[1.05]"
-                        />
+                        <div className="relative h-20 w-40">
+                            <img
+                                src="/logo.png"
+                                alt="VIReYou Logo"
+                                className="h-full w-full object-contain mix-blend-multiply brightness-[1.05] contrast-[1.05]"
+                            />
+                        </div>
                     </Link>
                 </div>
 

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Heart, Info, AlertTriangle, CheckCircle, User, Activity, ArrowLeft, Save, Loader2, AlertCircle } from 'lucide-react';
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
@@ -32,10 +32,10 @@ const ScoreCalculatorPage = () => {
     }, []);
 
     // Упрощенная логика расчета SCORE на основе коэффициентов
-    const calculateScore = () => {
-        let ageFactor = (age - 40) / 10;
-        let bpFactor = (systolicBP - 120) / 20;
-        let cholFactor = (cholesterol - 5);
+    const calculateScore = useCallback(() => {
+        const ageFactor = (age - 40) / 10;
+        const bpFactor = (systolicBP - 120) / 20;
+        const cholFactor = (cholesterol - 5);
 
         let base = gender === 'male' ? 1.5 : 0.8;
         if (isSmoker) base *= 2.1;
@@ -44,11 +44,11 @@ const ScoreCalculatorPage = () => {
 
         result = Math.max(0, Math.min(45, result));
         setRisk(parseFloat(result.toFixed(1)));
-    };
+    }, [age, systolicBP, cholesterol, gender, isSmoker]);
 
     useEffect(() => {
         calculateScore();
-    }, [gender, age, isSmoker, systolicBP, cholesterol]);
+    }, [calculateScore]);
 
     const getRiskColor = (val: number) => {
         if (val < 1) return 'text-green-600 bg-green-50 border-green-200';

@@ -19,7 +19,6 @@ export async function POST(request: Request) {
 
         // Ensure user exists in Prisma DB (Upsert)
         // Using lowercase 'user' as confirmed by earlier test
-        // @ts-ignore
         await prisma.user.upsert({
             where: { id: userId },
             update: {},
@@ -31,7 +30,6 @@ export async function POST(request: Request) {
             }
         });
 
-        // @ts-ignore
         const document = await prisma.medicalDocument.create({
             data: {
                 user_id: userId,
@@ -50,12 +48,13 @@ export async function POST(request: Request) {
         });
 
         return NextResponse.json(document);
-    } catch (error: any) {
-        const errMsg = `[${new Date().toISOString()}] API ERROR: ${error.message}\n${error.stack}\n`;
+    } catch (error: unknown) {
+        const err = error as Error;
+        const errMsg = `[${new Date().toISOString()}] API ERROR: ${err.message}\n${err.stack}\n`;
         fs.appendFileSync(logPath, errMsg);
         console.error('API Upload error:', error);
         return NextResponse.json({
-            error: error.message || 'Internal Server Error'
+            error: err.message || 'Internal Server Error'
         }, { status: 500 });
     }
 }
