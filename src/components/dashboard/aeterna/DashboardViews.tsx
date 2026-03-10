@@ -9,6 +9,18 @@ import HabitHeatmap from './HabitHeatmap';
 import SleepPhasesChart from './SleepPhasesChart';
 import { useRouter } from 'next/navigation';
 import { useDashboardTheme } from '../ThemeContext';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+
+const biomarkersConfig: Record<string, { name: string; unit: string; opt: string; min?: number; max?: number }> = {
+    glucose: { name: 'Глюкоза', unit: 'ммоль/л', opt: '4.2–5.1', min: 4.2, max: 5.1 },
+    ferritin: { name: 'Ферритин', unit: 'нг/мл', opt: '80–150', min: 80, max: 150 },
+    cortisol: { name: 'Кортизол (утр)', unit: 'нмоль/л', opt: '150–450', min: 150, max: 450 },
+    vitamin_d3: { name: 'Витамин D3', unit: 'нг/мл', opt: '60–100', min: 60, max: 100 },
+    insulin: { name: 'Инсулин (натощак)', unit: 'мкЕд/мл', opt: '3.0–5.5', min: 3.0, max: 5.5 },
+    ldl_cholesterol: { name: 'ЛПНП (Холестерин)', unit: 'ммоль/л', opt: '< 1.8', max: 1.8 },
+    crp: { name: 'СРБ (Ультрачувствительный)', unit: 'мг/л', opt: '< 0.5', max: 0.5 },
+    homocysteine: { name: 'Гомоцистеин', unit: 'мкмоль/л', opt: '5.0–7.5', min: 5.0, max: 7.5 },
+};
 
 interface DashboardViewsProps {
     profile: {
@@ -23,6 +35,18 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
     const router = useRouter();
     const { theme } = useDashboardTheme();
     const [activeView, setActiveView] = useState<'overview' | 'diagnostics'>('overview');
+    const [showAllMarkers, setShowAllMarkers] = useState(false);
+
+    const getMarkerStatus = (key: string, value: number) => {
+        const config = biomarkersConfig[key];
+        if (!config) return 'teal';
+
+        let isAbnormal = false;
+        if (config.min !== undefined && value < config.min) isAbnormal = true;
+        if (config.max !== undefined && value > config.max) isAbnormal = true;
+
+        return isAbnormal ? 'amber' : 'teal';
+    };
 
 
     const getLatestTest = (type: string) => {
@@ -247,30 +271,37 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y dark:divide-slate-700/50 divide-brand-sage/20">
-                                            <tr>
-                                                <td className="py-3 font-medium">Глюкоза</td>
-                                                <td className="text-right">{healthData?.glucose || 4.8}</td>
-                                                <td className="text-right opacity-50">4.2–5.1</td>
-                                                <td className="text-right"><span className={`w-2 h-2 inline-block rounded-full ${accentBg}`}></span></td>
-                                            </tr>
-                                            <tr>
-                                                <td className="py-3 font-medium">Ферритин</td>
-                                                <td className="text-right">{healthData?.ferritin || 112}</td>
-                                                <td className="text-right opacity-50">80–150</td>
-                                                <td className="text-right"><span className={`w-2 h-2 inline-block rounded-full ${accentBg}`}></span></td>
-                                            </tr>
-                                            <tr>
-                                                <td className="py-3 font-medium">Кортизол (утр)</td>
-                                                <td className="text-right text-amber-400">{healthData?.cortisol || 540}</td>
-                                                <td className="text-right opacity-50">150–450</td>
-                                                <td className="text-right"><span className="w-2 h-2 inline-block rounded-full bg-amber-400"></span></td>
-                                            </tr>
-                                            <tr>
-                                                <td className="py-3 font-medium">Витамин D3</td>
-                                                <td className="text-right">{healthData?.vitamin_d3 || 68}</td>
-                                                <td className="text-right opacity-50">60–100</td>
-                                                <td className="text-right"><span className={`w-2 h-2 inline-block rounded-full ${accentBg}`}></span></td>
-                                            </tr>
+                                            {Object.entries(biomarkersConfig)
+                                                .filter(([key]) => {
+                                                    const val = healthData?.[key];
+                                                    if (val === undefined || val === null) return false;
+                                                    return getMarkerStatus(key, val) === 'amber';
+                                                })
+                                                .map(([key, config]) => (
+                                                    <tr key={key}>
+                                                        <td className="py-3 font-medium">{config.name}</td>
+                                                        <td className="text-right text-amber-400">{healthData[key]} {config.unit}</td>
+                                                        <td className="text-right opacity-50">{config.opt}</td>
+                                                        <td className="text-right"><span className="w-2 h-2 inline-block rounded-full bg-amber-400"></span></td>
+                                                    </tr>
+                                                ))
+                                            }
+                                            {/* Fallback to normal ones if needed */}
+                                            {Object.entries(biomarkersConfig)
+                                                .filter(([key]) => {
+                                                    const val = healthData?.[key];
+                                                    return val !== undefined && val !== null && getMarkerStatus(key, val) === 'teal';
+                                                })
+                                                .slice(0, Math.max(0, 4 - Object.entries(biomarkersConfig).filter(([key]) => getMarkerStatus(key, healthData?.[key]) === 'amber' && healthData?.[key] != null).length))
+                                                .map(([key, config]) => (
+                                                    <tr key={key}>
+                                                        <td className="py-3 font-medium">{config.name}</td>
+                                                        <td className="text-right">{healthData[key]} {config.unit}</td>
+                                                        <td className="text-right opacity-50">{config.opt}</td>
+                                                        <td className="text-right"><span className={`w-2 h-2 inline-block rounded-full ${accentBg}`}></span></td>
+                                                    </tr>
+                                                ))
+                                            }
                                         </tbody>
                                     </table>
                                 </div>
@@ -345,7 +376,19 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
                                 </div>
 
                                 <div className="dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl p-6 shadow-md overflow-hidden transition-colors duration-300">
-                                    <h3 className="text-sm font-bold uppercase opacity-40 mb-6">Лабораторная панель (Анализы)</h3>
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-sm font-bold uppercase opacity-40">Лабораторная панель (Анализы)</h3>
+                                        <button
+                                            onClick={() => setShowAllMarkers(!showAllMarkers)}
+                                            className={`text-xs flex items-center gap-1 ${accentColor} hover:opacity-80 transition-opacity`}
+                                        >
+                                            {showAllMarkers ? (
+                                                <><ChevronUp size={14} /> Свернуть</>
+                                            ) : (
+                                                <><ChevronDown size={14} /> Показать все</>
+                                            )}
+                                        </button>
+                                    </div>
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
                                             <thead>
@@ -357,21 +400,27 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {[
-                                                    { name: 'Инсулин (натощак)', res: `${healthData?.insulin || 4.2} мкЕд/мл`, opt: '3.0–5.5', status: 'teal' },
-                                                    { name: 'ЛПНП (Холестерин)', res: `${healthData?.ldl_cholesterol || 2.1} ммоль/л`, opt: '< 1.8', status: 'amber' },
-                                                    { name: 'СРБ (Ультрачувствительный)', res: `${healthData?.crp || 0.4} мг/л`, opt: '< 0.5', status: 'teal' },
-                                                    { name: 'Гомоцистеин', res: `${healthData?.homocysteine || 7.2} мкмоль/л`, opt: '5.0–7.5', status: 'teal' },
-                                                ].map((row, i) => (
-                                                    <tr key={i} className="border-b dark:border-slate-700/30 border-brand-sage/10 transition-colors duration-300">
-                                                        <td className="py-3 font-medium">{row.name}</td>
-                                                        <td className="text-right font-mono">{row.res}</td>
-                                                        <td className="text-right opacity-50">{row.opt}</td>
-                                                        <td className="text-right">
-                                                            <span className={`w-1.5 h-1.5 inline-block rounded-full ${row.status === 'teal' ? accentBg : 'bg-amber-400'}`}></span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                {Object.entries(biomarkersConfig)
+                                                    .filter(([key]) => {
+                                                        const val = healthData?.[key];
+                                                        return val !== undefined && val !== null;
+                                                    })
+                                                    .slice(0, showAllMarkers ? undefined : 4)
+                                                    .map(([key, config]) => {
+                                                        const val = healthData[key];
+                                                        const status = getMarkerStatus(key, val);
+                                                        return (
+                                                            <tr key={key} className="border-b dark:border-slate-700/30 border-brand-sage/10 transition-colors duration-300">
+                                                                <td className="py-3 font-medium">{config.name}</td>
+                                                                <td className={`text-right font-mono ${status === 'amber' ? 'text-amber-400' : ''}`}>{val} {config.unit}</td>
+                                                                <td className="text-right opacity-50">{config.opt}</td>
+                                                                <td className="text-right">
+                                                                    <span className={`w-1.5 h-1.5 inline-block rounded-full ${status === 'teal' ? accentBg : 'bg-amber-400'}`}></span>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                }
                                             </tbody>
                                         </table>
                                     </div>
