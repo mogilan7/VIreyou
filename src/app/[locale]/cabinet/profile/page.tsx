@@ -20,9 +20,7 @@ export default async function ProfilePage() {
 
     return (
         <div className="min-h-screen bg-[#fcfdfc] flex">
-            <div className="hidden lg:block">
-                <Sidebar role="client" profileName={profileName} />
-            </div>
+            <Sidebar role="client" profileName={profileName} />
             <main className="lg:ml-64 flex-1 p-8 md:p-12 pl-12 max-w-[1400px] bg-[#fcfdfc] min-h-screen w-full pt-24 lg:pt-8">
                 <header className="mb-10">
                     <h1 className="text-3xl font-serif text-brand-text mb-2 tracking-tight">

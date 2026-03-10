@@ -78,9 +78,7 @@ export default async function MyResultsPage() {
 
     return (
         <div className="min-h-screen flex transition-colors duration-300">
-            <div className="hidden lg:block">
-                <Sidebar role="client" profileName={profileName} />
-            </div>
+            <Sidebar role="client" profileName={profileName} />
 
             <main className="lg:ml-64 flex-1 p-8 md:p-12 pl-12 max-w-[1200px] w-full pt-24 lg:pt-8">
                 {/* Header Section */}

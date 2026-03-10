@@ -121,9 +121,7 @@ export default async function ClientDashboardPage() {
 
         return (
             <div className="min-h-screen font-sans flex transition-colors duration-300">
-                <div className="hidden lg:block">
-                    <Sidebar role="client" profileName={profile.full_name} />
-                </div>
+                <Sidebar role="client" profileName={profile.full_name} />
 
                 <main className="flex-1 w-full lg:ml-64 p-4 md:p-8 overflow-x-hidden pt-24 lg:pt-8">
                     <DashboardViews profile={profile} testResults={testResults} healthData={healthData} />
