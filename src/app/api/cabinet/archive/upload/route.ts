@@ -42,10 +42,8 @@ export async function POST(request: Request) {
 
         fs.appendFileSync(logPath, `[${new Date().toISOString()}] SUCCESS: Document ${document.id} created\n`);
 
-        // Trigger AI processing in background
-        extractHealthData(document.id).catch(err => {
-            fs.appendFileSync(logPath, `[${new Date().toISOString()}] AI BACKGROUND ERROR: ${err.message}\n`);
-        });
+        // Await AI processing (Safe on Vercel as long as it's < 10-60s)
+        await extractHealthData(document.id);
 
         return NextResponse.json(document);
     } catch (error: any) {

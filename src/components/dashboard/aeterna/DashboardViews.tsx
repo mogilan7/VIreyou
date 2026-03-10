@@ -48,6 +48,42 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
         return isAbnormal ? 'amber' : 'teal';
     };
 
+    // Merge hardcoded config with dynamic markers from the JSON field
+    const allMarkers = React.useMemo(() => {
+        const dynamicMarkers = (healthData?.biomarkers as Record<string, any>) || {};
+        const merged: Record<string, { name: string; value: any; unit: string; opt: string; status: string }> = {};
+
+        // 1. Process dynamic markers first
+        Object.entries(dynamicMarkers).forEach(([key, data]) => {
+            merged[key] = {
+                name: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '),
+                value: data.value,
+                unit: data.unit || '',
+                opt: data.reference_range || biomarkersConfig[key]?.opt || '-',
+                status: (data.status || 'NORMAL').toLowerCase() === 'abnormal' ? 'amber' : 'teal'
+            };
+
+            // Override name if we have a translation in config
+            if (biomarkersConfig[key]) {
+                merged[key].name = biomarkersConfig[key].name;
+            }
+        });
+
+        // 2. Add hardcoded ones if they have values in columns but not in JSON (fallback)
+        Object.entries(biomarkersConfig).forEach(([key, config]) => {
+            if (!merged[key] && healthData?.[key] !== undefined && healthData?.[key] !== null) {
+                merged[key] = {
+                    name: config.name,
+                    value: healthData[key],
+                    unit: config.unit,
+                    opt: config.opt,
+                    status: getMarkerStatus(key, healthData[key])
+                };
+            }
+        });
+
+        return merged;
+    }, [healthData, biomarkersConfig]);
 
     const getLatestTest = (type: string) => {
         return testResults.find(r => r.test_type === type);
@@ -195,7 +231,7 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
                                             <span className="font-medium">{healthData?.nutrient_density_pct || 92}%</span>
                                         </div>
                                         <div className="w-full h-1.5 dark:bg-slate-700 bg-brand-sage/20 rounded-full">
-                                            <div className={`h-full ${accentBg} w-[${healthData?.nutrient_density_pct || 92}%]`}></div>
+                                            <div className={`h-full ${accentBg}`} style={{ width: `${healthData?.nutrient_density_pct || 92}%` }}></div>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
@@ -271,37 +307,34 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y dark:divide-slate-700/50 divide-brand-sage/20">
-                                            {Object.entries(biomarkersConfig)
-                                                .filter(([key]) => {
-                                                    const val = healthData?.[key];
-                                                    if (val === undefined || val === null) return false;
-                                                    return getMarkerStatus(key, val) === 'amber';
-                                                })
-                                                .map(([key, config]) => (
+                                            {Object.entries(allMarkers)
+                                                .filter(([, data]) => data.status === 'amber')
+                                                .map(([key, data]) => (
                                                     <tr key={key}>
-                                                        <td className="py-3 font-medium">{config.name}</td>
-                                                        <td className="text-right text-amber-400">{healthData[key]} {config.unit}</td>
-                                                        <td className="text-right opacity-50">{config.opt}</td>
+                                                        <td className="py-3 font-medium">{data.name}</td>
+                                                        <td className="text-right text-amber-400">{data.value} {data.unit}</td>
+                                                        <td className="text-right opacity-50">{data.opt}</td>
                                                         <td className="text-right"><span className="w-2 h-2 inline-block rounded-full bg-amber-400"></span></td>
                                                     </tr>
                                                 ))
                                             }
-                                            {/* Fallback to normal ones if needed */}
-                                            {Object.entries(biomarkersConfig)
-                                                .filter(([key]) => {
-                                                    const val = healthData?.[key];
-                                                    return val !== undefined && val !== null && getMarkerStatus(key, val) === 'teal';
-                                                })
-                                                .slice(0, Math.max(0, 4 - Object.entries(biomarkersConfig).filter(([key]) => getMarkerStatus(key, healthData?.[key]) === 'amber' && healthData?.[key] != null).length))
-                                                .map(([key, config]) => (
+                                            {Object.entries(allMarkers)
+                                                .filter(([, data]) => data.status === 'teal')
+                                                .slice(0, Math.max(0, 4 - Object.entries(allMarkers).filter(([, data]) => data.status === 'amber').length))
+                                                .map(([key, data]) => (
                                                     <tr key={key}>
-                                                        <td className="py-3 font-medium">{config.name}</td>
-                                                        <td className="text-right">{healthData[key]} {config.unit}</td>
-                                                        <td className="text-right opacity-50">{config.opt}</td>
+                                                        <td className="py-3 font-medium">{data.name}</td>
+                                                        <td className="text-right">{data.value} {data.unit}</td>
+                                                        <td className="text-right opacity-50">{data.opt}</td>
                                                         <td className="text-right"><span className={`w-2 h-2 inline-block rounded-full ${accentBg}`}></span></td>
                                                     </tr>
                                                 ))
                                             }
+                                            {Object.keys(allMarkers).length === 0 && (
+                                                <tr>
+                                                    <td colSpan={4} className="py-8 text-center opacity-30 italic">Нет данных для отображения</td>
+                                                </tr>
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
@@ -400,20 +433,15 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {Object.entries(biomarkersConfig)
-                                                    .filter(([key]) => {
-                                                        const val = healthData?.[key];
-                                                        return val !== undefined && val !== null;
-                                                    })
+                                                {Object.entries(allMarkers)
                                                     .slice(0, showAllMarkers ? undefined : 4)
-                                                    .map(([key, config]) => {
-                                                        const val = healthData[key];
-                                                        const status = getMarkerStatus(key, val);
+                                                    .map(([key, data]) => {
+                                                        const status = data.status;
                                                         return (
                                                             <tr key={key} className="border-b dark:border-slate-700/30 border-brand-sage/10 transition-colors duration-300">
-                                                                <td className="py-3 font-medium">{config.name}</td>
-                                                                <td className={`text-right font-mono ${status === 'amber' ? 'text-amber-400' : ''}`}>{val} {config.unit}</td>
-                                                                <td className="text-right opacity-50">{config.opt}</td>
+                                                                <td className="py-3 font-medium">{data.name}</td>
+                                                                <td className={`text-right font-mono ${status === 'amber' ? 'text-amber-400' : ''}`}>{data.value} {data.unit}</td>
+                                                                <td className="text-right opacity-50">{data.opt}</td>
                                                                 <td className="text-right">
                                                                     <span className={`w-1.5 h-1.5 inline-block rounded-full ${status === 'teal' ? accentBg : 'bg-amber-400'}`}></span>
                                                                 </td>
@@ -421,6 +449,11 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
                                                         );
                                                     })
                                                 }
+                                                {Object.keys(allMarkers).length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={4} className="py-12 text-center opacity-30 italic">Список анализов пуст. Загрузите документы в архиве.</td>
+                                                    </tr>
+                                                )}
                                             </tbody>
                                         </table>
                                     </div>
