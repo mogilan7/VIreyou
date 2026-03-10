@@ -24,7 +24,20 @@ export default function ContactSection() {
                         {/* Telegram */}
                         <a href="https://t.me/VI_Beautylife" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-6 group w-max">
                             <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center border border-white/10 group-hover:bg-brand-leaf/20 group-hover:border-brand-leaf/50 transition-all duration-300">
-                                <MessageCircle className="text-brand-leaf" size={24} />
+                                <svg
+                                    width="24"
+                                    height="24"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="text-brand-leaf"
+                                >
+                                    <path d="m22 2-7 20-4-9-9-4Z" />
+                                    <path d="M22 2 11 13" />
+                                </svg>
                             </div>
                             <span className="text-white/90 font-medium tracking-wide group-hover:text-white transition-colors duration-300">@VI_Beautylife</span>
                         </a>
