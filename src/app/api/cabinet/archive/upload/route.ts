@@ -30,7 +30,6 @@ export async function POST(request: Request) {
             }
         });
 
-        // @ts-expect-error - Prisma type sync issues
         const document = await prisma.medicalDocument.create({
             data: {
                 user_id: userId,
