@@ -628,6 +628,7 @@ model HealthData {
   ldl_cholesterol       Float?  @default(2.1)
   crp                   Float?  @default(0.4)
   homocysteine          Float?  @default(7.2)
+  biomarkers            Json?
   user                  User    @relation(fields: [user_id], references: [id])
 
   @@schema("public")

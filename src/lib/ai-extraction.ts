@@ -29,23 +29,22 @@ export async function extractHealthData(docId: string) {
 
         const prompt = `
             You are a highly accurate medical data extraction AI. 
-            Analyze the provided medical lab result (image or PDF) and extract values for the following biomarkers if present.
-            Return ONLY a JSON object with the following keys. If a value is not found, use null.
+            Analyze the provided medical lab result (image or PDF) and extract values for ALL health markers/biomarkers present.
+            Return ONLY a JSON object where each key is the marker name (in English, normalized).
+            For each marker, provide:
+            - value (number or string)
+            - unit (string)
+            - reference_range (string if found, e.g. "4.2-5.1")
+            - status (string: "NORMAL", "ABNORMAL", or "UNKNOWN" based on the reference range in the doc)
             
-            Fields to extract:
-            - glucose (mmol/L)
-            - ferritin (ng/mL or µg/L)
-            - cortisol (nmol/L)
-            - vitamin_d3 (ng/mL)
-            - insulin (µU/mL or mIU/L)
-            - ldl_cholesterol (mmol/L)
-            - crp (mg/L)
-            - homocysteine (µmol/L)
-            
-            Important: 
-            1. Normalize units to the ones specified above. 
-            2. If the document is in Russian, translate/map the terms correctly (e.g., "Глюкоза" -> glucose, "Ферритин" -> ferritin).
-            3. Accuracy is critical.
+            Example:
+            {
+              "glucose": { "value": 4.8, "unit": "mmol/L", "reference_range": "4.2-5.1", "status": "NORMAL" },
+              "ferritin": { "value": 180, "unit": "ng/mL", "reference_range": "80-150", "status": "ABNORMAL" }
+            }
+
+            If the document is in Russian, translate the marker names to standard medical English counterparts (e.g. Глюкоза -> glucose).
+            Extract as many markers as you can find. Accuracy is critical.
         `;
 
         log(`Model initialized: gemini-1.5-flash`);
@@ -77,6 +76,8 @@ export async function extractHealthData(docId: string) {
 
         if (extractedData) {
             log(`Data extracted successfully: ${JSON.stringify(extractedData)}`);
+
+            // 1. Update the document status
             await prisma.medicalDocument.update({
                 where: { id: docId },
                 data: {
@@ -85,17 +86,29 @@ export async function extractHealthData(docId: string) {
                 }
             });
 
-            const filteredData = Object.fromEntries(
-                Object.entries(extractedData).filter(([, v]) => v !== null)
-            );
+            // 2. Prepare data for HealthData
+            // Identify the core 8 fields we have hardcoded columns for
+            const coreFields = ['glucose', 'ferritin', 'cortisol', 'vitamin_d3', 'insulin', 'ldl_cholesterol', 'crp', 'homocysteine'];
+            const coreUpdate: any = {};
+
+            Object.entries(extractedData).forEach(([key, data]: [string, any]) => {
+                if (coreFields.includes(key)) {
+                    const val = parseFloat(data.value);
+                    if (!isNaN(val)) coreUpdate[key] = val;
+                }
+            });
 
             log(`Updating HealthData for user ${doc.user_id}...`);
             await prisma.healthData.upsert({
                 where: { user_id: doc.user_id },
-                update: filteredData,
+                update: {
+                    ...coreUpdate,
+                    biomarkers: extractedData // Save EVERYTHING to the new JSON field
+                },
                 create: {
                     user_id: doc.user_id,
-                    ...(filteredData as Record<string, string | number | boolean | null>)
+                    ...coreUpdate,
+                    biomarkers: extractedData
                 }
             });
 
