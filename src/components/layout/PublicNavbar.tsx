@@ -181,9 +181,11 @@ export default function PublicNavbar() {
                         locale={locale}
                         setIsMenuOpen={setIsMenuOpen}
                     />
-                    <Link href={isSpecialist ? "/specialist" : "/cabinet"} className="text-brand-gray-dark">
-                        <User size={20} />
-                    </Link>
+                    {!(isCabinet || isSpecialist) && (
+                        <Link href={isSpecialist ? "/specialist" : "/cabinet"} className="text-brand-gray-dark">
+                            <User size={20} />
+                        </Link>
+                    )}
                     <button
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
                         className="text-brand-gray-dark focus:outline-none z-[110]"
