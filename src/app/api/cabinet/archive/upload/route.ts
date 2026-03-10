@@ -30,6 +30,7 @@ export async function POST(request: Request) {
             }
         });
 
+        // @ts-expect-error - Prisma type sync issues
         const document = await prisma.medicalDocument.create({
             data: {
                 user_id: userId,
@@ -48,13 +49,23 @@ export async function POST(request: Request) {
         });
 
         return NextResponse.json(document);
-    } catch (error: unknown) {
-        const err = error as Error;
-        const errMsg = `[${new Date().toISOString()}] API ERROR: ${err.message}\n${err.stack}\n`;
-        fs.appendFileSync(logPath, errMsg);
-        console.error('API Upload error:', error);
+    } catch (error: any) {
+        console.error('API Upload error details:', {
+            message: error.message,
+            code: error.code,
+            clientVersion: error.clientVersion
+        });
+
+        let detailedMessage = error.message || 'Unknown server error';
+
+        // Handle common Prisma connection errors with helpful hints
+        if (detailedMessage.includes("Can't reach database server")) {
+            detailedMessage = `Database connection failed. Please check your DATABASE_URL in Vercel. Hint: Ensure you are using the Supabase Connection Pooler (port 6543) and pgbouncer=true. Error: ${detailedMessage}`;
+        }
+
         return NextResponse.json({
-            error: err.message || 'Internal Server Error'
+            error: detailedMessage,
+            code: error.code
         }, { status: 500 });
     }
 }
