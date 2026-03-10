@@ -24,17 +24,23 @@ export async function extractHealthData(docId: string) {
             return;
         }
 
-        // Use more resilient model naming
-        const primaryModel = "models/gemini-1.5-flash";
-        const fallbackModel = "gemini-1.5-flash"; // Some SDKs might auto-prefix
+        // Confirming available models via discovery:
+        const primaryModel = "models/gemini-flash-latest";
+        const secondaryModel = "models/gemini-2.0-flash";
+        const fallbackModel = "gemini-flash-latest";
 
         let model;
         try {
             log(`Initializing model: ${primaryModel}`);
             model = genAI.getGenerativeModel({ model: primaryModel });
         } catch (e) {
-            log(`Failed to init ${primaryModel}, trying fallback ${fallbackModel}`);
-            model = genAI.getGenerativeModel({ model: fallbackModel });
+            log(`Failed to init ${primaryModel}, trying secondary ${secondaryModel}`);
+            try {
+                model = genAI.getGenerativeModel({ model: secondaryModel });
+            } catch (e2) {
+                log(`Failed to init ${secondaryModel}, trying final fallback ${fallbackModel}`);
+                model = genAI.getGenerativeModel({ model: fallbackModel });
+            }
         }
 
         const prompt = `
