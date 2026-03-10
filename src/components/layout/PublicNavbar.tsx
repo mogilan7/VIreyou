@@ -175,12 +175,14 @@ export default function PublicNavbar() {
 
                 {/* Mobile Actions */}
                 <div className="md:hidden flex items-center gap-4">
-                    <LangSwitcher
-                        pathname={pathname}
-                        toggleLocale={toggleLocale}
-                        locale={locale}
-                        setIsMenuOpen={setIsMenuOpen}
-                    />
+                    {!(isCabinet || isSpecialist) && (
+                        <LangSwitcher
+                            pathname={pathname}
+                            toggleLocale={toggleLocale}
+                            locale={locale}
+                            setIsMenuOpen={setIsMenuOpen}
+                        />
+                    )}
                     {!(isCabinet || isSpecialist) && (
                         <Link href={isSpecialist ? "/specialist" : "/cabinet"} className="text-brand-gray-dark">
                             <User size={20} />
