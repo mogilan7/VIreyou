@@ -22,18 +22,18 @@ export default function ContactSection() {
 
                     <div className="space-y-8">
                         {/* Telegram */}
-                        <a href="#" className="flex items-center space-x-6 group w-max">
+                        <a href="https://t.me/VI_Beautylife" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-6 group w-max">
                             <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center border border-white/10 group-hover:bg-brand-leaf/20 group-hover:border-brand-leaf/50 transition-all duration-300">
                                 <MessageCircle className="text-brand-leaf" size={24} />
                             </div>
-                            <span className="text-white/90 font-medium tracking-wide group-hover:text-white transition-colors duration-300">@vi_antiage</span>
+                            <span className="text-white/90 font-medium tracking-wide group-hover:text-white transition-colors duration-300">@VI_Beautylife</span>
                         </a>
                         {/* Email */}
-                        <a href="mailto:contact@vi-antiage.ru" className="flex items-center space-x-6 group w-max">
+                        <a href="mailto:cleverval23@gmail.com" className="flex items-center space-x-6 group w-max">
                             <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center border border-white/10 group-hover:bg-brand-leaf/20 group-hover:border-brand-leaf/50 transition-all duration-300">
                                 <Mail className="text-brand-leaf" size={24} />
                             </div>
-                            <span className="text-white/90 font-medium tracking-wide group-hover:text-white transition-colors duration-300">contact@vi-antiage.ru</span>
+                            <span className="text-white/90 font-medium tracking-wide group-hover:text-white transition-colors duration-300">cleverval23@gmail.com</span>
                         </a>
                     </div>
                 </div>
