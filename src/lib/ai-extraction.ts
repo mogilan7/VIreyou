@@ -12,11 +12,10 @@ export async function extractHealthData(docId: string) {
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     if (!apiKey) {
         log(`CRITICAL ERROR: GOOGLE_GENERATIVE_AI_API_KEY is not defined in environment`);
-    } else {
-        log(`API Key found (length: ${apiKey.length}, starts with: ${apiKey.substring(0, 4)}...)`);
+        return;
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey || "");
+    const genAI = new GoogleGenerativeAI(apiKey);
 
     try {
         const doc = await prisma.medicalDocument.findUnique({ where: { id: docId } });
@@ -25,7 +24,18 @@ export async function extractHealthData(docId: string) {
             return;
         }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // Use more resilient model naming
+        const primaryModel = "models/gemini-1.5-flash";
+        const fallbackModel = "gemini-1.5-flash"; // Some SDKs might auto-prefix
+
+        let model;
+        try {
+            log(`Initializing model: ${primaryModel}`);
+            model = genAI.getGenerativeModel({ model: primaryModel });
+        } catch (e) {
+            log(`Failed to init ${primaryModel}, trying fallback ${fallbackModel}`);
+            model = genAI.getGenerativeModel({ model: fallbackModel });
+        }
 
         const prompt = `
             You are a highly accurate medical data extraction AI. 
@@ -44,38 +54,45 @@ export async function extractHealthData(docId: string) {
             }
 
             If the document is in Russian, translate the marker names to standard medical English counterparts (e.g. Глюкоза -> glucose).
-            Extract as many markers as you can find. Accuracy is critical.
+            Extract as many markers as you can find. Accuracy is critical. Accuracy is critical. Do not include any markdown formatting or extra text.
         `;
-
-        log(`Model initialized: gemini-1.5-flash`);
 
         log(`Fetching file from: ${doc.file_url}`);
         const response = await fetch(doc.file_url);
-        if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`);
+        if (!response.ok) throw new Error(`External Download failed: ${response.status} ${response.statusText}`);
 
         const buffer = await response.arrayBuffer();
+        const byteLength = buffer.byteLength;
         const base64Content = Buffer.from(buffer).toString("base64");
-        log(`File fetched and converted to base64 (${base64Content.length} bytes)`);
+        log(`File fetched: ${byteLength} bytes. Converted to base64.`);
 
-        log(`Calling Gemini API...`);
+        if (byteLength > 20 * 1024 * 1024) { // 20MB limit
+            throw new Error("File too large for AI processing (>20MB)");
+        }
+
+        log(`Calling Gemini API for extraction...`);
         const result = await model.generateContent([
             prompt,
             {
                 inlineData: {
                     data: base64Content,
-                    mimeType: doc.file_type
+                    mimeType: doc.file_type || "image/jpeg"
                 }
             }
         ]);
 
         const text = result.response.text();
-        log(`Gemini response received: ${text.substring(0, 100)}...`);
+        log(`AI Raw response (length: ${text.length}): ${text.substring(0, 50)}...`);
 
         const jsonMatch = text.match(/\{[\s\S]*\}/);
-        const extractedData = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+        if (!jsonMatch) {
+            throw new Error("AI returned no JSON data. It might be unable to read the document clearly.");
+        }
+
+        const extractedData = JSON.parse(jsonMatch[0]);
 
         if (extractedData) {
-            log(`Data extracted successfully: ${JSON.stringify(extractedData)}`);
+            log(`Extraction successful. Updating database...`);
 
             // 1. Update the document status
             await prisma.medicalDocument.update({
@@ -87,23 +104,21 @@ export async function extractHealthData(docId: string) {
             });
 
             // 2. Prepare data for HealthData
-            // Identify the core 8 fields we have hardcoded columns for
             const coreFields = ['glucose', 'ferritin', 'cortisol', 'vitamin_d3', 'insulin', 'ldl_cholesterol', 'crp', 'homocysteine'];
             const coreUpdate: any = {};
 
             Object.entries(extractedData).forEach(([key, data]: [string, any]) => {
-                if (coreFields.includes(key)) {
-                    const val = parseFloat(data.value);
+                if (coreFields.includes(key) && data.value) {
+                    const val = parseFloat(data.value.toString().replace(',', '.'));
                     if (!isNaN(val)) coreUpdate[key] = val;
                 }
             });
 
-            log(`Updating HealthData for user ${doc.user_id}...`);
             await prisma.healthData.upsert({
                 where: { user_id: doc.user_id },
                 update: {
                     ...coreUpdate,
-                    biomarkers: extractedData // Save EVERYTHING to the new JSON field
+                    biomarkers: extractedData
                 },
                 create: {
                     user_id: doc.user_id,
@@ -112,25 +127,26 @@ export async function extractHealthData(docId: string) {
                 }
             });
 
-            log(`SUCCESS: HealthData updated for user ${doc.user_id}`);
+            log(`SUCCESS: All records updated for user ${doc.user_id}`);
         }
     } catch (error: unknown) {
         const err = error as Error;
-        const fullError = `${err.message}\n${err.stack}`;
-        log(`ERROR: ${fullError}`);
-        console.error("AI Extraction failed:", error);
+        const errorDetail = err.message || "Unknown AI error";
+        log(`EXTRACTION FAILED: ${errorDetail}`);
 
-        try {
-            await prisma.medicalDocument.update({
-                where: { id: docId },
-                data: {
-                    status: 'FAILED',
-                    extracted_data: JSON.stringify({ error: err.message, stack: err.stack })
-                }
-            });
-        } catch (e: unknown) {
-            const err2 = e as Error;
-            log(`DOUBLE ERROR (failed update status): ${err2.message}`);
-        }
+        // Save detailed error info to doc
+        await prisma.medicalDocument.update({
+            where: { id: docId },
+            data: {
+                status: 'FAILED',
+                extracted_data: JSON.stringify({
+                    error: errorDetail,
+                    timestamp: new Date().toISOString(),
+                    hint: "Check if the file is a clear medical document and API key is valid."
+                })
+            }
+        });
+
+        console.error("AI Extraction failed:", error);
     }
 }
