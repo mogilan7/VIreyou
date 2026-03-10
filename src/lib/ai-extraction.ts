@@ -25,9 +25,9 @@ export async function extractHealthData(docId: string) {
         }
 
         // Confirming available models via discovery:
-        const primaryModel = "models/gemini-flash-latest";
-        const secondaryModel = "models/gemini-2.0-flash";
-        const fallbackModel = "gemini-flash-latest";
+        const primaryModel = "models/gemini-2.0-flash";
+        const secondaryModel = "models/gemini-flash-latest";
+        const fallbackModel = "gemini-2.0-flash";
 
         let model;
         try {

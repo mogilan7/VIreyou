@@ -40,10 +40,12 @@ export async function POST(request: Request) {
             }
         });
 
-        fs.appendFileSync(logPath, `[${new Date().toISOString()}] SUCCESS: Document ${document.id} created\n`);
+        fs.appendFileSync(logPath, `[${new Date().toISOString()}] SUCCESS: Document ${document.id} created. Starting background AI...\n`);
 
-        // Await AI processing (Safe on Vercel as long as it's < 10-60s)
-        await extractHealthData(document.id);
+        // Start background extraction WITHOUT await to prevent Vercel timeout error on the frontend
+        extractHealthData(document.id).catch(err => {
+            fs.appendFileSync(logPath, `[${new Date().toISOString()}] BACKGROUND AI ERROR: ${err.message}\n`);
+        });
 
         return NextResponse.json(document);
     } catch (error: any) {
