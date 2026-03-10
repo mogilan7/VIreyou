@@ -12,7 +12,7 @@ export default function AboutSection() {
                 <div className="w-full md:w-[45%] lg:w-[40%] relative">
                     <div className="relative aspect-[4/5] w-full max-w-md mx-auto rounded-[2rem] overflow-hidden shadow-2xl z-10 group">
                         <Image
-                            src="/about-specialist.png"
+                            src="/about-specialist-v2.png"
                             alt={t('title')}
                             fill
                             className="object-cover object-[center_top] transform group-hover:scale-105 transition-transform duration-[1500ms] ease-out"
