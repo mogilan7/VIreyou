@@ -1,0 +1,24 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@theme {
+  --color-brand-forest: #244131;
+  --color-brand-leaf: #60B76F;
+  --color-brand-leaf-light: #89CB8F;
+  --color-brand-sage: #DDE5E0;
+  --color-brand-white: #FFFFFF;
+  --color-brand-bg: #F7F5F0;
+  --color-brand-text: #2D2D2D;
+  --color-brand-gray: #6B7280;
+  --color-brand-gray-light: #F3F4F6;
+  --color-brand-gray-dark: #374151;
+
+  --font-serif: var(--font-playfair);
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background-color: transparent;
+  color: inherit;
+  font-family: var(--font-sans), sans-serif;
+}
