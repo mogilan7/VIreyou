@@ -21,10 +21,12 @@ import {
     Info,
     TrendingUp,
     TrendingDown,
-    Minus
+    Minus,
+    Trash2
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useDashboardTheme } from "./ThemeContext";
+import { Link } from "@/i18n/routing";
 
 const StatusBadge = ({ severity }: { severity: string }) => {
     const styles: Record<string, string> = {
@@ -87,7 +89,7 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
 
             case 'score':
                 if (score >= 10) severity = 'danger';
-                else if (score >= 5) severity = 'warn';
+                else if (score >= 1) severity = 'warn'; // Changed from 5 to 1 to match "Moderate Risk" yellow
                 else severity = 'ok';
                 break;
 
@@ -235,16 +237,25 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
                                         </div>
                                     </div>
 
-                                    <div className={`flex items-center ${isGrid ? 'justify-between mt-auto pt-5 border-t' : 'justify-end gap-6'} ${theme === 'dark' ? 'border-white/5' : 'border-brand-sage/30'}`}>
+                                    <div className={`flex items-center ${isGrid ? 'justify-between mt-auto pt-5 border-t' : 'justify-end gap-3 md:gap-6'} ${theme === 'dark' ? 'border-white/5' : 'border-brand-sage/30'}`}>
                                         <div className="flex items-center gap-4">
                                             <StatusBadge severity={config.severityColor} />
                                             <div className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'text-slate-400 hover:bg-slate-700 bg-slate-900/50' : 'text-brand-gray hover:bg-brand-sage/20 bg-brand-sage/10'}`}>
                                                 {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                             </div>
                                         </div>
-                                        <div className={`${isGrid ? 'flex' : 'hidden md:flex'} items-center text-xs font-bold gap-1.5 uppercase tracking-wider ${theme === 'dark' ? 'text-slate-500' : 'text-brand-gray/60'}`}>
-                                            <Calendar className="w-3.5 h-3.5" />
-                                            {new Date(latestResult.created_at).toLocaleDateString()}
+                                        <div className="flex items-center gap-3">
+                                            <div className={`${isGrid ? 'flex' : 'hidden md:flex'} items-center text-xs font-bold gap-1.5 uppercase tracking-wider ${theme === 'dark' ? 'text-slate-500' : 'text-brand-gray/60'}`}>
+                                                <Calendar className="w-3.5 h-3.5" />
+                                                {new Date(latestResult.created_at).toLocaleDateString()}
+                                            </div>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); console.log('Delete test:', latestResult.test_type); }}
+                                                className={`p-2 rounded-xl border transition-all active:scale-95 ${theme === 'dark' ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20' : 'bg-red-50 border-red-100 text-red-500 hover:bg-red-100'}`}
+                                                title="Удалить результат"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -258,10 +269,13 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
                                             <Clock className="w-3.5 h-3.5" />
                                             История прохождений
                                         </h4>
-                                        <button className="flex items-center justify-center gap-2 text-xs font-bold dark:text-teal-400 text-brand-leaf dark:hover:text-teal-300 hover:text-brand-leaf/80 transition-colors py-1.5 px-4 rounded-lg dark:bg-teal-400/10 bg-brand-leaf/10 dark:hover:bg-teal-400/20 hover:bg-brand-leaf/20 border dark:border-teal-400/20 border-brand-leaf/20">
+                                        <Link
+                                            href={`/diagnostics/${latestResult.test_type === 'RU-AUDIT' ? 'alcohol' : latestResult.test_type}` as any}
+                                            className="flex items-center justify-center gap-2 text-xs font-bold dark:text-teal-400 text-brand-leaf dark:hover:text-teal-300 hover:text-brand-leaf/80 transition-colors py-1.5 px-4 rounded-lg dark:bg-teal-400/10 bg-brand-leaf/10 dark:hover:bg-teal-400/20 hover:bg-brand-leaf/20 border dark:border-teal-400/20 border-brand-leaf/20"
+                                        >
                                             <RefreshCcw className="w-3.5 h-3.5" />
                                             Пройти тест
-                                        </button>
+                                        </Link>
                                     </div>
 
                                     {historicalResults.length > 0 ? (
@@ -279,7 +293,12 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
                                                         return (
                                                             <tr key={idx} className="dark:hover:bg-slate-700/30 hover:bg-brand-sage/5 transition-colors">
                                                                 <td className="px-4 py-3.5 font-medium">{new Date(record.created_at).toLocaleDateString()}</td>
-                                                                <td className="px-4 py-3.5 dark:text-slate-100 text-brand-text font-bold text-right">{record.score}</td>
+                                                                <td className="px-4 py-3.5 dark:text-slate-100 text-brand-text font-bold text-right">
+                                                                    <div className="flex items-center justify-end gap-2">
+                                                                        <div className={`w-1.5 h-1.5 rounded-full ${getTestConfig(record.test_type, record.score).statusColor}`} />
+                                                                        {record.score}
+                                                                    </div>
+                                                                </td>
                                                                 <td className="px-4 py-3.5 flex justify-center">
                                                                     <TrendIcon current={record.score} previous={idx < historicalResults.length - 1 ? historicalResults[idx + 1].score : record.score} />
                                                                 </td>

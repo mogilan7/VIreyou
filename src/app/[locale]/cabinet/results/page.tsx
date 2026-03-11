@@ -57,7 +57,7 @@ export default async function MyResultsPage() {
         const type = res.test_type;
         const score = res.score;
         // Naive risk calculation based on ResultsGrid thresholds
-        if (type === 'score' && score >= 5) risks++;
+        if (type === 'score' && score >= 1) risks++;
         if (type === 'insomnia' && score >= 8) risks++;
         if (type === 'mini-cog' && score <= 4) risks++;
         if (type === 'RU-AUDIT' && score >= 8) risks++;
