@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
+:root {
+  color-scheme: light dark;
+}
+
 @theme {
   --color-brand-forest: #244131;
   --color-brand-leaf: #60B76F;
