@@ -25,7 +25,7 @@ export default async function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet" />
       </head>
-      <body className="antialiased bg-brand-bg text-brand-text font-sans leading-[1.5]">
+      <body className="antialiased">
         <NextIntlClientProvider messages={messages}>
           <main className="min-h-screen">
             {children}

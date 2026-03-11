@@ -12,16 +12,24 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function DashboardThemeProvider({ children }: { children: React.ReactNode }) {
-    const [theme, setTheme] = useState<Theme>('dark');
+    const [theme, setTheme] = useState<Theme>('light');
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         const savedTheme = localStorage.getItem('dashboard-theme') as Theme;
-        if (savedTheme && savedTheme !== theme) {
+        if (savedTheme) {
             setTheme(savedTheme);
+            // Apply immediately to prevent flicker if possible
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        } else {
+            // Default to light
+            document.documentElement.classList.remove('dark');
         }
         setMounted(true);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
