@@ -265,7 +265,7 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
                             {/* Header/Main Row */}
                             <div
                                 onClick={() => setExpandedCard(isExpanded ? null : testType)}
-                                className={`flex cursor-pointer transition-colors select-none flex-1 ${isGrid ? 'flex-col p-6' : 'items-center p-5'} ${theme === 'dark' ? 'hover:bg-slate-800/80' : 'hover:bg-brand-sage/5'}`}
+                                className={`flex cursor-pointer transition-colors select-none flex-1 pr-4 sm:pr-6 ${isGrid ? 'flex-col p-6' : 'items-center p-5'} ${theme === 'dark' ? 'hover:bg-slate-800/80' : 'hover:bg-brand-sage/5'}`}
                             >
                                 {/* Status Indicator Slider */}
                                 <div className={`${isGrid ? 'h-1.5 w-full mb-5' : 'w-1.5 self-stretch mr-5'} rounded-full ${config.statusColor}`} />

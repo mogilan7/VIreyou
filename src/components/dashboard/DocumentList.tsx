@@ -93,7 +93,7 @@ export default function DocumentList({ initialDocuments }: { initialDocuments: D
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 self-end sm:self-auto sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-3 self-end sm:self-auto sm:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                         <a
                             href={doc.file_url}
                             target="_blank"
