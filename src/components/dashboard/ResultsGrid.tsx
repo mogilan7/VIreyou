@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useDashboardTheme } from "./ThemeContext";
-import { Link } from "@/i18n/routing";
+import { Link, useRouter } from "@/i18n/routing";
 
 const StatusBadge = ({ severity }: { severity: string }) => {
     const styles: Record<string, string> = {
@@ -55,6 +55,7 @@ const TrendIcon = ({ current, previous }: { current: number, previous: number })
 };
 
 interface TestResult {
+    id: string;
     test_type: string;
     score: number;
     interpretation: string;
@@ -66,6 +67,8 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
     const { theme } = useDashboardTheme();
     const [expandedCard, setExpandedCard] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
+    const router = useRouter();
 
     const grouped = results.reduce((acc, result) => {
         if (!acc[result.test_type]) {
@@ -74,6 +77,50 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
         acc[result.test_type].push(result);
         return acc;
     }, {} as Record<string, TestResult[]>);
+
+    const handleDeleteTest = async (testType: string) => {
+        if (!confirm('Удалить все результаты этого теста?')) return;
+        setIsDeleting(testType);
+        try {
+            const response = await fetch('/api/cabinet/results/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ testType })
+            });
+            if (response.ok) {
+                router.refresh();
+            } else {
+                const data = await response.json();
+                alert(`Ошибка: ${data.error}`);
+            }
+        } catch (error) {
+            alert('Ошибка при удалении');
+        } finally {
+            setIsDeleting(null);
+        }
+    };
+
+    const handleDeleteIndividual = async (id: string) => {
+        if (!confirm('Удалить эту запись?')) return;
+        setIsDeleting(id);
+        try {
+            const response = await fetch('/api/cabinet/results/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ resultId: id })
+            });
+            if (response.ok) {
+                router.refresh();
+            } else {
+                const data = await response.json();
+                alert(`Ошибка: ${data.error}`);
+            }
+        } catch (error) {
+            alert('Ошибка при удалении');
+        } finally {
+            setIsDeleting(null);
+        }
+    };
 
     const getTestConfig = (type: string, score: number) => {
         let severity: 'ok' | 'warn' | 'danger' = 'ok';
@@ -89,7 +136,7 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
 
             case 'score':
                 if (score >= 10) severity = 'danger';
-                else if (score >= 1) severity = 'warn'; // Changed from 5 to 1 to match "Moderate Risk" yellow
+                else if (score >= 1) severity = 'warn';
                 else severity = 'ok';
                 break;
 
@@ -250,9 +297,10 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
                                                 {new Date(latestResult.created_at).toLocaleDateString()}
                                             </div>
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); console.log('Delete test:', latestResult.test_type); }}
-                                                className={`p-2 rounded-xl border transition-all active:scale-95 ${theme === 'dark' ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20' : 'bg-red-50 border-red-100 text-red-500 hover:bg-red-100'}`}
-                                                title="Удалить результат"
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteTest(latestResult.test_type); }}
+                                                disabled={isDeleting === latestResult.test_type}
+                                                className={`p-2 rounded-xl border transition-all active:scale-95 ${theme === 'dark' ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20' : 'bg-red-50 border-red-100 text-red-500 hover:bg-red-100'} ${isDeleting === latestResult.test_type ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                title="Удалить все результаты этого типа"
                                             >
                                                 <Trash2 size={14} />
                                             </button>
@@ -299,8 +347,17 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
                                                                         {record.score}
                                                                     </div>
                                                                 </td>
-                                                                <td className="px-4 py-3.5 flex justify-center">
+                                                                <td className="px-4 py-3.5 flex justify-center items-center gap-3">
                                                                     <TrendIcon current={record.score} previous={idx < historicalResults.length - 1 ? historicalResults[idx + 1].score : record.score} />
+                                                                    <button
+                                                                        onClick={() => handleDeleteIndividual(record.id)}
+                                                                        disabled={isDeleting === record.id}
+                                                                        className="p-1.5 rounded-lg hover:bg-red-500/10 text-brand-gray/40 hover:text-red-500 transition-colors"
+                                                                        title="Удалить запись"
+                                                                    >
+                                                                        <Trash2 size={12} />
+                                                                        {isDeleting === record.id && '...'}
+                                                                    </button>
                                                                 </td>
                                                             </tr>
                                                         );
