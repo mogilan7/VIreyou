@@ -56,18 +56,8 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
     const allMarkers = React.useMemo(() => {
         const merged: Record<string, { name: string; value: any; unit: string; opt: string; status: string; trend?: 'up' | 'down' }> = {};
 
-        // 1. Initialize with hardcoded markers (base set)
-        Object.entries(biomarkersConfig).forEach(([key, config]) => {
-            merged[key] = {
-                name: config.name,
-                value: (healthData as any)?.[key] ?? '-',
-                unit: config.unit,
-                opt: config.opt,
-                status: (healthData as any)?.[key] !== undefined && (healthData as any)?.[key] !== null
-                    ? getMarkerStatus(key, (healthData as any)[key])
-                    : 'gray'
-            };
-        });
+        // 1. Initialized with an empty set.
+        // The table will only show results that have been confirmed and stored in history.
 
         // 2. Identify the lates value for EVERY biomarker from history (BiomarkerResult table)
         // Group all historical results by marker_key
