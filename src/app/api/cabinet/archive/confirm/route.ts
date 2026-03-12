@@ -37,17 +37,28 @@ export async function POST(request: Request) {
             }
         });
 
-        // 3. Update HealthData (upsert)
+        // 3. Fetch existing HealthData to merge biomarkers
+        const existingHealthData = await (prisma as any).healthData.findUnique({
+            where: { user_id: user.id }
+        });
+
+        const existingBiomarkers = (existingHealthData?.biomarkers as Record<string, any>) || {};
+        const mergedBiomarkers = {
+            ...existingBiomarkers,
+            ...confirmedData
+        };
+
+        // 4. Update HealthData (upsert)
         await (prisma as any).healthData.upsert({
             where: { user_id: user.id },
             update: {
                 ...coreUpdate,
-                biomarkers: confirmedData
+                biomarkers: mergedBiomarkers
             },
             create: {
                 user_id: user.id,
                 ...coreUpdate,
-                biomarkers: confirmedData
+                biomarkers: mergedBiomarkers
             }
         });
 

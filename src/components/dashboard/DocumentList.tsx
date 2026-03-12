@@ -86,6 +86,32 @@ export default function DocumentList({ initialDocuments }: { initialDocuments: D
         }
     };
 
+    // Helper to group documents by date
+    const groupedDocuments = React.useMemo(() => {
+        const groups: Record<string, Document[]> = {};
+
+        documents.forEach(doc => {
+            const date = new Date(doc.created_at);
+            const today = new Date();
+            const yesterday = new Date();
+            yesterday.setDate(today.getDate() - 1);
+
+            let dateLabel = '';
+            if (date.toDateString() === today.toDateString()) {
+                dateLabel = 'Сегодня';
+            } else if (date.toDateString() === yesterday.toDateString()) {
+                dateLabel = 'Вчера';
+            } else {
+                dateLabel = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+            }
+
+            if (!groups[dateLabel]) groups[dateLabel] = [];
+            groups[dateLabel].push(doc);
+        });
+
+        return groups;
+    }, [documents]);
+
     if (documents.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -101,73 +127,86 @@ export default function DocumentList({ initialDocuments }: { initialDocuments: D
     }
 
     return (
-        <div className="space-y-4">
-            {documents.map((doc) => (
-                <div
-                    key={doc.id}
-                    className="group flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-3xl border border-brand-sage/10 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-all duration-300"
-                >
-                    <div className="flex items-center gap-4 mb-3 sm:mb-0">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors
-                            ${doc.status === 'COMPLETED' ? 'bg-teal-500/10 text-teal-500' :
-                                doc.status === 'FAILED' ? 'bg-red-500/10 text-red-500' :
-                                    doc.status === 'REVIEW_PENDING' ? 'bg-amber-500/10 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)]' :
-                                        'bg-slate-500/10 text-slate-500 animate-pulse'}`}>
-                            {doc.status === 'COMPLETED' ? <CheckCircle2 size={24} /> :
-                                doc.status === 'FAILED' ? <AlertCircle size={24} /> :
-                                    <FileText size={24} />}
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-bold text-brand-text dark:text-white truncate max-w-[200px] sm:max-w-[300px]">
-                                {doc.file_name}
-                            </h4>
-                            <div className="flex items-center gap-3 mt-1">
-                                <div className="flex items-center gap-1 text-[10px] text-brand-gray uppercase tracking-widest">
-                                    <Clock size={10} />
-                                    {new Date(doc.created_at).toLocaleDateString('ru-RU')}
-                                </div>
-                                <span className="w-1 h-1 rounded-full bg-brand-gray/30" />
-                                <span className={`text-[10px] font-bold uppercase tracking-widest
-                                    ${doc.status === 'COMPLETED' ? 'text-teal-500' :
-                                        doc.status === 'FAILED' ? 'text-red-500' :
-                                            doc.status === 'REVIEW_PENDING' ? 'text-amber-500' :
-                                                'text-slate-500'}`}>
-                                    {doc.status === 'COMPLETED' ? 'Готово' :
-                                        doc.status === 'FAILED' ? 'Ошибка' :
-                                            doc.status === 'REVIEW_PENDING' ? 'Нужна проверка' :
-                                                'В процессе'}
-                                </span>
-                            </div>
-                        </div>
+        <div className="space-y-8">
+            {Object.entries(groupedDocuments).map(([dateLabel, docs]) => (
+                <div key={dateLabel} className="space-y-4">
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-40 whitespace-nowrap">
+                            {dateLabel}
+                        </h3>
+                        <div className="h-[1px] w-full bg-brand-sage/20 dark:bg-white/5" />
                     </div>
 
-                    <div className="flex items-center gap-3 self-end sm:self-auto transition-opacity">
-                        {doc.status === 'REVIEW_PENDING' && (
-                            <button
-                                onClick={() => setReviewDoc(doc)}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 transition-all shadow-md active:scale-95"
+                    <div className="space-y-4">
+                        {docs.map((doc) => (
+                            <div
+                                key={doc.id}
+                                className="group flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-3xl border border-brand-sage/10 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-all duration-300"
                             >
-                                <Eye size={14} />
-                                Проверить
-                            </button>
-                        )}
-                        <a
-                            href={doc.file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-brand-sage/20 dark:border-white/10 text-brand-gray hover:text-brand-leaf dark:hover:text-teal-400 transition-colors"
-                            title="Открыть"
-                        >
-                            <FileText size={18} strokeWidth={1.5} />
-                        </a>
-                        <button
-                            onClick={() => handleDelete(doc.id)}
-                            disabled={isDeleting === doc.id}
-                            className={`p-2 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-brand-sage/20 dark:border-white/10 text-brand-gray hover:text-red-500 transition-colors ${isDeleting === doc.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            title="Удалить"
-                        >
-                            <Trash2 size={18} strokeWidth={1.5} />
-                        </button>
+                                <div className="flex items-center gap-4 mb-3 sm:mb-0">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors
+                                        ${doc.status === 'COMPLETED' ? 'bg-teal-500/10 text-teal-500' :
+                                            doc.status === 'FAILED' ? 'bg-red-500/10 text-red-500' :
+                                                doc.status === 'REVIEW_PENDING' ? 'bg-amber-500/10 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)]' :
+                                                    'bg-slate-500/10 text-slate-500 animate-pulse'}`}>
+                                        {doc.status === 'COMPLETED' ? <CheckCircle2 size={24} /> :
+                                            doc.status === 'FAILED' ? <AlertCircle size={24} /> :
+                                                <FileText size={24} />}
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-brand-text dark:text-white truncate max-w-[200px] sm:max-w-[300px]">
+                                            {doc.file_name}
+                                        </h4>
+                                        <div className="flex items-center gap-3 mt-1">
+                                            <div className="flex items-center gap-1 text-[10px] text-brand-gray uppercase tracking-widest">
+                                                <Clock size={10} />
+                                                {new Date(doc.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                            <span className="w-1 h-1 rounded-full bg-brand-gray/30" />
+                                            <span className={`text-[10px] font-bold uppercase tracking-widest
+                                                ${doc.status === 'COMPLETED' ? 'text-teal-500' :
+                                                    doc.status === 'FAILED' ? 'text-red-500' :
+                                                        doc.status === 'REVIEW_PENDING' ? 'text-amber-500' :
+                                                            'text-slate-500'}`}>
+                                                {doc.status === 'COMPLETED' ? 'Готово' :
+                                                    doc.status === 'FAILED' ? 'Ошибка' :
+                                                        doc.status === 'REVIEW_PENDING' ? 'Нужна проверка' :
+                                                            'В процессе'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 self-end sm:self-auto transition-opacity">
+                                    {doc.status === 'REVIEW_PENDING' && (
+                                        <button
+                                            onClick={() => setReviewDoc(doc)}
+                                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 transition-all shadow-md active:scale-95"
+                                        >
+                                            <Eye size={14} />
+                                            Проверить
+                                        </button>
+                                    )}
+                                    <a
+                                        href={doc.file_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-2 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-brand-sage/20 dark:border-white/10 text-brand-gray hover:text-brand-leaf dark:hover:text-teal-400 transition-colors"
+                                        title="Открыть"
+                                    >
+                                        <FileText size={18} strokeWidth={1.5} />
+                                    </a>
+                                    <button
+                                        onClick={() => handleDelete(doc.id)}
+                                        disabled={isDeleting === doc.id}
+                                        className={`p-2 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-brand-sage/20 dark:border-white/10 text-brand-gray hover:text-red-500 transition-colors ${isDeleting === doc.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        title="Удалить"
+                                    >
+                                        <Trash2 size={18} strokeWidth={1.5} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             ))}

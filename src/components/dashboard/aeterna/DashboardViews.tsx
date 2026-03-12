@@ -54,49 +54,62 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
 
     // Merge hardcoded config with dynamic markers from the JSON field
     const allMarkers = React.useMemo(() => {
-        const dynamicMarkers = (healthData?.biomarkers as Record<string, any>) || {};
-        const merged: Record<string, { name: string; value: any; unit: string; opt: string; status: string }> = {};
+        const merged: Record<string, { name: string; value: any; unit: string; opt: string; status: string; trend?: 'up' | 'down' }> = {};
 
-        // 1. Process dynamic markers first
-        Object.entries(dynamicMarkers).forEach(([key, data]) => {
-            merged[key] = {
-                name: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '),
-                value: data.value,
-                unit: data.unit || '',
-                opt: data.reference_range || biomarkersConfig[key]?.opt || '-',
-                status: (data.status || 'NORMAL').toLowerCase() === 'abnormal' ? 'amber' : 'teal'
-            };
-
-            // Override name if we have a translation in config
-            if (biomarkersConfig[key]) {
-                merged[key].name = biomarkersConfig[key].name;
-            }
-        });
-
-        // 2. Add hardcoded ones if they have values in columns but not in JSON (fallback)
+        // 1. Initialize with hardcoded markers (base set)
         Object.entries(biomarkersConfig).forEach(([key, config]) => {
-            if (!merged[key] && healthData?.[key] !== undefined && healthData?.[key] !== null) {
-                merged[key] = {
-                    name: config.name,
-                    value: healthData[key],
-                    unit: config.unit,
-                    opt: config.opt,
-                    status: getMarkerStatus(key, healthData[key])
-                };
-            }
+            merged[key] = {
+                name: config.name,
+                value: (healthData as any)?.[key] ?? '-',
+                unit: config.unit,
+                opt: config.opt,
+                status: (healthData as any)?.[key] !== undefined && (healthData as any)?.[key] !== null
+                    ? getMarkerStatus(key, (healthData as any)[key])
+                    : 'gray'
+            };
         });
 
-        // 3. Attach trends if available
-        Object.keys(merged).forEach(key => {
-            const results = biomarkerResults
-                .filter(r => r.marker_key === key)
-                .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+        // 2. Identify the lates value for EVERY biomarker from history (BiomarkerResult table)
+        // Group all historical results by marker_key
+        const grouped: Record<string, any[]> = {};
+        biomarkerResults.forEach(res => {
+            if (!grouped[res.marker_key]) grouped[res.marker_key] = [];
+            grouped[res.marker_key].push(res);
+        });
 
-            if (results.length >= 2) {
-                const latest = results[0].value;
-                const previous = results[1].value;
-                if (latest > previous) (merged[key] as any).trend = 'up';
-                else if (latest < previous) (merged[key] as any).trend = 'down';
+        Object.entries(grouped).forEach(([key, results]) => {
+            // Sort by recorded_at descending
+            const sorted = [...results].sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+            const latest = sorted[0];
+
+            if (latest) {
+                const config = biomarkersConfig[key];
+                const markerName = config?.name || latest.marker_name || key;
+                const markerUnit = latest.unit || config?.unit || '';
+                const markerOpt = latest.reference_range || config?.opt || '-';
+
+                // Determine status based on config or default logic
+                let status = 'teal';
+                if (config) {
+                    status = getMarkerStatus(key, latest.value);
+                } else if (latest.status) {
+                    status = latest.status.toLowerCase() === 'abnormal' ? 'amber' : 'teal';
+                }
+
+                merged[key] = {
+                    name: markerName,
+                    value: latest.value,
+                    unit: markerUnit,
+                    opt: markerOpt,
+                    status: status
+                };
+
+                // Trend: Compare with previous unique entry point
+                if (sorted.length >= 2) {
+                    const previous = sorted[1];
+                    if (latest.value > previous.value) merged[key].trend = 'up';
+                    else if (latest.value < previous.value) merged[key].trend = 'down';
+                }
             }
         });
 
