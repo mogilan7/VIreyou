@@ -30,6 +30,9 @@ export default async function ClientDashboardPage() {
                 where: { id: userId },
                 include: {
                     healthData: true,
+                    biomarker_results: {
+                        orderBy: { recorded_at: 'desc' }
+                    },
                     accessPermissions: {
                         include: {
                             test: true
@@ -54,7 +57,7 @@ export default async function ClientDashboardPage() {
         };
 
         // 4. Resolve Health Data
-        let healthData = dbUser?.healthData || {
+        let healthData = (dbUser as any)?.healthData || {
             longevity_score: 88,
             biological_age_actual: 44,
             biological_age_calc: 40,
@@ -70,6 +73,8 @@ export default async function ClientDashboardPage() {
             nutrient_density_pct: 92,
             fasting_window: "16:8"
         };
+
+        const biomarkerResults = (dbUser as any)?.biomarker_results || [];
 
         // 5. Build Test Results
         const coreTestIds = ['mini-cog', 'score', 'nicotine', 'alcohol', 'insomnia', 'circadian'];
@@ -91,8 +96,8 @@ export default async function ClientDashboardPage() {
                 interpretation: r.interpretation
             }));
 
-            if (dbUser && dbUser.accessPermissions.length > 0) {
-                dbUser.accessPermissions.forEach(ap => {
+            if (dbUser && (dbUser as any).accessPermissions.length > 0) {
+                (dbUser as any).accessPermissions.forEach((ap: any) => {
                     if (!testResults.find(tr => tr.test_type === ap.test_id)) {
                         testResults.push({
                             test_type: ap.test_id,
@@ -102,8 +107,8 @@ export default async function ClientDashboardPage() {
                     }
                 });
             }
-        } else if (dbUser && dbUser.accessPermissions.length > 0) {
-            testResults = dbUser.accessPermissions.map(ap => {
+        } else if (dbUser && (dbUser as any).accessPermissions.length > 0) {
+            testResults = (dbUser as any).accessPermissions.map((ap: any) => {
                 const demo = demoData[ap.test_id] || { score: null, interpretation: ap.test.description || 'Нет данных' };
                 return {
                     test_type: ap.test_id,
@@ -124,7 +129,12 @@ export default async function ClientDashboardPage() {
                 <Sidebar role="client" profileName={profile.full_name} />
 
                 <main className="flex-1 w-full lg:ml-64 p-4 md:p-8 overflow-x-hidden pt-24 lg:pt-8">
-                    <DashboardViews profile={profile} testResults={testResults} healthData={healthData} />
+                    <DashboardViews
+                        profile={profile}
+                        testResults={testResults}
+                        healthData={healthData}
+                        biomarkerResults={biomarkerResults}
+                    />
                 </main>
             </div>
         );

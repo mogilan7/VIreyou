@@ -20,6 +20,36 @@ export default function DocumentList({ initialDocuments }: { initialDocuments: D
     const [reviewDoc, setReviewDoc] = useState<Document | null>(null);
     const router = useRouter();
 
+    // Auto-polling for status updates
+    React.useEffect(() => {
+        const hasProcessing = documents.some(d => d.status === 'PROCESSING');
+        if (!hasProcessing) return;
+
+        const interval = setInterval(async () => {
+            try {
+                // Fetch latest documents
+                // We could implement a specific API, but for now we'll just fetch again
+                // Or use server action. For simplicity, let's just use router.refresh() 
+                // and trust that initialDocuments might change? No, initialDocuments is passed once.
+                // We need a way to fetch the latest state.
+                const res = await fetch('/api/cabinet/archive/list'); // Assuming this exists or I'll create it
+                if (res.ok) {
+                    const data = await res.json();
+                    setDocuments(data.documents);
+
+                    // If everything is done processing, we can refresh the router to sync server state
+                    if (!data.documents.some((d: any) => d.status === 'PROCESSING')) {
+                        router.refresh();
+                    }
+                }
+            } catch (error) {
+                console.error('Polling error:', error);
+            }
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [documents, router]);
+
     const handleConfirmSuccess = () => {
         // Refresh local state and router
         router.refresh();

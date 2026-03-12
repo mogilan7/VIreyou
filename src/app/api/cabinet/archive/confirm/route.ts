@@ -60,6 +60,31 @@ export async function POST(request: Request) {
             }
         });
 
+        // 5. Save historical results to BiomarkerResult table
+        const biomarkerResultsData = Object.entries(confirmedData).map(([key, data]: [string, any]) => {
+            const val = parseFloat(data.value?.toString()?.replace(',', '.') || '0');
+            return {
+                user_id: user.id,
+                document_id: documentId,
+                marker_key: key,
+                marker_name: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '), // Basic name
+                value: isNaN(val) ? 0 : val,
+                unit: data.unit || null,
+                reference_range: data.reference_range || null,
+                status: (data.status || 'NORMAL').toUpperCase(),
+                recorded_at: new Date() // Could also take from document if document has a "test date"
+            };
+        });
+
+        if (biomarkerResultsData.length > 0) {
+            // We use createMany if supported, or loop
+            for (const result of biomarkerResultsData) {
+                await (prisma as any).biomarkerResult.create({
+                    data: result
+                });
+            }
+        }
+
         return NextResponse.json({ success: true });
 
     } catch (error: any) {

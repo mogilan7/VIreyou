@@ -9,7 +9,7 @@ import HabitHeatmap from './HabitHeatmap';
 import SleepPhasesChart from './SleepPhasesChart';
 import { useRouter } from 'next/navigation';
 import { useDashboardTheme } from '../ThemeContext';
-import { ChevronDown, ChevronUp, Edit2, Trash2, Check, X as CloseIcon, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit2, Trash2, Check, X as CloseIcon, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 const biomarkersConfig: Record<string, { name: string; unit: string; opt: string; min?: number; max?: number }> = {
     glucose: { name: 'Глюкоза', unit: 'ммоль/л', opt: '4.2–5.1', min: 4.2, max: 5.1 },
@@ -29,9 +29,10 @@ interface DashboardViewsProps {
     };
     testResults: any[];
     healthData: any;
+    biomarkerResults?: any[];
 }
 
-export default function DashboardViews({ profile, testResults, healthData }: DashboardViewsProps) {
+export default function DashboardViews({ profile, testResults, healthData, biomarkerResults = [] }: DashboardViewsProps) {
     const router = useRouter();
     const { theme } = useDashboardTheme();
     const [activeView, setActiveView] = useState<'overview' | 'diagnostics'>('overview');
@@ -85,8 +86,22 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
             }
         });
 
+        // 3. Attach trends if available
+        Object.keys(merged).forEach(key => {
+            const results = biomarkerResults
+                .filter(r => r.marker_key === key)
+                .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+
+            if (results.length >= 2) {
+                const latest = results[0].value;
+                const previous = results[1].value;
+                if (latest > previous) (merged[key] as any).trend = 'up';
+                else if (latest < previous) (merged[key] as any).trend = 'down';
+            }
+        });
+
         return merged;
-    }, [healthData, biomarkersConfig]);
+    }, [healthData, biomarkersConfig, biomarkerResults]);
 
     const getLatestTest = (type: string) => {
         return testResults.find(r => r.test_type === type);
@@ -500,8 +515,9 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
                                                 {Object.entries(allMarkers)
                                                     .slice(0, showAllMarkers ? undefined : 4)
                                                     .map(([key, data]) => {
-                                                        const status = data.status;
+                                                        const status = (data as any).status;
                                                         const isSelected = selectedMarkers.includes(key);
+                                                        const trend = (data as any).trend;
                                                         return (
                                                             <tr key={key} className="border-b dark:border-slate-700/30 border-brand-sage/10 transition-colors duration-300 hover:bg-slate-50/50 dark:hover:bg-white/5">
                                                                 {isEditMode && (
@@ -514,9 +530,13 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
                                                                         />
                                                                     </td>
                                                                 )}
-                                                                <td className="py-3 font-medium">{data.name}</td>
-                                                                <td className={`text-right font-mono ${status === 'amber' ? 'text-amber-400' : ''}`}>{data.value} {data.unit}</td>
-                                                                <td className="text-right opacity-50">{data.opt}</td>
+                                                                <td className="py-3 font-medium flex items-center gap-2">
+                                                                    {(data as any).name}
+                                                                    {trend === 'up' && <ArrowUpRight size={14} className="text-amber-500" />}
+                                                                    {trend === 'down' && <ArrowDownRight size={14} className="text-teal-500" />}
+                                                                </td>
+                                                                <td className={`text-right font-mono ${status === 'amber' ? 'text-amber-400' : ''}`}>{(data as any).value} {(data as any).unit}</td>
+                                                                <td className="text-right opacity-50">{(data as any).opt}</td>
                                                                 <td className="text-right">
                                                                     <span className={`w-1.5 h-1.5 inline-block rounded-full ${status === 'teal' ? accentBg : 'bg-amber-400'}`}></span>
                                                                 </td>
