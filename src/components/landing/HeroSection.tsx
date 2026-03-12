@@ -1,8 +1,13 @@
+"use client";
+
 import Image from "next/image";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
+import DiagnosticModal from "@/components/diagnostic/DiagnosticModal";
 
 export default function HeroSection() {
     const t = useTranslations('Landing');
+    const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
 
     return (
         <section className="relative min-h-screen pt-[160px] pb-[120px] px-6 md:px-12 flex items-center justify-center max-w-[1400px] mx-auto w-full">
@@ -23,7 +28,10 @@ export default function HeroSection() {
                     </p>
 
                     <div className="flex flex-wrap items-center gap-4">
-                        <button className="bg-brand-forest hover:bg-brand-forest/90 text-white px-8 py-3.5 rounded-[12px] font-medium transition-all shadow-md text-sm whitespace-nowrap">
+                        <button 
+                            onClick={() => setIsDiagnosticOpen(true)}
+                            className="bg-brand-forest hover:bg-brand-forest/90 text-white px-8 py-3.5 rounded-[12px] font-medium transition-all shadow-md text-sm whitespace-nowrap"
+                        >
                             {t('startAnalysis')}
                         </button>
                         <button className="bg-transparent border border-brand-sage hover:bg-brand-sage/20 text-brand-text px-8 py-3.5 rounded-[12px] font-medium transition-all text-sm flex items-center gap-2 whitespace-nowrap">
@@ -51,6 +59,11 @@ export default function HeroSection() {
                     </div>
                 </div>
             </div>
+
+            <DiagnosticModal 
+                isOpen={isDiagnosticOpen} 
+                onClose={() => setIsDiagnosticOpen(false)} 
+            />
         </section>
     );
 }
