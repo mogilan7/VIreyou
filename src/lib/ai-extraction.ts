@@ -101,42 +101,18 @@ export async function extractHealthData(docId: string) {
                 const extractedData = JSON.parse(text);
 
                 if (extractedData) {
-                    log(`Extraction successful with ${modelName}. Updating database...`);
+                    log(`Extraction successful with ${modelName}. Setting status to REVIEW_PENDING.`);
 
-                    // 1. Update the document status
+                    // Update the document with extracted data but wait for manual review
                     await prisma.medicalDocument.update({
                         where: { id: docId },
                         data: {
-                            status: 'COMPLETED',
+                            status: 'REVIEW_PENDING',
                             extracted_data: JSON.stringify(extractedData)
                         }
                     });
 
-                    // 2. Prepare data for HealthData
-                    const coreFields = ['glucose', 'ferritin', 'cortisol', 'vitamin_d3', 'insulin', 'ldl_cholesterol', 'crp', 'homocysteine'];
-                    const coreUpdate: any = {};
-
-                    Object.entries(extractedData).forEach(([key, data]: [string, any]) => {
-                        if (coreFields.includes(key) && data.value) {
-                            const val = parseFloat(data.value.toString().replace(',', '.'));
-                            if (!isNaN(val)) coreUpdate[key] = val;
-                        }
-                    });
-
-                    await prisma.healthData.upsert({
-                        where: { user_id: doc.user_id },
-                        update: {
-                            ...coreUpdate,
-                            biomarkers: extractedData
-                        },
-                        create: {
-                            user_id: doc.user_id,
-                            ...coreUpdate,
-                            biomarkers: extractedData
-                        }
-                    });
-
-                    log(`SUCCESS: All records updated for user ${doc.user_id} using ${modelName}`);
+                    log(`SUCCESS: Document ${docId} is now REVIEW_PENDING using ${modelName}`);
                     return; // EXIT loop and function on success
                 }
             } catch (error: any) {

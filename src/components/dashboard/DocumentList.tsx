@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from 'react';
-import { FileText, Clock, Trash2 } from 'lucide-react';
+import { FileText, Clock, Trash2, CheckCircle2, AlertCircle, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import ReviewModal from './ReviewModal';
 
 interface Document {
     id: string;
@@ -10,12 +11,24 @@ interface Document {
     file_url: string;
     status: string;
     created_at: string;
+    extracted_data?: string | null;
 }
 
 export default function DocumentList({ initialDocuments }: { initialDocuments: Document[] }) {
     const [documents, setDocuments] = useState(initialDocuments);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
+    const [reviewDoc, setReviewDoc] = useState<Document | null>(null);
     const router = useRouter();
+
+    const handleConfirmSuccess = () => {
+        // Refresh local state and router
+        router.refresh();
+        // Since it's a server component initially, we might need to manually update local state or just let the refresh happen
+        // For a better UX, let's update local state status
+        if (reviewDoc) {
+            setDocuments(prev => prev.map(d => d.id === reviewDoc.id ? { ...d, status: 'COMPLETED' } : d));
+        }
+    };
 
     const handleDelete = async (docId: string) => {
         if (!confirm('Вы уверены, что хотите удалить этот документ?')) return;
@@ -30,7 +43,7 @@ export default function DocumentList({ initialDocuments }: { initialDocuments: D
 
             if (response.ok) {
                 setDocuments(prev => prev.filter(d => d.id !== docId));
-                router.refresh(); // Refresh server component data if needed
+                router.refresh();
             } else {
                 const data = await response.json();
                 alert(`Ошибка при удалении: ${data.error}`);
@@ -68,8 +81,11 @@ export default function DocumentList({ initialDocuments }: { initialDocuments: D
                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors
                             ${doc.status === 'COMPLETED' ? 'bg-teal-500/10 text-teal-500' :
                                 doc.status === 'FAILED' ? 'bg-red-500/10 text-red-500' :
-                                    'bg-amber-500/10 text-amber-500 animate-pulse'}`}>
-                            <FileText size={24} />
+                                    doc.status === 'REVIEW_PENDING' ? 'bg-amber-500/10 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)]' :
+                                        'bg-slate-500/10 text-slate-500 animate-pulse'}`}>
+                            {doc.status === 'COMPLETED' ? <CheckCircle2 size={24} /> :
+                                doc.status === 'FAILED' ? <AlertCircle size={24} /> :
+                                    <FileText size={24} />}
                         </div>
                         <div>
                             <h4 className="text-sm font-bold text-brand-text dark:text-white truncate max-w-[200px] sm:max-w-[300px]">
@@ -84,16 +100,27 @@ export default function DocumentList({ initialDocuments }: { initialDocuments: D
                                 <span className={`text-[10px] font-bold uppercase tracking-widest
                                     ${doc.status === 'COMPLETED' ? 'text-teal-500' :
                                         doc.status === 'FAILED' ? 'text-red-500' :
-                                            'text-amber-500'}`}>
-                                    {doc.status === 'COMPLETED' ? 'Обработано' :
+                                            doc.status === 'REVIEW_PENDING' ? 'text-amber-500' :
+                                                'text-slate-500'}`}>
+                                    {doc.status === 'COMPLETED' ? 'Готово' :
                                         doc.status === 'FAILED' ? 'Ошибка' :
-                                            'В процессе'}
+                                            doc.status === 'REVIEW_PENDING' ? 'Нужна проверка' :
+                                                'В процессе'}
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 self-end sm:self-auto sm:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-3 self-end sm:self-auto transition-opacity">
+                        {doc.status === 'REVIEW_PENDING' && (
+                            <button
+                                onClick={() => setReviewDoc(doc)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 transition-all shadow-md active:scale-95"
+                            >
+                                <Eye size={14} />
+                                Проверить
+                            </button>
+                        )}
                         <a
                             href={doc.file_url}
                             target="_blank"
@@ -114,6 +141,18 @@ export default function DocumentList({ initialDocuments }: { initialDocuments: D
                     </div>
                 </div>
             ))}
+
+            {/* Review Modal */}
+            {reviewDoc && (
+                <ReviewModal
+                    isOpen={!!reviewDoc}
+                    onClose={() => setReviewDoc(null)}
+                    documentId={reviewDoc.id}
+                    fileName={reviewDoc.file_name}
+                    initialData={reviewDoc.extracted_data ? JSON.parse(reviewDoc.extracted_data) : {}}
+                    onConfirm={handleConfirmSuccess}
+                />
+            )}
         </div>
     );
 }
