@@ -9,7 +9,7 @@ import HabitHeatmap from './HabitHeatmap';
 import SleepPhasesChart from './SleepPhasesChart';
 import { useRouter } from 'next/navigation';
 import { useDashboardTheme } from '../ThemeContext';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit2, Trash2, Check, X as CloseIcon, Loader2 } from 'lucide-react';
 
 const biomarkersConfig: Record<string, { name: string; unit: string; opt: string; min?: number; max?: number }> = {
     glucose: { name: 'Глюкоза', unit: 'ммоль/л', opt: '4.2–5.1', min: 4.2, max: 5.1 },
@@ -36,6 +36,9 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
     const { theme } = useDashboardTheme();
     const [activeView, setActiveView] = useState<'overview' | 'diagnostics'>('overview');
     const [showAllMarkers, setShowAllMarkers] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [selectedMarkers, setSelectedMarkers] = useState<string[]>([]);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const getMarkerStatus = (key: string, value: number) => {
         const config = biomarkersConfig[key];
@@ -136,6 +139,41 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
     const accentColor = theme === 'dark' ? 'text-teal-400' : 'text-brand-leaf';
     const accentBg = theme === 'dark' ? 'bg-teal-400' : 'bg-brand-leaf';
     const activeNavBorder = theme === 'dark' ? 'after:bg-teal-400' : 'after:bg-brand-leaf';
+
+    const toggleMarkerSelection = (key: string) => {
+        setSelectedMarkers(prev =>
+            prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+        );
+    };
+
+    const handleDeleteMarkers = async () => {
+        if (selectedMarkers.length === 0) return;
+        if (!confirm(`Вы уверены, что хотите удалить выбранные показатели (${selectedMarkers.length})?`)) return;
+
+        setIsDeleting(true);
+        try {
+            const response = await fetch('/api/cabinet/health-data/delete-markers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ markerKeys: selectedMarkers })
+            });
+
+            if (response.ok) {
+                // Success - reset state and refresh
+                setSelectedMarkers([]);
+                setIsEditMode(false);
+                router.refresh();
+            } else {
+                const data = await response.json();
+                alert(`Ошибка: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            alert('Произошла ошибка при удалении');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     return (
         <div className="max-w-7xl mx-auto font-sans dark:text-slate-50 text-brand-text transition-colors duration-300">
@@ -410,7 +448,32 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
 
                                 <div className="dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl p-6 shadow-md overflow-hidden transition-colors duration-300">
                                     <div className="flex justify-between items-center mb-6">
-                                        <h3 className="text-sm font-bold uppercase opacity-40">Лабораторная панель (Анализы)</h3>
+                                        <div className="flex items-center gap-4">
+                                            <h3 className="text-sm font-bold uppercase opacity-40">Лабораторная панель (Анализы)</h3>
+                                            <button
+                                                onClick={() => {
+                                                    setIsEditMode(!isEditMode);
+                                                    setSelectedMarkers([]);
+                                                }}
+                                                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all
+                                                    ${isEditMode
+                                                        ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                                        : 'bg-slate-500/10 text-slate-500 border border-transparent hover:bg-slate-500/20'}`}
+                                            >
+                                                {isEditMode ? <><CloseIcon size={12} /> Отмена</> : <><Edit2 size={12} /> Редактировать</>}
+                                            </button>
+
+                                            {isEditMode && selectedMarkers.length > 0 && (
+                                                <button
+                                                    onClick={handleDeleteMarkers}
+                                                    disabled={isDeleting}
+                                                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/20 transition-all disabled:opacity-50"
+                                                >
+                                                    {isDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                                                    Удалить ({selectedMarkers.length})
+                                                </button>
+                                            )}
+                                        </div>
                                         <button
                                             onClick={() => setShowAllMarkers(!showAllMarkers)}
                                             className={`text-xs flex items-center gap-1 ${accentColor} hover:opacity-80 transition-opacity`}
@@ -426,6 +489,7 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
                                         <table className="w-full text-sm">
                                             <thead>
                                                 <tr className="text-[10px] opacity-30 border-b dark:border-slate-700 border-brand-sage/30 transition-colors duration-300">
+                                                    {isEditMode && <th className="text-left pb-4 w-10"></th>}
                                                     <th className="text-left pb-4 font-medium uppercase">Маркер</th>
                                                     <th className="text-right pb-4 font-medium uppercase">Результат</th>
                                                     <th className="text-right pb-4 font-medium uppercase">Оптимум Longevity</th>
@@ -437,8 +501,19 @@ export default function DashboardViews({ profile, testResults, healthData }: Das
                                                     .slice(0, showAllMarkers ? undefined : 4)
                                                     .map(([key, data]) => {
                                                         const status = data.status;
+                                                        const isSelected = selectedMarkers.includes(key);
                                                         return (
-                                                            <tr key={key} className="border-b dark:border-slate-700/30 border-brand-sage/10 transition-colors duration-300">
+                                                            <tr key={key} className="border-b dark:border-slate-700/30 border-brand-sage/10 transition-colors duration-300 hover:bg-slate-50/50 dark:hover:bg-white/5">
+                                                                {isEditMode && (
+                                                                    <td className="py-3">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={isSelected}
+                                                                            onChange={() => toggleMarkerSelection(key)}
+                                                                            className="w-4 h-4 rounded border-brand-sage/30 text-teal-500 focus:ring-teal-500/20"
+                                                                        />
+                                                                    </td>
+                                                                )}
                                                                 <td className="py-3 font-medium">{data.name}</td>
                                                                 <td className={`text-right font-mono ${status === 'amber' ? 'text-amber-400' : ''}`}>{data.value} {data.unit}</td>
                                                                 <td className="text-right opacity-50">{data.opt}</td>
