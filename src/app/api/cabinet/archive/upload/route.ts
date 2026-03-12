@@ -40,12 +40,7 @@ export async function POST(request: Request) {
             }
         });
 
-        fs.appendFileSync(logPath, `[${new Date().toISOString()}] SUCCESS: Document ${document.id} created. Starting background AI...\n`);
-
-        // Start background extraction WITHOUT await to prevent Vercel timeout error on the frontend
-        extractHealthData(document.id).catch(err => {
-            fs.appendFileSync(logPath, `[${new Date().toISOString()}] BACKGROUND AI ERROR: ${err.message}\n`);
-        });
+        fs.appendFileSync(logPath, `[${new Date().toISOString()}] SUCCESS: Document ${document.id} created. AI extraction will be triggered by client.\n`);
 
         return NextResponse.json(document);
     } catch (error: any) {

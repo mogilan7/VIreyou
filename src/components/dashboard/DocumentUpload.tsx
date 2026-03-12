@@ -12,6 +12,7 @@ export default function DocumentUpload({ userId, email, fullName }: { userId: st
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const router = useRouter();
 
     const onDragOver = useCallback((e: React.DragEvent) => {
@@ -86,7 +87,20 @@ export default function DocumentUpload({ userId, email, fullName }: { userId: st
                 throw new Error(errorData.error || 'Failed to save document record');
             }
 
+            const document = await response.json();
+            setProgress(80);
+            setStatusMessage("Анализ данных ИИ...");
+
+            // 4. Trigger AI Extraction via dedicated API (Wait for it)
+            const extractResponse = await fetch(`/api/cabinet/archive/extract?id=${document.id}`);
+
+            if (!extractResponse.ok) {
+                // We don't throw here if we want to allow the user to see the document even if AI fails initially
+                console.warn("AI Extraction failed or timed out, status might update later");
+            }
+
             setProgress(100);
+            setStatusMessage("Готово!");
             setSuccess(true);
             setTimeout(() => {
                 setUploading(false);
@@ -144,7 +158,7 @@ export default function DocumentUpload({ userId, email, fullName }: { userId: st
                             </div>
                         </div>
                         <div>
-                            <p className="text-sm font-bold text-brand-text dark:text-white">{t('maUploading')}</p>
+                            <p className="text-sm font-bold text-brand-text dark:text-white">{statusMessage || t('maUploading')}</p>
                             <p className="text-[10px] text-brand-gray tracking-wider mt-1 uppercase">{t('maWait')}</p>
                         </div>
                     </div>

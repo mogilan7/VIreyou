@@ -40,7 +40,13 @@ export default function ReviewModal({
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        setData(initialData);
+        // If the data contains an 'error' field, it might be an extraction error
+        if (initialData && typeof initialData === 'object' && 'error' in initialData) {
+            setError((initialData as any).error);
+            setData({});
+        } else {
+            setData(initialData);
+        }
     }, [initialData]);
 
     if (!isOpen) return null;
