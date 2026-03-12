@@ -15,6 +15,7 @@ import {
   Info,
   X
 } from 'lucide-react';
+import { useTranslations, useLocale } from 'next-intl';
 import { generateDiagnosticReport } from '@/app/actions/diagnostic-action';
 
 interface DiagnosticModalProps {
@@ -23,6 +24,8 @@ interface DiagnosticModalProps {
 }
 
 const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) => {
+  const t = useTranslations('DiagnosticModal');
+  const locale = useLocale();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -50,14 +53,14 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
   if (!isOpen) return null;
 
   const symptomsList = [
-    "Слабость и усталость",
-    "Выпадение волос",
-    "Отечность",
-    "Боли в области сердца",
-    "Одышка",
-    "Сонливость днем",
-    "Сухость кожи",
-    "Раздражительность"
+    t('symptom1'),
+    t('symptom2'),
+    t('symptom3'),
+    t('symptom4'),
+    t('symptom5'),
+    t('symptom6'),
+    t('symptom7'),
+    t('symptom8')
   ];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -85,11 +88,11 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
     setError(null);
 
     try {
-      const report = await generateDiagnosticReport(formData);
+      const report = await generateDiagnosticReport(formData, locale);
       setResult(report);
       setStep(4);
     } catch (err: any) {
-      setError(err.message || "Произошла ошибка при генерации отчета. Пожалуйста, попробуйте позже.");
+      setError(err.message || t('errorMessage'));
     } finally {
       setLoading(false);
     }
@@ -107,7 +110,7 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
               {i + 1}
             </div>
             <span className={`text-[10px] font-medium uppercase tracking-wider ${step >= i ? 'text-brand-blue' : 'text-slate-400'}`}>
-              {i === 0 ? 'Параметры' : i === 1 ? 'Образ жизни' : 'Здоровье'}
+              {i === 0 ? t('step1') : i === 1 ? t('step2') : t('step3')}
             </span>
           </div>
           {i < 2 && <div className={`flex-1 h-1 mx-2 rounded-full transition-all duration-500 ${step > i ? 'bg-brand-blue' : 'bg-slate-100'}`} />}
@@ -136,8 +139,8 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
               <Activity className="w-8 h-8 text-brand-mint" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">AI Лаб-Ассистент</h1>
-              <p className="text-white/70 text-sm font-medium">Персональный anti-age протокол</p>
+              <h1 className="text-2xl font-bold tracking-tight">{t('assistantName')}</h1>
+              <p className="text-white/70 text-sm font-medium">{t('assistantDesc')}</p>
             </div>
           </div>
         </div>
@@ -150,40 +153,40 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex items-center gap-2 text-brand-blue font-bold text-lg mb-4">
                 <User className="w-5 h-5" />
-                <h2>Личные данные и антропометрия</h2>
+                <h2>{t('section1Title')}</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 ml-1">Имя</label>
-                  <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none" placeholder="Александр" />
+                  <label className="block text-sm font-semibold text-slate-700 ml-1">{t('nameLabel')}</label>
+                  <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none" placeholder={t('namePlaceholder')} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="block text-sm font-semibold text-slate-700 ml-1">Возраст</label>
+                    <label className="block text-sm font-semibold text-slate-700 ml-1">{t('ageLabel')}</label>
                     <input type="number" name="age" value={formData.age} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="block text-sm font-semibold text-slate-700 ml-1">Пол</label>
+                    <label className="block text-sm font-semibold text-slate-700 ml-1">{t('sexLabel')}</label>
                     <select name="sex" value={formData.sex} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none appearance-none">
-                      <option value="male">Мужской</option>
-                      <option value="female">Женский</option>
+                      <option value="male">{t('male')}</option>
+                      <option value="female">{t('female')}</option>
                     </select>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 ml-1">Рост (см)</label>
+                  <label className="block text-sm font-semibold text-slate-700 ml-1">{t('heightLabel')}</label>
                   <input type="number" name="height" value={formData.height} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none" placeholder="180" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 ml-1">Вес (кг)</label>
+                  <label className="block text-sm font-semibold text-slate-700 ml-1">{t('weightLabel')}</label>
                   <input type="number" name="weight" value={formData.weight} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none" placeholder="75" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 ml-1">Талия (см)</label>
+                  <label className="block text-sm font-semibold text-slate-700 ml-1">{t('waistLabel')}</label>
                   <input type="number" name="waist" value={formData.waist} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none" placeholder="85" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 ml-1">Бедра (см)</label>
+                  <label className="block text-sm font-semibold text-slate-700 ml-1">{t('hipsLabel')}</label>
                   <input type="number" name="hips" value={formData.hips} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none" placeholder="95" />
                 </div>
               </div>
@@ -195,37 +198,37 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="flex items-center gap-2 text-brand-blue font-bold text-lg mb-4">
                 <Heart className="w-5 h-5" />
-                <h2>Образ жизни</h2>
+                <h2>{t('section2Title')}</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 ml-1">Курение</label>
+                  <label className="block text-sm font-semibold text-slate-700 ml-1">{t('smokingLabel')}</label>
                   <select name="smoking" value={formData.smoking} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none appearance-none">
-                    <option value="no">Не курю</option>
-                    <option value="rarely">Редко / Эл.сигареты</option>
-                    <option value="yes">Курю регулярно</option>
+                    <option value="no">{t('smokingNo')}</option>
+                    <option value="rarely">{t('smokingRarely')}</option>
+                    <option value="yes">{t('smokingYes')}</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 ml-1">Питание</label>
+                  <label className="block text-sm font-semibold text-slate-700 ml-1">{t('dietLabel')}</label>
                   <select name="diet" value={formData.diet} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none appearance-none">
-                    <option value="omnivore">Сбалансированное</option>
-                    <option value="vegetarian">Вегетарианец</option>
-                    <option value="vegan">Веган</option>
-                    <option value="keto">Кето / LCHF</option>
+                    <option value="omnivore">{t('dietOmnivore')}</option>
+                    <option value="vegetarian">{t('dietVegetarian')}</option>
+                    <option value="vegan">{t('dietVegan')}</option>
+                    <option value="keto">{t('dietKeto')}</option>
                   </select>
                 </div>
                 <div className="md:col-span-2 space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 ml-1">Физическая активность</label>
+                  <label className="block text-sm font-semibold text-slate-700 ml-1">{t('activityLabel')}</label>
                   <select name="activity" value={formData.activity} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none appearance-none">
-                    <option value="low">Сидячий образ жизни</option>
-                    <option value="medium">Средняя (2-3 раза в неделю)</option>
-                    <option value="high">Высокая / Спортсмен</option>
+                    <option value="low">{t('activityLow')}</option>
+                    <option value="medium">{t('activityMedium')}</option>
+                    <option value="high">{t('activityHigh')}</option>
                   </select>
                 </div>
                 <div className="md:col-span-2 space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 ml-1">Регион проживания</label>
-                  <input type="text" name="region" value={formData.region} onChange={handleInputChange} placeholder="Напр. Москва, риск дефицита Вит D" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none" />
+                  <label className="block text-sm font-semibold text-slate-700 ml-1">{t('regionLabel')}</label>
+                  <input type="text" name="region" value={formData.region} onChange={handleInputChange} placeholder={t('regionPlaceholder')} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none" />
                 </div>
               </div>
             </div>
@@ -236,11 +239,11 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="flex items-center gap-2 text-brand-blue font-bold text-lg mb-4">
                 <Stethoscope className="w-5 h-5" />
-                <h2>Состояние здоровья</h2>
+                <h2>{t('section3Title')}</h2>
               </div>
               
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3 ml-1">Текущие жалобы (выберите подходящее)</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-3 ml-1">{t('symptomsLabel')}</label>
                 <div className="grid grid-cols-2 gap-3">
                   {symptomsList.map(s => (
                     <button
@@ -259,16 +262,16 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
 
               <div className="space-y-5 pt-4">
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 ml-1">Хронические заболевания</label>
-                  <textarea name="chronic" value={formData.chronic} onChange={handleInputChange} rows={2} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none resize-none" placeholder="Гипертония, гастрит и т.д." />
+                  <label className="block text-sm font-semibold text-slate-700 ml-1">{t('chronicLabel')}</label>
+                  <textarea name="chronic" value={formData.chronic} onChange={handleInputChange} rows={2} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none resize-none" placeholder={t('chronicPlaceholder')} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 ml-1">Принимаемые лекарства / БАДы</label>
-                  <textarea name="meds" value={formData.meds} onChange={handleInputChange} rows={2} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none resize-none" placeholder="Л-тироксин, Омега-3..." />
+                  <label className="block text-sm font-semibold text-slate-700 ml-1">{t('medsLabel')}</label>
+                  <textarea name="meds" value={formData.meds} onChange={handleInputChange} rows={2} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none resize-none" placeholder={t('medsPlaceholder')} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 ml-1">Наследственность</label>
-                  <input type="text" name="heredity" value={formData.heredity} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none" placeholder="Диабет у отца, ранний инфаркт у мамы..." />
+                  <label className="block text-sm font-semibold text-slate-700 ml-1">{t('heredityLabel')}</label>
+                  <input type="text" name="heredity" value={formData.heredity} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all outline-none" placeholder={t('heredityPlaceholder')} />
                 </div>
               </div>
             </div>
@@ -285,9 +288,9 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
                     <Activity className="w-8 h-8 text-brand-mint absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                   </div>
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-bold text-slate-900">ИИ анализирует данные...</h2>
+                    <h2 className="text-2xl font-bold text-slate-900">{t('loadingTitle')}</h2>
                     <p className="text-slate-500 max-w-sm mx-auto">
-                      Мы сопоставляем ваши симптомы с возрастными нормами и биомаркерами долголетия.
+                      {t('loadingDesc')}
                     </p>
                   </div>
                 </div>
@@ -296,13 +299,13 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
                   <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                     <AlertCircle className="w-10 h-10" />
                   </div>
-                  <p className="font-bold text-lg mb-2">Упс! Что-то пошло не так</p>
+                  <p className="font-bold text-lg mb-2">{t('errorTitle')}</p>
                   <p className="opacity-80 text-sm mb-8">{error}</p>
                   <button 
                     onClick={handleGenerateReport} 
                     className="w-full px-8 py-4 bg-red-600 text-white rounded-2xl font-bold shadow-lg shadow-red-200 hover:bg-red-700 transform active:scale-95 transition-all"
                   >
-                    Повторить попытку
+                    {t('errorRetry')}
                   </button>
                 </div>
               ) : (
@@ -312,16 +315,16 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
                       <CheckCircle2 className="w-7 h-7 text-brand-blue" />
                     </div>
                     <ClipboardList className="w-20 h-20 text-brand-blue mx-auto" />
-                    <h3 className="mt-4 font-bold text-xl text-brand-blue">Анкета готова</h3>
+                    <h3 className="mt-4 font-bold text-xl text-brand-blue">{t('readyTitle')}</h3>
                   </div>
                   <p className="text-slate-600 leading-relaxed font-medium">
-                    На основе ваших данных мы сформируем персонализированный список анализов для оценки биологического возраста.
+                    {t('readyDesc')}
                   </p>
                   <button 
                     onClick={handleGenerateReport}
                     className="w-full px-10 py-5 bg-brand-blue text-white rounded-2xl font-bold text-lg shadow-2xl shadow-brand-blue/20 hover:bg-brand-blue-dark transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3"
                   >
-                    Сформировать план <ChevronRight className="w-5 h-5" />
+                    {t('readyBtn')} <ChevronRight className="w-5 h-5" />
                   </button>
                 </div>
               )}
@@ -337,15 +340,15 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
                     <CheckCircle2 className="w-6 h-6 text-brand-blue" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900 leading-tight">Ваш план</h2>
-                    <p className="text-sm font-medium text-slate-500">Персональные рекомендации</p>
+                    <h2 className="text-2xl font-bold text-slate-900 leading-tight">{t('resultTitle')}</h2>
+                    <p className="text-sm font-medium text-slate-500">{t('resultSubtitle')}</p>
                   </div>
                 </div>
                 <button 
                   onClick={() => setStep(0)} 
                   className="px-4 py-2 text-sm text-brand-blue hover:bg-brand-blue/5 rounded-xl font-bold transition-all"
                 >
-                  Пройти заново
+                  {t('restartBtn')}
                 </button>
               </div>
               
@@ -365,8 +368,8 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
                   <Info className="w-6 h-6 text-amber-600" />
                 </div>
                 <p className="text-sm text-amber-900/80 leading-relaxed">
-                  <strong className="text-amber-900 block mb-1">Важно:</strong> 
-                  Данный список является предварительной рекомендацией ИИ. Окончательное решение должен принимать профильный специалист на очном приеме.
+                  <strong className="text-amber-900 block mb-1">{t('warningTitle')}</strong> 
+                  {t('warningDesc')}
                 </p>
               </div>
             </div>
@@ -380,13 +383,13 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
                 disabled={step === 0}
                 className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold transition-all ${step === 0 ? 'opacity-0 pointer-events-none' : 'text-slate-400 hover:text-brand-blue hover:bg-brand-blue/5'}`}
               >
-                <ChevronLeft className="w-5 h-5" /> Назад
+                <ChevronLeft className="w-5 h-5" /> {t('backBtn')}
               </button>
               <button
                 onClick={nextStep}
                 className="flex items-center gap-2 px-10 py-4 bg-brand-blue text-white rounded-2xl font-bold shadow-xl shadow-brand-blue/20 hover:bg-brand-blue-dark transition-all transform hover:scale-[1.02] active:scale-95 group"
               >
-                Далее <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                {t('nextBtn')} <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
           )}
