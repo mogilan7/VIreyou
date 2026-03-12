@@ -36,23 +36,27 @@ export async function extractHealthData(docId: string) {
         }
 
         const prompt = `
-            You are a highly accurate medical data extraction AI. 
-            Analyze the provided medical lab result (image or PDF content) and extract values for ALL health markers/biomarkers present.
+            You are a highly accurate medical data extraction AI specialized in laboratory test results.
+            Analyze the provided medical lab result image or PDF and extract values for ALL health markers/biomarkers present.
+            
             Return ONLY a raw JSON object where each key is the marker name (in English, normalized, snake_case).
             For each marker, provide:
-            - value (number or string)
-            - unit (string)
-            - reference_range (string if found, e.g. "4.2-5.1")
-            - status (string: "NORMAL", "ABNORMAL", or "UNKNOWN" based on the reference range in the doc)
+            - value (number or string, use decimals for numbers e.g. 5.2)
+            - unit (string, e.g. "mmol/L", "ng/mL", "g/L")
+            - reference_range (string if found, e.g. "4.1 - 5.9")
+            - status (string: "NORMAL", "ABNORMAL", or "UNKNOWN" based on the reference range provided in the document)
             
-            Example Format:
+            Guidelines:
+            1. If the document is in Russian, map marker names to their standard medical English equivalents (e.g., "Глюкоза" -> "glucose", "Ферритин" -> "ferritin", "С-реактивный белок" -> "crp").
+            2. Be extremely precise with numbers. 
+            3. If a marker is mentioned multiple times, use the most recent or main result.
+            4. Do not include any text outside the JSON object. No markdown backticks.
+            
+            Example output format:
             {
-              "glucose": { "value": 4.8, "unit": "mmol/L", "reference_range": "4.2-5.1", "status": "NORMAL" },
-              "ferritin": { "value": 180, "unit": "ng/mL", "reference_range": "80-150", "status": "ABNORMAL" }
+              "glucose": { "value": 4.8, "unit": "mmol/L", "reference_range": "4.1-5.9", "status": "NORMAL" },
+              "ferritin": { "value": 180, "unit": "ng/mL", "reference_range": "30-400", "status": "NORMAL" }
             }
-
-            If the document is in Russian, translate the marker names to standard medical English counterparts (e.g. Глюкоза -> glucose).
-            Extract as many markers as you can find. Accuracy is critical. Accuracy is critical. Do not include any markdown formatting, backticks, or extra text.
         `;
 
         log(`Fetching file from: ${doc.file_url}`);
