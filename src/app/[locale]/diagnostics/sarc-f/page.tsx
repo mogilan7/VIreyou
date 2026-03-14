@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { saveTestResult } from "@/actions/save-test";
@@ -25,8 +25,19 @@ export default function SarcFPage() {
     const [answers, setAnswers] = useState<number[]>(Array(5).fill(-1));
     const [showResult, setShowResult] = useState(false);
 
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+    useEffect(() => {
+        const checkAuth = async () => {
+            const { createClient } = await import('@/utils/supabase/client');
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            setIsAuthenticated(!!session);
+        };
+        checkAuth();
+    }, []);
 
     const questions = [
         {
@@ -118,6 +129,7 @@ export default function SarcFPage() {
     const resultConfig = getResultConfig(totalScore);
 
     const handleSaveResult = async () => {
+        if (!isAuthenticated) return;
         setIsSaving(true);
         setSaveStatus('idle');
         const res = await saveTestResult({
@@ -295,21 +307,23 @@ export default function SarcFPage() {
                                 </div>
 
                                 {/* Save Button */}
-                                <div className="py-2">
-                                    <button
-                                        onClick={handleSaveResult}
-                                        disabled={isSaving || saveStatus === 'success'}
-                                        className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-lg transition-all shadow-lg text-white
-                                            ${saveStatus === 'success' ? 'bg-brand-sage' : 'bg-brand-forest hover:bg-brand-leaf active:scale-95'}`}
-                                    >
-                                        {isSaving && <Loader2 className="w-5 h-5 animate-spin" />}
-                                        {saveStatus === 'success' && <CheckCircle className="w-5 h-5" />}
-                                        {saveStatus === 'success' && t('saved')}
-                                        {saveStatus === 'error' && t('saveError')}
-                                        {isSaving && t('saving')}
-                                        {!isSaving && saveStatus === 'idle' && t('saveToVault')}
-                                    </button>
-                                </div>
+                                {isAuthenticated && (
+                                    <div className="py-2">
+                                        <button
+                                            onClick={handleSaveResult}
+                                            disabled={isSaving || saveStatus === 'success'}
+                                            className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-lg transition-all shadow-lg text-white
+                                                ${saveStatus === 'success' ? 'bg-brand-sage' : 'bg-brand-forest hover:bg-brand-leaf active:scale-95'}`}
+                                        >
+                                            {isSaving && <Loader2 className="w-5 h-5 animate-spin" />}
+                                            {saveStatus === 'success' && <CheckCircle className="w-5 h-5" />}
+                                            {saveStatus === 'success' && t('saved')}
+                                            {saveStatus === 'error' && t('saveError')}
+                                            {isSaving && t('saving')}
+                                            {!isSaving && saveStatus === 'idle' && t('saveToVault')}
+                                        </button>
+                                    </div>
+                                )}
 
                                 {/* Interpretation Legend */}
                                 <div className="space-y-4">
