@@ -74,17 +74,25 @@ export default async function ClientDashboardPage() {
             fasting_window: "16:8"
         };
 
+        const latestBioAgeResult = sbResults?.find(r => r.test_type === 'bio-age');
+        if (latestBioAgeResult && latestBioAgeResult.score) {
+            healthData.biological_age_calc = latestBioAgeResult.score;
+        }
+
         const biomarkerResults = (dbUser as any)?.biomarker_results || [];
 
         // 5. Build Test Results
-        const coreTestIds = ['mini-cog', 'score', 'nicotine', 'alcohol', 'insomnia', 'circadian'];
+        const coreTestIds = ['mini-cog', 'score', 'nicotine', 'alcohol', 'insomnia', 'circadian', 'sarc-f', 'energy', 'bio-age'];
         const demoData: Record<string, { score: number, interpretation: string }> = {
             'mini-cog': { score: 5, interpretation: 'Когнитивные функции в норме' },
             'score': { score: 2, interpretation: 'Умеренный риск ССЗ' },
             'nicotine': { score: 0, interpretation: 'Зависимость отсутствует' },
             'alcohol': { score: 4, interpretation: 'Низкий риск потребления алкоголя' },
             'insomnia': { score: 5, interpretation: 'Отсутствие клинически значимой бессонницы' },
-            'circadian': { score: 1, interpretation: 'Тип: Жаворонок' }
+            'circadian': { score: 1, interpretation: 'Тип: Жаворонок' },
+            'sarc-f': { score: 0, interpretation: 'Риск саркопении отсутствует' },
+            'energy': { score: 2400, interpretation: 'Базовый метаболизм' },
+            'bio-age': { score: 40, interpretation: 'Соответствует паспорту' }
         };
 
         let testResults: any[] = [];

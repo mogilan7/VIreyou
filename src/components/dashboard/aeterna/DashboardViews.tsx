@@ -142,6 +142,11 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
             case 'circadian':
                 // Doesn't strictly have a bad/good, usually just types (Lark, Owl, etc).
                 return `bg-${colorMode}/20 text-${colorMode}`;
+            case 'sarc-f':
+                return score >= 4 ? 'bg-red-500/20 text-red-500' // High risk (>= 4)
+                    : `bg-${colorMode}/20 text-${colorMode}`;
+            case 'energy':
+                return `bg-${colorMode}/20 text-${colorMode}`;
             default:
                 return `bg-${colorMode}/20 text-${colorMode}`;
         }
@@ -153,6 +158,9 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
     const alcohol = getLatestTest('RU-AUDIT') || getLatestTest('alcohol'); // Fallback for older data
     const insomnia = getLatestTest('insomnia');
     const circadian = getLatestTest('circadian');
+    const sarcF = getLatestTest('sarc-f');
+    const energy = getLatestTest('energy');
+    const bioAge = getLatestTest('bio-age');
 
     const accentColor = theme === 'dark' ? 'text-teal-400' : 'text-brand-leaf';
     const accentBg = theme === 'dark' ? 'bg-teal-400' : 'bg-brand-leaf';
@@ -570,6 +578,9 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                     { name: 'Алкоголь (AUDIT)', data: alcohol, total: '', type: 'RU-AUDIT' },
                                     { name: 'Бессонница (ISI)', data: insomnia, total: '', type: 'insomnia' },
                                     { name: 'Циркадные ритмы', data: circadian, total: '', type: 'circadian' },
+                                    { name: 'SARC-F (Мышцы)', data: sarcF, total: '', type: 'sarc-f' },
+                                    { name: 'Расход энергии', data: energy, total: ' ккал', type: 'energy' },
+                                    { name: 'Био-Возраст', data: bioAge, total: ' лет', type: 'bio-age' },
                                 ].map((item, i) => (
                                     <div key={i} className="p-4 dark:bg-slate-900/50 bg-brand-sage/10 rounded-xl flex items-center gap-4 transition-colors duration-300">
                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${getSeverityClasses(item.type, item.data?.score)}`}>

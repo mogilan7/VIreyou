@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { saveTestResult } from "@/actions/save-test";
@@ -16,8 +16,10 @@ import {
     TrendingDown,
     ListTree,
     ArrowLeft,
-    Loader2
+    Loader2,
+    CheckCircle
 } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
 
 export default function NicotineCalculatorPage() {
     const t = useTranslations('NicotineCalculator');
@@ -25,8 +27,18 @@ export default function NicotineCalculatorPage() {
     const [questionIdx, setQuestionIdx] = useState(0);
     const [totalScore, setTotalScore] = useState(0);
 
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+    useEffect(() => {
+        const checkAuth = async () => {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            setIsAuthenticated(!!session);
+        };
+        checkAuth();
+    }, []);
 
     const questions = [
         {
@@ -168,6 +180,7 @@ export default function NicotineCalculatorPage() {
     };
 
     const handleSaveResult = async () => {
+        if (!isAuthenticated) return;
         setIsSaving(true);
         setSaveStatus('idle');
         const resultDetails = getInterpretation(totalScore);
@@ -387,23 +400,26 @@ export default function NicotineCalculatorPage() {
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                                                <button
-                                                    onClick={handleSaveResult}
-                                                    disabled={isSaving}
-                                                    className="flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-bold transition-all disabled:opacity-70 disabled:cursor-not-allowed bg-brand-leaf text-white hover:bg-brand-forest shadow-md"
-                                                >
-                                                    {isSaving ? (
-                                                        <><Loader2 size={20} className="animate-spin" /> {t('saving')}</>
-                                                    ) : saveStatus === 'success' ? (
-                                                        <><CheckCircle2 size={20} /> {t('saved')}</>
-                                                    ) : (
-                                                        <>{t('saveBtn')}</>
-                                                    )}
-                                                </button>
+                                                {isAuthenticated && (
+                                                    <button
+                                                        onClick={handleSaveResult}
+                                                        disabled={isSaving || saveStatus === 'success'}
+                                                        className={`flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-bold transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-md
+                                                            ${saveStatus === 'success' ? 'bg-brand-sage text-white' : 'bg-brand-leaf text-white hover:bg-brand-forest'}`}
+                                                    >
+                                                        {isSaving ? (
+                                                            <><Loader2 size={20} className="animate-spin" /> {t('saving')}</>
+                                                        ) : saveStatus === 'success' ? (
+                                                            <><CheckCircle size={20} /> {t('saved')}</>
+                                                        ) : (
+                                                            <>{t('saveBtn')}</>
+                                                        )}
+                                                    </button>
+                                                )}
 
                                                 <button
                                                     onClick={reset}
-                                                    className="py-4 px-6 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
+                                                    className={`py-4 px-6 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2 ${!isAuthenticated ? 'md:col-span-2' : ''}`}
                                                 >
                                                     <RefreshCcw size={20} />
                                                     {t('restart')}

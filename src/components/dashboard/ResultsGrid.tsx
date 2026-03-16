@@ -173,6 +173,10 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
             case 'energy':
                 severity = 'ok';
                 break;
+            case 'sarc-f':
+                if (score >= 4) severity = 'danger';
+                else severity = 'ok';
+                break;
 
             default:
                 return {
@@ -217,6 +221,7 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
             case 'RU-AUDIT': return <GlassWater className={`w-6 h-6 ${colorClass}`} />;
             case 'nicotine': return <Cigarette className={`w-6 h-6 ${colorClass}`} />;
             case 'energy': return <Flame className={`w-6 h-6 ${colorClass}`} />;
+            case 'sarc-f': return <Activity className={`w-6 h-6 ${colorClass}`} />;
             default: return <ShieldAlert className={`w-6 h-6 text-brand-gray`} />;
         }
     };
