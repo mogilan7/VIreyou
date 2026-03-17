@@ -147,7 +147,9 @@
         "badge1": "Professional Analysis",
         "badge2": "Personalized Longevity Plans",
         "p10Title": "IPSS Questionnaire",
-        "p10Desc": "International Prostate Symptom Score for prostate symptoms assessment."
+        "p10Desc": "International Prostate Symptom Score for prostate symptoms assessment.",
+        "p11Title": "IIEF-5 Questionnaire",
+        "p11Desc": "International Index of Erectile Function for assessment."
     },
     "EnergyCalculator": {
         "title": "Interactive Energy Expenditure Calculator",
@@ -1186,6 +1188,55 @@
             "high": {
                 "label": "Severe symptoms",
                 "desc": "The patient is shown active treatment, further examination to decide on surgical or complex drug intervention."
+            }
+        }
+    },
+    "MIEF5": {
+        "title": "IIEF-5 Questionnaire",
+        "subtitle": "International Index of Erectile Function",
+        "aboutTitle": "About the questionnaire",
+        "aboutDesc": "The International Index of Erectile Function (IIEF-5) is a scale for assessing erectile dysfunction severity. Please answer the questions as honestly and clearly as possible (regarding the last four weeks).",
+        "totalScore": "Total IIEF-5 Score",
+        "disclaimer": "This questionnaire is a screening tool. For an accurate diagnosis, be sure to consult a urologist or andrologist.",
+        "questions": {
+            "q1": "How often have you had an erection during sexual activity recently?",
+            "q2": "Over the past month, how often has the erection been sufficient for penetration (beginning intercourse)?",
+            "q3": "When attempting sexual intercourse, how often have you been able to achieve penetration?",
+            "q4": "Over the past month, how often have you been able to maintain an erection after starting intercourse?",
+            "q5": "How difficult has it been to maintain an erection throughout and until the end of intercourse?"
+        },
+        "options": {
+            "q1_q4": [
+                "Almost never or never",
+                "Rarely (less than half the time)",
+                "Sometimes (about half the time)",
+                "Often (more than half the time)",
+                "Almost always or always"
+            ],
+            "q5": [
+                "Extremely difficult",
+                "Very difficult",
+                "Difficult",
+                "Not very difficult",
+                "Not difficult"
+            ]
+        },
+        "interpretation": {
+            "none": {
+                "label": "No erectile dysfunction (Normal)",
+                "desc": "Scores are within normal limits."
+            },
+            "light": {
+                "label": "Mild erectile dysfunction",
+                "desc": "Consultation with a specialist is recommended for prevention."
+            },
+            "medium": {
+                "label": "Moderate erectile dysfunction",
+                "desc": "It is recommended to consult a urologist-andrologist to select therapy."
+            },
+            "heavy": {
+                "label": "Severe erectile dysfunction",
+                "desc": "It is strongly recommended to consult a doctor for a detailed examination."
             }
         }
     }
