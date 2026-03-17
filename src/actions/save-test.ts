@@ -36,6 +36,10 @@ export async function saveTestResult({
 
     if (error) {
         console.error('Error saving test result:', error)
+        try {
+            const fs = require('fs');
+            fs.appendFileSync('/tmp/save_error.txt', `${new Date().toISOString()} - ${testType} - ${error.message}\n`);
+        } catch (e) {}
         return { success: false, error: error.message }
     }
 

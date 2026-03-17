@@ -620,7 +620,8 @@
       "listView": "List View",
       "testNames": {
         "bio-age": "Biological Age Assessment",
-        "score": "SCORE Cardiovascular Risk",
+        "systemic-bio-age": "Systemic Biological Age",
+        "score": "Cardiovascular Risk Level (SCORE)",
         "circadian": "Circadian Rhythm Analysis",
         "insomnia": "Insomnia Severity Index",
         "mini-cog": "Mini-Cog Cognitive Screen",

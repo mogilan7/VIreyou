@@ -127,6 +127,7 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
 
         switch (type) {
             case 'bio-age':
+            case 'systemic-bio-age':
                 return {
                     icon: <Activity className="w-6 h-6 dark:text-teal-400 text-brand-leaf" />,
                     color: 'dark:bg-teal-400/10 bg-brand-leaf/10 dark:border-teal-400/30 border-brand-leaf/30 dark:text-teal-400 text-brand-leaf',
@@ -213,7 +214,8 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
 
     const getIcon = (type: string, colorClass: string) => {
         switch (type) {
-            case 'bio-age': return <Activity className={`w-6 h-6 ${colorClass}`} />;
+            case 'bio-age':
+            case 'systemic-bio-age': return <Activity className={`w-6 h-6 ${colorClass}`} />;
             case 'score': return <HeartPulse className={`w-6 h-6 ${colorClass}`} />;
             case 'insomnia': return <Moon className={`w-6 h-6 ${colorClass}`} />;
             case 'mini-cog': return <Brain className={`w-6 h-6 ${colorClass}`} />;
