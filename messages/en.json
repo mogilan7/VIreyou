@@ -1231,20 +1231,26 @@
         "interpretation": {
             "none": {
                 "label": "No erectile dysfunction (Normal)",
-                "desc": "Scores are within normal limits."
+                "desc": "Scores are within normal limits.",
+                "range": "21 - 25"
             },
             "light": {
                 "label": "Mild erectile dysfunction",
-                "desc": "Consultation with a specialist is recommended for prevention."
+                "desc": "Consultation with a specialist is recommended for prevention.",
+                "range": "16 - 20"
             },
             "medium": {
                 "label": "Moderate erectile dysfunction",
-                "desc": "It is recommended to consult a urologist-andrologist to select therapy."
+                "desc": "It is recommended to consult a urologist-andrologist to select therapy.",
+                "range": "11 - 15"
             },
             "heavy": {
                 "label": "Severe erectile dysfunction",
-                "desc": "It is strongly recommended to consult a doctor for a detailed examination."
+                "desc": "It is strongly recommended to consult a doctor for a detailed examination.",
+                "range": "5 - 10"
             }
-        }
+        },
+        "interpretationTitle": "Interpretation of results (rating scale):",
+        "pointsLabel": "points"
     }
 }

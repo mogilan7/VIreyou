@@ -295,6 +295,31 @@ export default function Mief5Page() {
                                     </div>
                                 </div>
 
+                                {/* Interpretation Summary Table */}
+                                <div className="border border-slate-200 rounded-2xl p-6 bg-white shadow-sm mt-8 animate-in fade-in slide-in-from-bottom-3 duration-500">
+                                    <h3 className="text-base font-bold text-slate-800 mb-4">{t('interpretationTitle')}</h3>
+                                    <div className="space-y-3">
+                                        {['none', 'light', 'medium', 'heavy'].map((key) => {
+                                            const style = INTERPRETATION_STYLES[key as keyof typeof INTERPRETATION_STYLES];
+                                            return (
+                                                <div key={key} className={`flex flex-col sm:flex-row justify-between items-center p-4 rounded-xl border ${style.borderClass} ${style.bgClass} transition-all duration-300 hover:shadow-sm gap-2`}>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`p-1.5 rounded-lg bg-white shadow-sm ${style.iconClass}`}>
+                                                            <style.icon className="w-4 h-4" />
+                                                        </div>
+                                                        <div className={`font-semibold ${style.colorClass} text-sm`}>
+                                                            {t(`interpretation.${key}.label`)}
+                                                        </div>
+                                                    </div>
+                                                    <div className={`font-bold ${style.colorClass} text-sm bg-white px-3 py-1 rounded-full border border-slate-100 shadow-sm`}>
+                                                        {t(`interpretation.${key}.range`)} {t('pointsLabel')}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
                                 <div className="mt-6 bg-slate-50 rounded-2xl p-5 border border-slate-100 flex items-start gap-4">
                                     <Info className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
                                     <p className="text-xs text-slate-500 leading-relaxed">
