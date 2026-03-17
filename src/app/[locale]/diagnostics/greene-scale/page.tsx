@@ -215,6 +215,18 @@ export default function GreeneScalePage() {
                                 <p className="text-sm text-slate-600 leading-relaxed">
                                     {t('aboutDesc')}
                                 </p>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
+                                    {[0, 1, 2, 3].map(val => (
+                                        <div key={val} className="bg-white border border-slate-100 rounded-xl p-2.5 text-center shadow-sm">
+                                            <div className="text-[10px] text-slate-500 font-bold mb-1 uppercase tracking-wider">
+                                                {val} {val === 1 ? 'балл' : val === 2 || val === 3 ? 'балла' : 'баллов'}
+                                            </div>
+                                            <div className="text-sm font-bold text-slate-700">
+                                                {t(`options.${val}.label`)}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
