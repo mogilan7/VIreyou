@@ -1,6 +1,23 @@
 "use client";
-import React, { useState, useMemo, useEffect } from 'react';
-import { Activity, User, Ruler, Weight, HeartPulse, Scale, AlertCircle, ArrowLeft, Save, Loader2, CheckCircle } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { 
+  Heart, 
+  Move, 
+  Zap, 
+  Compass, 
+  RefreshCw, 
+  Fingerprint, 
+  Activity, 
+  ChevronRight, 
+  ChevronLeft, 
+  RotateCcw,
+  CheckCircle2,
+  ArrowLeft,
+  Loader2,
+  Save,
+  AlertCircle
+} from 'lucide-react';
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { saveTestResult } from '@/actions/save-test';
@@ -10,15 +27,8 @@ export default function BioAgeCalculatorPage() {
     const t = useTranslations('BioAgeCalculator');
     const tCommon = useTranslations('Common');
 
-    // Состояния для хранения введенных данных
-    const [gender, setGender] = useState('female');
-    const [age, setAge] = useState(30);
-    const [height, setHeight] = useState(165);
-    const [weight, setWeight] = useState(65);
-    const [waist, setWaist] = useState(70);
-    const [hips, setHips] = useState(95);
-
-    // Auth & Save State
+    const [currentStep, setCurrentStep] = useState(-1); // -1: Intro, 0-6: Tests, 7: Result
+    const [results, setResults] = useState<Record<string, number>>({});
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -32,96 +42,43 @@ export default function BioAgeCalculatorPage() {
         checkAuth();
     }, []);
 
-    // Вычисления
-    const stats = useMemo(() => {
-        // 1. Индекс массы тела (ИМТ)
-        const heightInMeters = height / 100;
-        const bmi = weight / (heightInMeters * heightInMeters);
+    const testConfigs = [
+        { id: 'cardio', icon: Heart, ages: [18, 25, 37, 46, 55, 63], color: 'text-red-500', bg: 'bg-red-50' },
+        { id: 'flexibility', icon: Move, ages: [18, 25, 35, 45, 55, 65], color: 'text-blue-500', bg: 'bg-blue-50' },
+        { id: 'reaction', icon: Zap, ages: [18, 27, 35, 46, 55, 65], color: 'text-yellow-500', bg: 'bg-yellow-50' },
+        { id: 'coordination', icon: Compass, ages: [20, 30, 40, 50, 60], color: 'text-green-500', bg: 'bg-green-50' },
+        { id: 'vestibular', icon: RefreshCw, ages: [20, 29, 35, 40, 50, 60], color: 'text-purple-500', bg: 'bg-purple-50' },
+        { id: 'skin', icon: Fingerprint, ages: [25, 35, 45, 55, 65], color: 'text-pink-500', bg: 'bg-pink-50' },
+        { id: 'joints', icon: Activity, ages: [18, 27, 37, 45, 55, 65], color: 'text-teal-500', bg: 'bg-teal-50' }
+    ];
 
-        // 2. Соотношение талии и бедер (WHR - Waist-to-Hip Ratio)
-        const whr = waist / hips;
+    const currentTest = currentStep >= 0 && currentStep < testConfigs.length ? testConfigs[currentStep] : null;
 
-        // Вычисляем "штрафы" и "бонусы" к возрасту
-        let bioAgeModifier = 0;
-        let bmiCategory = '';
-        let bmiColor = '';
-        let bmiBgColor = '';
-        let whrCategory = '';
-        let whrColor = '';
-        let whrBgColor = '';
+    const handleStart = () => {
+        setCurrentStep(0);
+    };
 
-        // Оценка ИМТ
-        if (bmi < 18.5) {
-            bioAgeModifier += (18.5 - bmi) * 0.5; // Небольшой штраф за недовес
-            bmiCategory = t('bmiUnderweight');
-            bmiColor = 'text-blue-500';
-            bmiBgColor = 'bg-blue-500';
-        } else if (bmi >= 18.5 && bmi <= 24.9) {
-            bioAgeModifier -= 1.5; // Бонус за нормальный вес
-            bmiCategory = t('bmiNormal');
-            bmiColor = 'text-green-500';
-            bmiBgColor = 'bg-green-500';
-        } else if (bmi >= 25 && bmi <= 29.9) {
-            bioAgeModifier += (bmi - 24.9) * 0.8; // Штраф за избыточный вес
-            bmiCategory = t('bmiOverweight');
-            bmiColor = 'text-yellow-500';
-            bmiBgColor = 'bg-yellow-500';
-        } else {
-            bioAgeModifier += (bmi - 24.9) * 1.2; // Повышенный штраф за ожирение
-            bmiCategory = t('bmiObese');
-            bmiColor = 'text-red-500';
-            bmiBgColor = 'bg-red-500';
-        }
+    const handleSelect = (testId: string, age: number) => {
+        setResults(prev => ({ ...prev, [testId]: age }));
+        setTimeout(() => {
+            if (currentStep < testConfigs.length - 1) {
+                setCurrentStep(currentStep + 1);
+            } else {
+                setCurrentStep(testConfigs.length);
+            }
+        }, 300);
+    };
 
-        // Оценка соотношения талии и бедер (различается для мужчин и женщин)
-        const optimalWhr = gender === 'male' ? 0.9 : 0.8;
-        const moderateWhr = gender === 'male' ? 0.95 : 0.85;
+    const handleReset = () => {
+        setResults({});
+        setCurrentStep(-1);
+    };
 
-        if (whr <= optimalWhr) {
-            bioAgeModifier -= 1.5; // Бонус за хорошее распределение жира (отсутствие висцерального жира)
-            whrCategory = t('whrLow');
-            whrColor = 'text-green-500';
-            whrBgColor = 'bg-green-500';
-        } else if (whr <= moderateWhr) {
-            bioAgeModifier += (whr - optimalWhr) * 15;
-            whrCategory = t('whrModerate');
-            whrColor = 'text-yellow-500';
-            whrBgColor = 'bg-yellow-500';
-        } else {
-            bioAgeModifier += (whr - optimalWhr) * 30; // Высокий риск сердечно-сосудистых заболеваний
-            whrCategory = t('whrHigh');
-            whrColor = 'text-red-500';
-            whrBgColor = 'bg-red-500';
-        }
-
-        // Итоговый биологический возраст
-        let calculatedBioAge = age + bioAgeModifier;
-
-        // Ограничиваем результаты, чтобы они выглядели реалистично (не меньше 18 и не больше возраст+30)
-        calculatedBioAge = Math.max(18, Math.min(age + 30, calculatedBioAge));
-
-        return {
-            bioAge: Math.round(calculatedBioAge),
-            diff: Math.round(calculatedBioAge) - age,
-            bmi: bmi.toFixed(1),
-            bmiCategory,
-            bmiColor,
-            bmiBgColor,
-            whr: whr.toFixed(2),
-            whrCategory,
-            whrColor,
-            whrBgColor
-        };
-    }, [gender, age, height, weight, waist, hips, t]);
-
-    // get localized text for year differences
-    const getYearsText = (years: number) => {
-        const lastDigit = years % 10;
-        const lastTwoDigits = years % 100;
-        if (lastTwoDigits >= 11 && lastTwoDigits <= 14) return t('year5');
-        if (lastDigit === 1) return t('year1');
-        if (lastDigit >= 2 && lastDigit <= 4) return t('year2');
-        return t('year5');
+    const calculateFinalAge = () => {
+        const values = Object.values(results);
+        if (values.length === 0) return 0;
+        const sum = values.reduce((a, b) => a + b, 0);
+        return Math.round(sum / values.length);
     };
 
     const handleSave = async () => {
@@ -129,11 +86,12 @@ export default function BioAgeCalculatorPage() {
         setIsSaving(true);
         setSaveStatus('idle');
 
+        const finalAge = calculateFinalAge();
         const res = await saveTestResult({
             testType: 'bio-age',
-            score: stats.bioAge,
-            interpretation: stats.diff > 0 ? t('older') + ' ' + stats.diff : stats.diff < 0 ? t('younger') + ' ' + Math.abs(stats.diff) : t('matches'),
-            rawData: { gender, age, height, weight, waist, hips, bmi: stats.bmi, whr: stats.whr }
+            score: finalAge,
+            interpretation: `Биологический возраст: ${finalAge} лет`,
+            rawData: results // Saves individual system ages: { cardio: 46, index: ... }
         });
 
         setIsSaving(false);
@@ -146,203 +104,177 @@ export default function BioAgeCalculatorPage() {
         }
     };
 
-    // Компонент ползунка для переиспользования
-    const SliderInput = ({ label, icon: Icon, value, setValue, min, max, unit }: any) => (
-        <div className="mb-6">
-            <div className="flex justify-between items-center mb-2">
-                <label className="flex items-center text-sm font-medium text-gray-700">
-                    <Icon className="w-4 h-4 mr-2 text-indigo-500" />
-                    {label}
-                </label>
-                <div className="text-right">
-                    <input
-                        type="number"
-                        value={value}
-                        onChange={(e) => setValue(Number(e.target.value) || min)}
-                        className="w-16 p-1 text-right border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                        min={min}
-                        max={max}
-                    />
-                    <span className="ml-1 text-gray-500 text-sm">{unit}</span>
-                </div>
-            </div>
-            <input
-                type="range"
-                min={min}
-                max={max}
-                value={value}
-                onChange={(e) => setValue(Number(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-            />
-        </div>
-    );
+    const progress = (Object.keys(results).length / testConfigs.length) * 100;
 
     return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4 pt-32 sm:px-6 lg:px-8 font-sans text-gray-800">
-            <div className="max-w-4xl mx-auto space-y-6">
-
-                <div className="mb-4">
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 font-sans text-slate-800 pt-32">
+            <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl overflow-hidden transition-all duration-500 relative">
+                
+                {/* Back button is always here for navigation */}
+                <div className="absolute left-6 top-6 z-10">
                     <Link href="/diagnostics" className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-800 transition-colors text-sm font-bold">
                         <ArrowLeft size={16} /> {t('back')}
                     </Link>
                 </div>
 
-                <div className="text-center mb-10">
-                    <h1 className="text-3xl font-extrabold text-gray-900 flex items-center justify-center gap-3">
-                        <Activity className="w-8 h-8 text-indigo-600" />
-                        {t('title')}
-                    </h1>
-                    <p className="mt-2 text-gray-600 max-w-2xl mx-auto">
+                {/* Progress bar */}
+                {currentStep >= 0 && currentStep < testConfigs.length && (
+                    <div className="h-2 bg-slate-100 w-full mt-16">
+                        <div 
+                            className="h-full bg-indigo-500 transition-all duration-500 ease-out" 
+                            style={{ width: `${progress}%` }}
+                        />
+                    </div>
+                )}
+
+                <div className={`p-8 md:p-12 ${currentStep < 0 ? 'pt-20' : 'pt-12'}`}>
+                  
+                  {/* Welcome Screen */}
+                  {currentStep === -1 && (
+                    <div className="text-center space-y-6">
+                      <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Activity className="w-10 h-10 text-indigo-600" />
+                      </div>
+                      <h1 className="text-3xl font-bold text-slate-900">{t('title')}</h1>
+                      <p className="text-slate-600 leading-relaxed max-w-md mx-auto">
                         {t('subtitle')}
-                    </p>
-                </div>
-
-                <div className="flex flex-col md:flex-row gap-6">
-                    {/* Левая панель: Ввод данных */}
-                    <div className="flex-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <h2 className="text-xl font-bold mb-6 text-gray-800 border-b pb-2">{t('paramsTitle')}</h2>
-
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">{t('gender')}</label>
-                            <div className="flex rounded-md shadow-sm">
-                                <button
-                                    type="button"
-                                    onClick={() => setGender('male')}
-                                    className={`flex-1 px-4 py-2 text-sm font-medium rounded-l-md border ${gender === 'male'
-                                        ? 'bg-indigo-50 border-indigo-500 text-indigo-700 z-10'
-                                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                                        }`}
-                                >
-                                    {t('male')}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setGender('female')}
-                                    className={`flex-1 px-4 py-2 text-sm font-medium rounded-r-md border-y border-r ${gender === 'female'
-                                        ? 'bg-indigo-50 border-indigo-500 text-indigo-700 z-10'
-                                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                                        }`}
-                                >
-                                    {t('female')}
-                                </button>
-                            </div>
-                        </div>
-
-                        <SliderInput label={t('age')} icon={User} value={age} setValue={setAge} min={18} max={100} unit={t('unitYears')} />
-                        <SliderInput label={t('height')} icon={Ruler} value={height} setValue={setHeight} min={120} max={220} unit={t('unitCm')} />
-                        <SliderInput label={t('weight')} icon={Weight} value={weight} setValue={setWeight} min={30} max={200} unit={t('unitKg')} />
-                        <SliderInput label={t('waist')} icon={Scale} value={waist} setValue={setWaist} min={40} max={150} unit={t('unitCm')} />
-                        <SliderInput label={t('hips')} icon={Scale} value={hips} setValue={setHips} min={50} max={180} unit={t('unitCm')} />
+                      </p>
+                      <button 
+                        onClick={handleStart}
+                        className="inline-flex items-center px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-2xl transition-colors shadow-lg shadow-indigo-200"
+                      >
+                        {t('introBtn')}
+                        <ChevronRight className="ml-2 w-5 h-5" />
+                      </button>
                     </div>
+                  )}
 
-                    {/* Правая панель: Результаты */}
-                    <div className="flex-1 space-y-6">
+                  {/* Test Steps */}
+                  {currentTest && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                      <div className="flex items-center space-x-4">
+                        <div className={`p-3 rounded-2xl ${currentTest.bg}`}>
+                          {React.createElement(currentTest.icon, { className: `w-6 h-6 ${currentTest.color}` })}
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider">
+                            {t('stepText')} {currentStep + 1} {t('stepOf')} {testConfigs.length}
+                          </span>
+                          <h2 className="text-2xl font-bold text-slate-900">{t(`tests.${currentTest.id}.title`)}</h2>
+                        </div>
+                      </div>
 
-                        {/* Карточка главного результата */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center relative overflow-hidden">
-                            <div className={`absolute top-0 w-full h-2 ${stats.diff > 0 ? 'bg-red-500' : stats.diff < 0 ? 'bg-green-500' : 'bg-blue-500'}`}></div>
-                            <h2 className="text-lg font-medium text-gray-500 mb-2 mt-4">{t('bioAgeTitle')}</h2>
+                      <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                        <h3 className="font-semibold mb-2 text-slate-700">{t('instruction')}</h3>
+                        <p className="text-slate-600 leading-relaxed italic">
+                          {t(`tests.${currentTest.id}.instr`)}
+                        </p>
+                      </div>
 
-                            <div className="flex items-end justify-center gap-2 mb-4">
-                                <span className="text-7xl font-black text-gray-900 tracking-tight">{stats.bioAge}</span>
-                                <span className="text-xl text-gray-500 mb-2">{t('unitYears')}</span>
+                      <div className="grid grid-cols-1 gap-3">
+                        {t.raw(`tests.${currentTest.id}.options`).map((lbl: string, idx: number) => {
+                            const age = currentTest.ages[idx];
+                            const isSelected = results[currentTest.id] === age;
+                            return (
+                              <button
+                                key={idx}
+                                onClick={() => handleSelect(currentTest.id, age)}
+                                className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all text-left ${
+                                  isSelected 
+                                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700' 
+                                  : 'border-slate-100 hover:border-indigo-200 hover:bg-slate-50'
+                                }`}
+                              >
+                                <span className="font-medium">{lbl}</span>
+                                {isSelected && <CheckCircle2 className="w-5 h-5 text-indigo-500" />}
+                              </button>
+                            );
+                        })}
+                      </div>
+
+                      <div className="flex justify-between pt-4 border-t border-slate-100">
+                        <button 
+                          onClick={() => setCurrentStep(prev => prev - 1)}
+                          className="flex items-center text-slate-400 hover:text-slate-600 transition-colors font-medium"
+                        >
+                          <ChevronLeft className="mr-1 w-5 h-5" />
+                          {t('backStep')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Result Screen */}
+                  {currentStep === testConfigs.length && (
+                    <div className="text-center space-y-8 animate-in zoom-in-95 duration-700">
+                      <div>
+                        <h2 className="text-xl font-medium text-slate-500 mb-2">{t('resultTitle')}</h2>
+                        <div className="inline-block relative">
+                          <span className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-br from-indigo-600 to-purple-600">
+                            {calculateFinalAge()}
+                          </span>
+                          <span className="text-2xl font-bold text-indigo-400 ml-2">{t('years')}</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                        {testConfigs.map((test) => (
+                          <div key={test.id} className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between border border-slate-100">
+                            <div className="flex items-center space-x-3">
+                              <div className="scale-75">
+                                {React.createElement(test.icon, { className: `w-6 h-6 ${test.color}` })}
+                              </div>
+                              <span className="text-sm font-medium text-slate-600 truncate max-w-[120px] md:max-w-none">{t(`tests.${test.id}.title`)}</span>
                             </div>
+                            <span className="font-bold text-indigo-600">{results[test.id]} {t('years')}</span>
+                          </div>
+                        ))}
+                      </div>
 
-                            <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-bold ${stats.diff > 0 ? 'bg-red-100 text-red-700' : stats.diff < 0 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                                }`}>
-                                {stats.diff > 0 ? (
-                                    <>{t('older')} {stats.diff} {getYearsText(stats.diff)}</>
-                                ) : stats.diff < 0 ? (
-                                    <>{t('younger')} {Math.abs(stats.diff)} {getYearsText(Math.abs(stats.diff))}</>
+                      <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100">
+                        <p className="text-indigo-800 text-sm italic">
+                          {t('disclaimer')}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col gap-3">
+                        {isAuthenticated && (
+                            <button
+                                onClick={handleSave}
+                                disabled={isSaving || saveStatus === 'success'}
+                                className={`
+                                    w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-bold text-sm transition-all duration-300 shadow-lg
+                                    ${saveStatus === 'success'
+                                        ? 'bg-green-600 text-white shadow-green-100'
+                                        : saveStatus === 'error'
+                                            ? 'bg-red-50 text-red-600 border border-red-200'
+                                            : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100'
+                                    }
+                                `}
+                            >
+                                {isSaving ? (
+                                    <><Loader2 size={18} className="animate-spin" /> {t('saving')}</>
+                                ) : saveStatus === 'success' ? (
+                                    <><CheckCircle2 size={18} /> {t('saved')}</>
+                                ) : saveStatus === 'error' ? (
+                                    <><AlertCircle size={18} /> Error</>
                                 ) : (
-                                    <>{t('matches')}</>
+                                    <><Save size={18} /> {t('saveBtn')}</>
                                 )}
-                            </div>
+                            </button>
+                        )}
 
-                            {/* Save Button Action */}
-                            {isAuthenticated && (
-                                <div className="mt-8 w-full border-t border-gray-100 pt-6">
-                                    <button
-                                        onClick={handleSave}
-                                        disabled={isSaving || saveStatus === 'success'}
-                                        className={`w-full
-                                            flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all duration-300
-                                            ${saveStatus === 'success'
-                                                ? 'bg-brand-leaf text-white shadow-md'
-                                                : saveStatus === 'error'
-                                                    ? 'bg-red-50 text-red-600 border border-red-200'
-                                                    : 'bg-brand-forest hover:bg-brand-leaf text-white shadow-[0_4px_15px_rgba(42,77,65,0.15)] hover:shadow-[0_4px_20px_rgba(42,77,65,0.25)]'
-                                            }
-                                        `}
-                                    >
-                                        {isSaving ? (
-                                            <><Loader2 size={18} className="animate-spin" /> {tCommon('saving')}</>
-                                        ) : saveStatus === 'success' ? (
-                                            <><CheckCircle size={18} /> {tCommon('saved')}</>
-                                        ) : saveStatus === 'error' ? (
-                                            <><AlertCircle size={18} /> Error</>
-                                        ) : (
-                                            <><Save size={18} /> {tCommon('saveVault')}</>
-                                        )}
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Карточки метрик */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-                            {/* ИМТ */}
-                            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-bold text-gray-600 flex items-center">
-                                        <HeartPulse className="w-4 h-4 mr-1 text-gray-400" /> {t('bmiTitle')}
-                                    </h3>
-                                    <span className="text-xl font-bold">{stats.bmi}</span>
-                                </div>
-                                <div className={`text-sm font-medium ${stats.bmiColor}`}>
-                                    {stats.bmiCategory}
-                                </div>
-                                <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5">
-                                    <div className={`h-1.5 rounded-full ${stats.bmiBgColor}`} style={{ width: `${Math.min(100, (Number(stats.bmi) / 40) * 100)}%` }}></div>
-                                </div>
-                            </div>
-
-                            {/* Соотношение талии и бедер */}
-                            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-bold text-gray-600 flex items-center">
-                                        <Activity className="w-4 h-4 mr-1 text-gray-400" /> {t('whrTitle')}
-                                    </h3>
-                                    <span className="text-xl font-bold">{stats.whr}</span>
-                                </div>
-                                <div className={`text-sm font-medium ${stats.whrColor}`}>
-                                    {stats.whrCategory}
-                                </div>
-                                <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5">
-                                    <div className={`h-1.5 rounded-full ${stats.whrBgColor}`} style={{ width: `${Math.min(100, (Number(stats.whr) / 1.5) * 100)}%` }}></div>
-                                </div>
-                            </div>
-
-                        </div>
-
-                        {/* Информационная справка */}
-                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-start gap-3">
-                            <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                            <div className="text-sm text-blue-800">
-                                <p className="font-semibold mb-1">{t('infoTitle')}</p>
-                                <p>
-                                    {t('infoDesc1')}
-                                </p>
-                                <p className="mt-2 text-xs opacity-75">
-                                    {t('infoDesc2')}
-                                </p>
-                            </div>
-                        </div>
-
+                        <button 
+                          onClick={handleReset}
+                          className="inline-flex items-center justify-center px-6 py-4 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-2xl transition-all shadow-lg"
+                        >
+                          <RotateCcw className="mr-2 w-5 h-5" />
+                          {t('restart')}
+                        </button>
+                      </div>
                     </div>
+                  )}
                 </div>
-
             </div>
         </div>
     );

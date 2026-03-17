@@ -460,40 +460,58 @@
     "restart": "Restart Assessment"
   },
   "BioAgeCalculator": {
-    "title": "Biological Age Calculator",
-    "subtitle": "Find out how young your body is compared to your chronological age, based on your body parameters.",
-    "paramsTitle": "Your Parameters",
-    "gender": "Gender",
-    "male": "Male",
-    "female": "Female",
-    "age": "Age",
-    "height": "Height",
-    "weight": "Weight",
-    "waist": "Waist Circumference",
-    "hips": "Hip Circumference",
-    "unitYears": "years",
-    "unitCm": "cm",
-    "unitKg": "kg",
-    "bioAgeTitle": "Your Biological Age",
-    "older": "Older than passport by",
-    "younger": "Younger than passport by",
-    "matches": "Matches your passport age",
-    "year1": "year",
-    "year2": "years",
-    "year5": "years",
-    "bmiTitle": "BMI",
-    "whrTitle": "WHR",
-    "bmiUnderweight": "Underweight",
-    "bmiNormal": "Normal weight",
-    "bmiOverweight": "Overweight",
-    "bmiObese": "Obesity",
-    "whrLow": "Low Risk (Normal)",
-    "whrModerate": "Moderate Risk",
-    "whrHigh": "High Risk",
-    "infoTitle": "How does it work?",
-    "infoDesc1": "The calculation is based on the Body Mass Index (BMI) and Waist-to-Hip Ratio (WHR). Excess weight and especially fat accumulation around the waist (visceral fat) are associated with an increased risk of metabolic diseases, which mathematically \"adds\" years to you.",
-    "infoDesc2": "Note: this calculator uses a generalized statistical formula and is not a medical diagnosis.",
-    "back": "Back to Diagnostics"
+    "title": "Your Biological Age",
+    "subtitle": "Biological age shows the condition of your body and its systems. Take 7 simple tests to find out how many years your body feels.",
+    "introBtn": "Start Testing",
+    "stepText": "Test",
+    "stepOf": "of",
+    "instruction": "Instruction:",
+    "back": "Back to Diagnostics",
+    "restart": "Retake Test",
+    "resultTitle": "Your Average Biological Age",
+    "years": "years",
+    "disclaimer": "*This test is an assessment and does not replace a medical examination. Regular physical activity and a balanced diet are recommended to maintain youth.",
+    "backStep": "Back",
+    "saveBtn": "Save to Vault",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "tests": {
+      "cardio": {
+        "title": "Cardiovascular System",
+        "instr": "1. Measure resting pulse. 2. Do 60 squats in 1 minute. 3. Measure pulse again. Count the difference (how many beats it increased).",
+        "options": ["5–10 beats", "11–15 beats", "16–21 beats", "22–28 beats", "28–35 beats", "36–45 beats"]
+      },
+      "flexibility": {
+        "title": "Muscle Flexibility",
+        "instr": "Stand straight, feet together. Lean forward without bending knees. How deep could you bend?",
+        "options": ["Placed whole palm", "Reached with fingertips", "Did not reach floor (up to 5 cm)", "Short by 5–10 cm", "Short by 11–20 cm", "Back pain or dizziness"]
+      },
+      "reaction": {
+        "title": "Reaction Speed",
+        "instr": "Take 10 peas. Lift one hand high, hold the second low. Release peas from top and catch with bottom hand. How many caught?",
+        "options": ["10 pieces", "7–9 pieces", "4–6 pieces", "2–3 pieces", "1 piece", "None"]
+      },
+      "coordination": {
+        "title": "Coordination",
+        "instr": "Stand on tiptoes, feet shoulder-width apart, eyes closed, hands up. How many seconds did you maintain balance?",
+        "options": ["40 seconds or more", "30–40 seconds", "20–30 seconds", "10–20 seconds", "5–10 seconds"]
+      },
+      "vestibular": {
+        "title": "Vestibular Apparatus",
+        "instr": "Make 60 rotations around your axis. Time how long it takes for dizziness to completely pass.",
+        "options": ["3–5 sec.", "5–7 sec.", "7–9 sec.", "9–10 sec.", "10–15 sec.", "More than 15 sec."]
+      },
+      "skin": {
+        "title": "Skin Elasticity",
+        "instr": "Pinch the skin on the back of your hand hard and hold for 5 seconds. In how many seconds does the pinch mark disappear?",
+        "options": ["2–3 sec.", "3–5 sec.", "5–7 sec.", "7–10 sec.", "More than 10 sec."]
+      },
+      "joints": {
+        "title": "Condition of Joints",
+        "instr": "Bring one hand behind back from top, the other from bottom. Try to lock fingers. Repeat, changing hands.",
+        "options": ["Confident lock on both sides", "Fingertips on both sides", "Lock on only one side", "Short by 10–15 cm", "Short by 15–20 cm", "Felt pain"]
+      }
+    }
   },
   "Dashboard": {
     "Sidebar": {

@@ -101,7 +101,8 @@ export default async function ClientDashboardPage() {
             testResults = sbResults.map(r => ({
                 test_type: r.test_type,
                 score: r.score,
-                interpretation: r.interpretation
+                interpretation: r.interpretation,
+                rawData: r.rawData
             }));
 
             if (dbUser && (dbUser as any).accessPermissions.length > 0) {

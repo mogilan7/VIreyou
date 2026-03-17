@@ -4,7 +4,7 @@ import React from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { useDashboardTheme } from '../ThemeContext';
 
-const data = [
+const defaultData = [
     { subject: 'ССС', A: 46, fullMark: 65 },
     { subject: 'Мышцы', A: 35, fullMark: 65 },
     { subject: 'Реакция', A: 35, fullMark: 65 },
@@ -14,7 +14,8 @@ const data = [
     { subject: 'Суставы', A: 37, fullMark: 65 },
 ];
 
-export default function BioAgeRadar() {
+export default function BioAgeRadar({ data }: { data?: any[] }) {
+    const renderData = data && data.length > 0 ? data : defaultData;
     const { theme } = useDashboardTheme();
     const isDark = theme === 'dark';
 
@@ -26,7 +27,7 @@ export default function BioAgeRadar() {
 
     return (
         <ResponsiveContainer width="100%" height="100%">
-            <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
+            <RadarChart cx="50%" cy="50%" outerRadius="70%" data={renderData}>
                 <PolarGrid stroke={gridColor} />
                 <PolarAngleAxis
                     dataKey="subject"

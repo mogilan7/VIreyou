@@ -161,6 +161,17 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
     const sarcF = getLatestTest('sarc-f');
     const energy = getLatestTest('energy');
     const bioAge = getLatestTest('bio-age');
+    const bioAgeRaw = bioAge?.rawData || {}; // Contains { cardio: 30, ... }
+
+    const radarData = [
+        { subject: 'ССС', A: bioAgeRaw.cardio || 46, fullMark: 65 },
+        { subject: 'Мышцы', A: bioAgeRaw.flexibility || 35, fullMark: 65 },
+        { subject: 'Реакция', A: bioAgeRaw.reaction || 35, fullMark: 65 },
+        { subject: 'Коорд.', A: bioAgeRaw.coordination || 30, fullMark: 65 },
+        { subject: 'Вестиб.', A: bioAgeRaw.vestibular || 60, fullMark: 65 },
+        { subject: 'Кожа', A: bioAgeRaw.skin || 35, fullMark: 65 },
+        { subject: 'Суставы', A: bioAgeRaw.joints || 37, fullMark: 65 },
+    ];
 
     const accentColor = theme === 'dark' ? 'text-teal-400' : 'text-brand-leaf';
     const accentBg = theme === 'dark' ? 'bg-teal-400' : 'bg-brand-leaf';
@@ -449,20 +460,20 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                             <div className="dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl p-8 shadow-md lg:col-span-1 transition-colors duration-300">
                                 <h3 className="text-sm font-bold dark:text-slate-300 text-brand-text uppercase mb-8">Системный Биовозраст</h3>
                                 <div className="h-72">
-                                    <BioAgeRadar />
+                                    <BioAgeRadar data={radarData} />
                                 </div>
                             </div>
 
                             <div className="lg:col-span-2 space-y-6">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                                     {[
-                                        { label: 'Сердечно-сосуд.', value: '46', color: 'text-amber-500', status: 'В зоне риска' },
-                                        { label: 'Гибкость', value: '35', color: accentColor },
-                                        { label: 'Реакция', value: '35', color: accentColor },
-                                        { label: 'Координация', value: '30', color: accentColor },
-                                        { label: 'Вестиб. апп.', value: '60', color: 'text-amber-500' },
-                                        { label: 'Кожа', value: '35', color: accentColor },
-                                        { label: 'Суставы', value: '37', color: accentColor },
+                                        { label: 'Сердечно-сосуд.', value: bioAgeRaw.cardio || '46', color: bioAgeRaw.cardio > 45 ? 'text-amber-500' : accentColor, status: bioAgeRaw.cardio > 45 ? 'В зоне риска' : '' },
+                                        { label: 'Мышцы', value: bioAgeRaw.flexibility || '35', color: accentColor, status: '' },
+                                        { label: 'Реакция', value: bioAgeRaw.reaction || '35', color: accentColor, status: '' },
+                                        { label: 'Координация', value: bioAgeRaw.coordination || '30', color: accentColor, status: '' },
+                                        { label: 'Вестиб. апп.', value: bioAgeRaw.vestibular || '60', color: bioAgeRaw.vestibular > 50 ? 'text-amber-500' : accentColor, status: bioAgeRaw.vestibular > 50 ? 'В зоне риска' : '' },
+                                        { label: 'Кожа', value: bioAgeRaw.skin || '35', color: accentColor, status: '' },
+                                        { label: 'Суставы', value: bioAgeRaw.joints || '37', color: accentColor, status: '' },
                                     ].map((stat, i) => (
                                         <div key={i} className="p-4 dark:bg-slate-900/40 bg-brand-sage/10 rounded-xl border dark:border-white/5 border-brand-sage/20 transition-colors duration-300">
                                             <p className="text-[10px] opacity-40 uppercase mb-2">{stat.label}</p>
