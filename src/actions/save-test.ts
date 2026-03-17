@@ -45,6 +45,7 @@ export async function saveTestResult({
 
     // 3. Revalidate the cabinet page so the new result shows up
     revalidatePath('/[locale]/cabinet', 'page')
+    revalidatePath('/[locale]/cabinet/results', 'page')
 
     return { success: true }
 }

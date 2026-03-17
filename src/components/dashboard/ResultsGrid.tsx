@@ -128,9 +128,8 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
         switch (type) {
             case 'bio-age':
             case 'systemic-bio-age':
-            case 'greene-scale':
                 return {
-                    icon: type === 'greene-scale' ? <Brain className="w-6 h-6 dark:text-teal-400 text-brand-leaf" /> : <Activity className="w-6 h-6 dark:text-teal-400 text-brand-leaf" />,
+                    icon: <Activity className="w-6 h-6 dark:text-teal-400 text-brand-leaf" />,
                     color: 'dark:bg-teal-400/10 bg-brand-leaf/10 dark:border-teal-400/30 border-brand-leaf/30 dark:text-teal-400 text-brand-leaf',
                     severityColor: 'dark:text-teal-400 text-brand-leaf',
                     statusColor: 'dark:bg-teal-400 bg-brand-leaf'
@@ -180,6 +179,24 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
                 else severity = 'ok';
                 break;
 
+            case 'ipss':
+                if (score >= 20) severity = 'danger';
+                else if (score >= 8) severity = 'warn';
+                else severity = 'ok';
+                break;
+
+            case 'mief-5':
+                if (score <= 10) severity = 'danger';
+                else if (score <= 20) severity = 'warn';
+                else severity = 'ok';
+                break;
+
+            case 'greene-scale':
+                if (score >= 20) severity = 'danger';
+                else if (score >= 12) severity = 'warn';
+                else severity = 'ok';
+                break;
+
             default:
                 return {
                     icon: <ShieldAlert className="w-6 h-6 dark:text-slate-400 text-brand-gray" />,
@@ -225,6 +242,9 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
             case 'nicotine': return <Cigarette className={`w-6 h-6 ${colorClass}`} />;
             case 'energy': return <Flame className={`w-6 h-6 ${colorClass}`} />;
             case 'sarc-f': return <Activity className={`w-6 h-6 ${colorClass}`} />;
+            case 'ipss': return <Activity className={`w-6 h-6 ${colorClass}`} />;
+            case 'mief-5': return <Activity className={`w-6 h-6 ${colorClass}`} />;
+            case 'greene-scale': return <Brain className={`w-6 h-6 ${colorClass}`} />;
             default: return <ShieldAlert className={`w-6 h-6 text-brand-gray`} />;
         }
     };

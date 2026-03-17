@@ -682,7 +682,9 @@
                 "nicotine": "Nicotine Assessment",
                 "energy": "Energy Expenditure Calculation",
                 "sarc-f": "SARC-F Questionnaire (Sarcopenia)",
-                "greene-scale": "Greene Climacteric Scale"
+                "greene-scale": "Greene Climacteric Scale",
+                "ipss": "IPSS Questionnaire (Prostate Symptoms)",
+                "mief-5": "MIEF-5 Questionnaire (Erectile Function)"
             }
         },
         "Specialist": {
