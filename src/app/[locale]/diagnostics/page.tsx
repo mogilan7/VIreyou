@@ -12,7 +12,8 @@ import {
     FileText,
     Lock,
     Check,
-    Cigarette
+    Cigarette,
+    BrainCircuit
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
@@ -183,6 +184,18 @@ export default function DiagnosticsPage() {
                                 <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><Hourglass size={20} className="fill-brand-leaf/20" /></div>
                                 <h4 className="font-bold text-sm text-brand-text mb-2">{t('p8Title')}</h4>
                                 <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p8Desc')}</p>
+                                <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
+                                    {t('evalText')}
+                                </div>
+                            </div>
+                        </Link>
+
+                        {/* Card 9 - Greene Climacteric Scale */}
+                        <Link href="/diagnostics/greene-scale" className="block outline-none">
+                            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
+                                <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><BrainCircuit size={20} className="fill-brand-leaf/20" /></div>
+                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p9Title')}</h4>
+                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p9Desc')}</p>
                                 <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
                                     {t('evalText')}
                                 </div>

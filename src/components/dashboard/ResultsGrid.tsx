@@ -128,8 +128,9 @@ export default function ResultsGrid({ results }: { results: TestResult[] }) {
         switch (type) {
             case 'bio-age':
             case 'systemic-bio-age':
+            case 'greene-scale':
                 return {
-                    icon: <Activity className="w-6 h-6 dark:text-teal-400 text-brand-leaf" />,
+                    icon: type === 'greene-scale' ? <Brain className="w-6 h-6 dark:text-teal-400 text-brand-leaf" /> : <Activity className="w-6 h-6 dark:text-teal-400 text-brand-leaf" />,
                     color: 'dark:bg-teal-400/10 bg-brand-leaf/10 dark:border-teal-400/30 border-brand-leaf/30 dark:text-teal-400 text-brand-leaf',
                     severityColor: 'dark:text-teal-400 text-brand-leaf',
                     statusColor: 'dark:bg-teal-400 bg-brand-leaf'

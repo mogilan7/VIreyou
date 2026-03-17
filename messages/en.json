@@ -135,6 +135,8 @@
     "p7Desc": "Screening for risk of sarcopenia (age-related loss of muscle mass and strength).",
     "p8Title": "Systemic Bio-Age",
     "p8Desc": "Comprehensive assessment of 7 body systems across 14 indicators. Prime aging panel test.",
+    "p9Title": "Greene Scale",
+    "p9Desc": "Clinical assessment of climacteric syndrome and menopausal symptom severity.",
     "lckText": "Locked Premium Access",
     "evalText": "FULL EVALUATION",
     "deepTag": "Expert Guidance",
@@ -628,7 +630,8 @@
         "RU-AUDIT": "RUS-AUDIT Alcohol Screen",
         "nicotine": "Nicotine Assessment",
         "energy": "Energy Expenditure Calculation",
-        "sarc-f": "SARC-F Questionnaire (Sarcopenia)"
+        "sarc-f": "SARC-F Questionnaire (Sarcopenia)",
+        "greene-scale": "Greene Climacteric Scale"
       }
     },
     "Specialist": {
@@ -996,5 +999,58 @@
     "warningDesc": "This list is a preliminary AI recommendation. The final decision should be made by a specialist during an in-person appointment.",
     "backBtn": "Back",
     "nextBtn": "Next"
+  },
+  "GreeneScale": {
+    "title": "Greene Scale",
+    "subtitle": "Assessment of climacteric syndrome severity",
+    "aboutTitle": "About the questionnaire",
+    "aboutDesc": "The Greene Climacteric Scale helps assess and quantify menopausal symptoms. Please indicate the extent to which you have being bothered by the following symptoms during the past week.",
+    "totalScore": "Total Score",
+    "resultsTitle": "Your Results",
+    "resultsDesc": "Scores by domains of the Greene Scale",
+    "psychological": "Psychological symptoms",
+    "somatic": "Somatic (Physical) symptoms",
+    "disclaimer": "Please note: This questionnaire is a screening tool and does not replace consultation with a physician.",
+    "restart": "Start Over",
+    "saveBtn": "Save to Medical Archive",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "back": "Back",
+    "options": [
+      { "label": "None", "desc": "Symptom is not present" },
+      { "label": "Mild", "desc": "Mild presentation" },
+      { "label": "Moderate", "desc": "Moderate presentation" },
+      { "label": "Severe", "desc": "Severe presentation" }
+    ],
+    "domains": {
+      "anxiety": "Anxiety",
+      "depression": "Depression",
+      "somatic": "Somatic",
+      "vasomotor": "Vasomotor",
+      "sexual": "Sexual"
+    },
+    "questions": {
+      "q1": "Do you feel your heart beating quickly or strongly?",
+      "q2": "Do you feel tense or nervous?",
+      "q3": "Do you have difficulty sleeping? (Either getting to sleep or waking up in the night?)",
+      "q4": "Do you often feel excitable?",
+      "q5": "Are you anxious or experiencing panic attacks?",
+      "q6": "Do you have difficulty concentrating?",
+      "q7": "Are you tired or lacking in energy during the day?",
+      "q8": "Have you experienced a lack of interest in things and activities?",
+      "q9": "Do you often feel unhappy or depressed?",
+      "q10": "Are you experiencing crying spells in your day-to-day life?",
+      "q11": "Are you irritable with your family, friends, or contacts?",
+      "q12": "Do you get dizzy or feel like you are close to fainting?",
+      "q13": "Do you feel pressure or a tightness in your head/body?",
+      "q14": "Do parts of your body feel numb or tingling?",
+      "q15": "Are you experiencing headaches?",
+      "q16": "Do you feel pains or aches in your muscles and/or joints?",
+      "q17": "Do you ever experience a loss of feeling or numbness in your hands and feet?",
+      "q18": "Do you have difficulty breathing?",
+      "q19": "Are you experiencing hot flushes?",
+      "q20": "Do you sweat during the night (night sweats)?",
+      "q21": "Has your libido changed? Have you lost interest in sex?"
+    }
   }
 }

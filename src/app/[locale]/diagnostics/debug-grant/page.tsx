@@ -4,10 +4,11 @@ export default async function DebugGrantPage() {
     const prisma = new PrismaClient();
     let res = "";
     try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE test_results DROP CONSTRAINT IF EXISTS test_results_test_type_check;`);
+        await prisma.$executeRawUnsafe(`ALTER TABLE test_results ADD CONSTRAINT test_results_test_type_check CHECK (test_type = ANY (ARRAY['bio-age'::text, 'score'::text, 'circadian'::text, 'insomnia'::text, 'mini-cog'::text, 'RU-AUDIT'::text, 'nicotine'::text, 'energy'::text, 'sarc-f'::text, 'systemic-bio-age'::text, 'greene-scale'::text]));`);
         await prisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO authenticated, anon;`);
         await prisma.$executeRawUnsafe(`GRANT ALL ON TABLE test_results TO authenticated, anon;`);
-        await prisma.$executeRawUnsafe(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, anon;`);
-        res = "Success! Permissions granted on all statements.";
+        res = "Success! Database Check Constraint updated with 'greene-scale', and permissions granted.";
     } catch (e: any) {
         res = `Error: ${e.message}`;
     } finally {
