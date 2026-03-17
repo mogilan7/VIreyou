@@ -1118,17 +1118,22 @@
         "interpretation": {
             "low": {
                 "label": "Mild symptoms",
-                "desc": "Your scores indicate a mild degree of climacteric syndrome or its absence. Symptoms do not significantly affect the quality of life."
+                "desc": "Your scores indicate a mild degree of climacteric syndrome or its absence. Symptoms do not significantly affect the quality of life.",
+                "range": "0 - 11"
             },
             "medium": {
                 "label": "Moderate symptoms",
-                "desc": "Climacteric syndrome of moderate severity. Symptoms may cause discomfort. A scheduled consultation with a specialist is recommended to discuss relief methods."
+                "desc": "Climacteric syndrome of moderate severity. Symptoms may cause discomfort. A scheduled consultation with a specialist is recommended to discuss relief methods.",
+                "range": "12 - 19"
             },
             "high": {
                 "label": "Severe symptoms",
-                "desc": "Severe climacteric syndrome, significantly affecting the quality of life and well-being. It is strongly recommended to consult a doctor to select corrective therapy."
+                "desc": "Severe climacteric syndrome, significantly affecting the quality of life and well-being. It is strongly recommended to consult a doctor to select corrective therapy.",
+                "range": "20 and more"
             }
-        }
+        },
+        "interpretationTitle": "Full Ranges Breakdown",
+        "pointsLabel": "points"
     },
     "IPSS": {
         "title": "IPSS Questionnaire",

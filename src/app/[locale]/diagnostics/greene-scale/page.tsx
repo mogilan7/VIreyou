@@ -14,7 +14,8 @@ import {
   Save,
   Loader2,
   AlertCircle,
-  ClipboardList
+  ClipboardList,
+  List
 } from 'lucide-react';
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
@@ -361,6 +362,32 @@ export default function GreeneScalePage() {
                                         {renderScoreBar('somatic', scores.somatic)}
                                         {renderScoreBar('vasomotor', scores.vasomotor)}
                                         {renderScoreBar('sexual', scores.sexual)}
+                                    </div>
+                                </div>
+
+                                {/* Interpretation Summary Table */}
+                                <div className="mt-8 pt-6 border-t border-slate-100">
+                                    <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                        <List className="w-5 h-5 text-indigo-400" />
+                                        {t('interpretationTitle')}
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {['low', 'medium', 'high'].map((key) => {
+                                            const style = INTERPRETATION_STYLES[key as keyof typeof INTERPRETATION_STYLES];
+                                            return (
+                                                <div key={key} className={`p-4 rounded-xl border ${style.borderClass} ${style.bgClass} transition-all duration-300 hover:shadow-sm`}>
+                                                    <div className={`text-xs font-bold ${style.colorClass} mb-2`}>
+                                                        {t(`interpretation.${key}.range`)} {t('pointsLabel')}
+                                                    </div>
+                                                    <div className="text-sm font-bold text-slate-800 mb-1">
+                                                        {t(`interpretation.${key}.label`)}
+                                                    </div>
+                                                    <div className="text-xs text-slate-600 leading-relaxed">
+                                                        {t(`interpretation.${key}.desc`)}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
