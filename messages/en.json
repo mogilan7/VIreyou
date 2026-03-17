@@ -145,7 +145,9 @@
         "btnDeep1": "Book a Consultation",
         "btnDeep2": "View All Services",
         "badge1": "Professional Analysis",
-        "badge2": "Personalized Longevity Plans"
+        "badge2": "Personalized Longevity Plans",
+        "p10Title": "IPSS Questionnaire",
+        "p10Desc": "International Prostate Symptom Score for prostate symptoms assessment."
     },
     "EnergyCalculator": {
         "title": "Interactive Energy Expenditure Calculator",
@@ -1123,6 +1125,67 @@
             "high": {
                 "label": "Severe symptoms",
                 "desc": "Severe climacteric syndrome, significantly affecting the quality of life and well-being. It is strongly recommended to consult a doctor to select corrective therapy."
+            }
+        }
+    },
+    "IPSS": {
+        "title": "IPSS Questionnaire",
+        "subtitle": "International Prostate Symptom Score",
+        "aboutTitle": "About the questionnaire",
+        "aboutDesc": "Please answer the questions by choosing the one option that best describes your condition.",
+        "totalScore": "Total IPSS Score",
+        "qolScore": "Quality of Life Index (QoL)",
+        "qolDesc": "Your attitude towards existing symptoms",
+        "disclaimer": "This questionnaire is a screening tool. For an accurate diagnosis, be sure to consult a urologist.",
+        "questions": {
+            "q1": "1. Over the past month, how often have you had a sensation of not emptying your bladder completely after you finished urinating?",
+            "q2": "2. Over the past month, how often have you had to urinate again less than two hours after you finished urinating?",
+            "q3": "3. Over the past month, how often have you found you stopped and started again several times when you urinated?",
+            "q4": "4. Over the past month, how often have you found it difficult to postpone urination?",
+            "q5": "5. Over the past month, how often have you had a weak urinary stream?",
+            "q6": "6. Over the past month, how often have you had to push or strain to begin urination?",
+            "q7": "7. Over the past month, how many times did you most typically get up to urinate from the time you went to bed at night until the time you got up in the morning?",
+            "q8": "8. If you were to spend the rest of your life with your urinary condition just the way it is now, how would you feel about that?"
+        },
+        "options": {
+            "standard": [
+                "Not at all",
+                "Less than 1 time in 5",
+                "Less than half the time",
+                "About half the time",
+                "More than half the time",
+                "Almost always"
+            ],
+            "nocturia": [
+                "None",
+                "1 time",
+                "2 times",
+                "3 times",
+                "4 times",
+                "5 or more times"
+            ],
+            "qol": [
+                "Delighted",
+                "Pleased",
+                "Mostly satisfied",
+                "Mixed",
+                "Mostly dissatisfied",
+                "Unhappy",
+                "Terrible"
+            ]
+        },
+        "interpretation": {
+            "low": {
+                "label": "Mild symptoms",
+                "desc": "The patient is shown further observation, symptomatic therapy may be prescribed."
+            },
+            "medium": {
+                "label": "Moderate symptoms",
+                "desc": "The patient is shown further examination to select drugs for conservative treatment."
+            },
+            "high": {
+                "label": "Severe symptoms",
+                "desc": "The patient is shown active treatment, further examination to decide on surgical or complex drug intervention."
             }
         }
     }
