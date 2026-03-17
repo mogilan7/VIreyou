@@ -4,12 +4,10 @@ export default async function DebugGrantPage() {
     const prisma = new PrismaClient();
     let res = "";
     try {
-        const count = await prisma.$executeRawUnsafe(`
-            GRANT USAGE ON SCHEMA public TO authenticated, anon;
-            GRANT ALL ON TABLE test_results TO authenticated, anon;
-            GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, anon;
-        `);
-        res = `Success! Rows affected: ${count}`;
+        await prisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO authenticated, anon;`);
+        await prisma.$executeRawUnsafe(`GRANT ALL ON TABLE test_results TO authenticated, anon;`);
+        await prisma.$executeRawUnsafe(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, anon;`);
+        res = "Success! Permissions granted on all statements.";
     } catch (e: any) {
         res = `Error: ${e.message}`;
     } finally {
