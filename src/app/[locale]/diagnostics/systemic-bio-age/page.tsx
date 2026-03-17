@@ -32,6 +32,7 @@ export default function BioAgeCalculatorPage() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [saveErrorString, setSaveErrorString] = useState<string | null>(null);
     const supabase = createClient();
 
     useEffect(() => {
@@ -85,6 +86,7 @@ export default function BioAgeCalculatorPage() {
         if (!isAuthenticated) return;
         setIsSaving(true);
         setSaveStatus('idle');
+        setSaveErrorString(null);
 
         const finalAge = calculateFinalAge();
         const res = await saveTestResult({
@@ -100,6 +102,7 @@ export default function BioAgeCalculatorPage() {
             setTimeout(() => setSaveStatus('idle'), 3000);
         } else {
             setSaveStatus('error');
+            setSaveErrorString(res?.error || 'Unknown error');
             setTimeout(() => setSaveStatus('idle'), 3000);
         }
     };
@@ -239,29 +242,34 @@ export default function BioAgeCalculatorPage() {
 
                       <div className="flex flex-col gap-3">
                         {isAuthenticated && (
-                            <button
-                                onClick={handleSave}
-                                disabled={isSaving || saveStatus === 'success'}
-                                className={`
-                                    w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-bold text-sm transition-all duration-300 shadow-lg
-                                    ${saveStatus === 'success'
-                                        ? 'bg-green-600 text-white shadow-green-100'
-                                        : saveStatus === 'error'
-                                            ? 'bg-red-50 text-red-600 border border-red-200'
-                                            : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100'
-                                    }
-                                `}
+                          <div className="space-y-2">
+                            <button 
+                              onClick={handleSave}
+                              disabled={isSaving || saveStatus === 'success'}
+                              className={`inline-flex items-center justify-center px-6 py-4 rounded-2xl font-semibold transition-all shadow-lg w-full ${
+                                saveStatus === 'success' 
+                                ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-200' 
+                                : saveStatus === 'error'
+                                ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-200'
+                                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'
+                              }`}
                             >
-                                {isSaving ? (
-                                    <><Loader2 size={18} className="animate-spin" /> {t('saving')}</>
-                                ) : saveStatus === 'success' ? (
-                                    <><CheckCircle2 size={18} /> {t('saved')}</>
-                                ) : saveStatus === 'error' ? (
-                                    <><AlertCircle size={18} /> Error</>
-                                ) : (
-                                    <><Save size={18} /> {t('saveBtn')}</>
-                                )}
+                              {isSaving ? (
+                                <><Loader2 className="mr-2 w-5 h-5 animate-spin" /> {t('saving') || 'Сохранение...'}</>
+                              ) : saveStatus === 'success' ? (
+                                <><CheckCircle2 className="mr-2 w-5 h-5" /> {t('saved') || 'Сохранено'}</>
+                              ) : (
+                                <><Save className="mr-2 w-5 h-5" /> {t('saveBtn') || 'Сохранить в мед архив'}</>
+                              )}
                             </button>
+
+                            {saveStatus === 'error' && (
+                                <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    <span>Ошибка сохранения: {saveErrorString ? `${saveErrorString}` : 'Попробуйте еще раз'}</span>
+                                </div>
+                            )}
+                          </div>
                         )}
 
                         <button 

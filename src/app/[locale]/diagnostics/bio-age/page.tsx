@@ -22,6 +22,7 @@ export default function BioAgeCalculatorPage() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [saveErrorString, setSaveErrorString] = useState<string | null>(null);
     const supabase = createClient();
 
     useEffect(() => {
@@ -128,6 +129,7 @@ export default function BioAgeCalculatorPage() {
         if (!isAuthenticated) return;
         setIsSaving(true);
         setSaveStatus('idle');
+        setSaveErrorString(null);
 
         const res = await saveTestResult({
             testType: 'bio-age',
@@ -142,6 +144,7 @@ export default function BioAgeCalculatorPage() {
             setTimeout(() => setSaveStatus('idle'), 3000);
         } else {
             setSaveStatus('error');
+            setSaveErrorString(res?.error || 'Unknown error');
             setTimeout(() => setSaveStatus('idle'), 3000);
         }
     };
@@ -266,7 +269,7 @@ export default function BioAgeCalculatorPage() {
                                         onClick={handleSave}
                                         disabled={isSaving || saveStatus === 'success'}
                                         className={`w-full
-                                            flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all duration-300
+                                            flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all duration-300
                                             ${saveStatus === 'success'
                                                 ? 'bg-brand-leaf text-white shadow-md'
                                                 : saveStatus === 'error'
@@ -279,12 +282,17 @@ export default function BioAgeCalculatorPage() {
                                             <><Loader2 size={18} className="animate-spin" /> {tCommon('saving')}</>
                                         ) : saveStatus === 'success' ? (
                                             <><CheckCircle size={18} /> {tCommon('saved')}</>
-                                        ) : saveStatus === 'error' ? (
-                                            <><AlertCircle size={18} /> Error</>
                                         ) : (
                                             <><Save size={18} /> {tCommon('saveVault')}</>
                                         )}
                                     </button>
+
+                                    {saveStatus === 'error' && (
+                                        <div className="flex items-center gap-2 p-3 mt-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs">
+                                            <AlertCircle className="w-4 h-4 shrink-0" />
+                                            <span>Ошибка сохранения: {saveErrorString ? `${saveErrorString}` : 'Попробуйте еще раз'}</span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
