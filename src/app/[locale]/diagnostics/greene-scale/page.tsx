@@ -13,12 +13,34 @@ import {
   ArrowLeft,
   Save,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  ClipboardList
 } from 'lucide-react';
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { saveTestResult } from '@/actions/save-test';
 import { createClient } from '@/utils/supabase/client';
+
+const INTERPRETATION_STYLES = {
+    low: {
+        colorClass: "text-emerald-700",
+        bgClass: "bg-emerald-50",
+        borderClass: "border-emerald-200",
+        iconClass: "text-emerald-500"
+    },
+    medium: {
+        colorClass: "text-amber-700",
+        bgClass: "bg-amber-50",
+        borderClass: "border-amber-200",
+        iconClass: "text-amber-500"
+    },
+    high: {
+        colorClass: "text-rose-700",
+        bgClass: "bg-rose-50",
+        borderClass: "border-rose-200",
+        iconClass: "text-rose-500"
+    }
+};
 
 export default function GreeneScalePage() {
     const t = useTranslations('GreeneScale');
@@ -124,6 +146,8 @@ export default function GreeneScalePage() {
 
         return result;
     }, [answers, isComplete]);
+
+    const interpretationLevel = scores ? (scores.total <= 11 ? 'low' : scores.total <= 19 ? 'medium' : 'high') : null;
 
     const handleSave = async () => {
         if (!isAuthenticated || !scores) return;
@@ -300,6 +324,23 @@ export default function GreeneScalePage() {
                                         <div className="text-4xl font-black text-slate-900 mt-1">{scores.total} <span className="text-lg text-slate-300 font-medium">/ 63</span></div>
                                     </div>
                                 </div>
+
+                                {/* Блок Интерпретации */}
+                                {interpretationLevel && (
+                                    <div className={`mb-8 p-5 rounded-2xl border ${INTERPRETATION_STYLES[interpretationLevel as keyof typeof INTERPRETATION_STYLES].borderClass} ${INTERPRETATION_STYLES[interpretationLevel as keyof typeof INTERPRETATION_STYLES].bgClass} flex items-start gap-4 transition-all animate-in fade-in slide-in-from-top-3`}>
+                                        <div className={`bg-white p-3 rounded-full shadow-sm shrink-0 ${INTERPRETATION_STYLES[interpretationLevel as keyof typeof INTERPRETATION_STYLES].iconClass}`}>
+                                            <ClipboardList className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h3 className={`text-lg font-bold ${INTERPRETATION_STYLES[interpretationLevel as keyof typeof INTERPRETATION_STYLES].colorClass} mb-1.5`}>
+                                                {t(`interpretation.${interpretationLevel}.label`)}
+                                            </h3>
+                                            <p className="text-sm text-slate-700 leading-relaxed">
+                                                {t(`interpretation.${interpretationLevel}.desc`)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Psychological Group */}
