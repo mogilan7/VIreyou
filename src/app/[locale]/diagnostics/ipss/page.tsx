@@ -315,6 +315,35 @@ export default function IpssPage() {
                                     </p>
                                 </div>
 
+                                {/* Interpretation Summary Table */}
+                                <div className="border border-slate-200 rounded-2xl p-6 bg-white shadow-sm mt-6 animate-in fade-in slide-in-from-bottom-3 duration-500">
+                                    <h3 className="text-base font-bold text-slate-800 mb-4">{t('interpretationTitle')}</h3>
+                                    <div className="space-y-3">
+                                        {[
+                                            { key: 'low', range: '0 - 7' },
+                                            { key: 'medium', range: '8 - 19' },
+                                            { key: 'high', range: '20 - 35' }
+                                        ].map(({ key, range }) => {
+                                            const style = INTERPRETATION_STYLES[key as keyof typeof INTERPRETATION_STYLES];
+                                            return (
+                                                <div key={key} className={`flex flex-col sm:flex-row gap-2 sm:gap-4 p-4 rounded-xl border ${style.borderClass} ${style.bgClass} transition-all duration-300 hover:shadow-sm`}>
+                                                    <div className={`font-bold ${style.colorClass} min-w-[110px] shrink-0 text-sm`}>
+                                                        {range} {t('pointsLabel')}
+                                                    </div>
+                                                    <div>
+                                                        <div className={`font-semibold ${style.colorClass} mb-1 text-sm`}>
+                                                            {t(`interpretation.${key}.label`)}
+                                                        </div>
+                                                        <div className="text-xs text-slate-600 leading-relaxed">
+                                                            {t(`interpretation.${key}.desc`)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
                                 <div className="mt-8 flex flex-col gap-3">
                                     {isAuthenticated && (
                                         <button 

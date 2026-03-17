@@ -1189,7 +1189,9 @@
                 "label": "Severe symptoms",
                 "desc": "The patient is shown active treatment, further examination to decide on surgical or complex drug intervention."
             }
-        }
+        },
+        "interpretationTitle": "Interpretation of all IPSS results:",
+        "pointsLabel": "points"
     },
     "MIEF5": {
         "title": "IIEF-5 Questionnaire",
