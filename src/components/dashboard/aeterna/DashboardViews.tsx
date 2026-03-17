@@ -467,20 +467,30 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                             <div className="lg:col-span-2 space-y-6">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                                     {[
-                                        { label: 'Сердечно-сосуд.', value: bioAgeRaw.cardio || '46', color: bioAgeRaw.cardio > 45 ? 'text-amber-500' : accentColor, status: bioAgeRaw.cardio > 45 ? 'В зоне риска' : '' },
-                                        { label: 'Мышцы', value: bioAgeRaw.flexibility || '35', color: accentColor, status: '' },
-                                        { label: 'Реакция', value: bioAgeRaw.reaction || '35', color: accentColor, status: '' },
-                                        { label: 'Координация', value: bioAgeRaw.coordination || '30', color: accentColor, status: '' },
-                                        { label: 'Вестиб. апп.', value: bioAgeRaw.vestibular || '60', color: bioAgeRaw.vestibular > 50 ? 'text-amber-500' : accentColor, status: bioAgeRaw.vestibular > 50 ? 'В зоне риска' : '' },
-                                        { label: 'Кожа', value: bioAgeRaw.skin || '35', color: accentColor, status: '' },
-                                        { label: 'Суставы', value: bioAgeRaw.joints || '37', color: accentColor, status: '' },
-                                    ].map((stat, i) => (
-                                        <div key={i} className="p-4 dark:bg-slate-900/40 bg-brand-sage/10 rounded-xl border dark:border-white/5 border-brand-sage/20 transition-colors duration-300">
-                                            <p className="text-[10px] opacity-40 uppercase mb-2">{stat.label}</p>
-                                            <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                                            {stat.status && <p className={`text-[10px] ${stat.color}/80 mt-1`}>{stat.status}</p>}
-                                        </div>
-                                    ))}
+                                        { label: 'Сердечно-сосуд.', value: bioAgeRaw.cardio || '46' },
+                                        { label: 'Мышцы', value: bioAgeRaw.flexibility || '35' },
+                                        { label: 'Реакция', value: bioAgeRaw.reaction || '35' },
+                                        { label: 'Координация', value: bioAgeRaw.coordination || '30' },
+                                        { label: 'Вестиб. апп.', value: bioAgeRaw.vestibular || '60' },
+                                        { label: 'Кожа', value: bioAgeRaw.skin || '35' },
+                                        { label: 'Суставы', value: bioAgeRaw.joints || '37' },
+                                    ].map((stat, i) => {
+                                        const numValue = Number(stat.value);
+                                        const chronAge = healthData?.biological_age_actual || 40;
+                                        const isHigh = numValue >= chronAge + 10;
+                                        const isWarning = numValue >= chronAge + 4;
+                                        
+                                        const color = isHigh ? 'text-red-500 dark:text-red-400' : isWarning ? 'text-amber-500 dark:text-amber-400' : accentColor;
+                                        const status = isHigh ? 'Критично' : isWarning ? 'В зоне риска' : '';
+
+                                        return (
+                                            <div key={i} className="p-4 dark:bg-slate-900/40 bg-brand-sage/10 rounded-xl border dark:border-white/5 border-brand-sage/20 transition-colors duration-300">
+                                                <p className="text-[10px] opacity-40 uppercase mb-2">{stat.label}</p>
+                                                <p className={`text-2xl font-bold ${color}`}>{stat.value}</p>
+                                                {status && <p className={`text-[10px] opacity-80 mt-1 ${color}`}>{status}</p>}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
 
                                 <div className="dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl p-6 shadow-md overflow-hidden transition-colors duration-300">
