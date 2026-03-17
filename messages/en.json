@@ -131,9 +131,11 @@
     "p5Desc": "RUS-AUDIT standard test for assessing alcohol consumption habits.",
     "p6Title": "Nicotine Dependence Test",
     "p6Desc": "Fagerstrom test for clinical assessment of physical nicotine dependence.",
-    "p7Title": "SARC-F Questionnaire",
-    "p7Desc": "Screening for risk of sarcopenia (age-related muscle loss and strength).",
-    "lckText": "Premium Access",
+    "p7Title": "SARC-F Assessment",
+    "p7Desc": "Screening for risk of sarcopenia (age-related loss of muscle mass and strength).",
+    "p8Title": "Systemic Bio-Age",
+    "p8Desc": "Comprehensive assessment of 7 body systems across 14 indicators. Prime aging panel test.",
+    "lckText": "Locked Premium Access",
     "evalText": "FULL EVALUATION",
     "deepTag": "Expert Guidance",
     "deepTitle": "Deep Dive with Expert Analysis",
@@ -459,7 +461,7 @@
     "resGoodDesc": "A score of 3-5 indicates a low risk of pronounced cognitive impairment. However, this test is only a screening.",
     "restart": "Restart Assessment"
   },
-  "BioAgeCalculator": {
+  "SystemicBioAge": {
     "title": "Your Biological Age",
     "subtitle": "Biological age shows the condition of your body and its systems. Take 7 simple tests to find out how many years your body feels.",
     "introBtn": "Start Testing",
@@ -512,6 +514,42 @@
         "options": ["Confident lock on both sides", "Fingertips on both sides", "Lock on only one side", "Short by 10–15 cm", "Short by 15–20 cm", "Felt pain"]
       }
     }
+    },
+    "BioAgeCalculator": {
+    "title": "Bio-Age Calculator",
+    "subtitle": "Find out how young your body is compared to your calendar age based on body parameters.",
+    "paramsTitle": "Your Parameters",
+    "gender": "Gender",
+    "male": "Male",
+    "female": "Female",
+    "age": "Age",
+    "height": "Height",
+    "weight": "Weight",
+    "waist": "Waist Circumference",
+    "hips": "Hip Circumference",
+    "unitYears": "years",
+    "unitCm": "cm",
+    "unitKg": "kg",
+    "bioAgeTitle": "Your Biological Age",
+    "older": "Older than passport by",
+    "younger": "Younger than passport by",
+    "matches": "Matches your passport age",
+    "year1": "year",
+    "year2": "years",
+    "year5": "years",
+    "bmiTitle": "BMI",
+    "whrTitle": "WHR",
+    "bmiUnderweight": "Underweight",
+    "bmiNormal": "Normal weight",
+    "bmiOverweight": "Overweight",
+    "bmiObese": "Obesity",
+    "whrLow": "Low Risk (Normal)",
+    "whrModerate": "Moderate Risk",
+    "whrHigh": "High Risk",
+    "infoTitle": "How does it work?",
+    "infoDesc1": "The calculation is based on the Body Mass Index (BMI) and Waist-to-Hip Ratio (WHR). Excess weight and especially fat accumulation around the waist (visceral fat) are associated with an increased risk of metabolic diseases, which mathematically \"adds\" years to you.",
+    "infoDesc2": "Note: this calculator uses a generalized statistical formula and is not a medical diagnosis.",
+    "back": "Back to Diagnostics"
   },
   "Dashboard": {
     "Sidebar": {

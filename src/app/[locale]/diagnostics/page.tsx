@@ -45,7 +45,7 @@ export default function DiagnosticsPage() {
                         {t('freeTitle')}
                     </h2>
 
-                    <div className="grid grid-cols-1 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="bg-white rounded-3xl p-8 border border-brand-sage/40 hover:shadow-md transition-shadow relative overflow-hidden group">
                             <div className="absolute -right-8 -top-8 text-brand-sage/20 group-hover:text-brand-sage transition-colors">
                                 <Activity size={120} strokeWidth={1} />
@@ -59,6 +59,22 @@ export default function DiagnosticsPage() {
                             </p>
                             <Link href="/diagnostics/energy" className="text-brand-leaf text-sm font-bold w-fit flex items-center gap-2 hover:text-brand-forest transition-colors mt-auto">
                                 {t('btnT1')} <span className="text-lg leading-none">&rarr;</span>
+                            </Link>
+                        </div>
+
+                        <div className="bg-white rounded-3xl p-8 border border-brand-sage/40 hover:shadow-md transition-shadow relative overflow-hidden group">
+                            <div className="absolute -right-8 -top-8 text-brand-sage/20 group-hover:text-brand-sage transition-colors">
+                                <Hourglass size={120} strokeWidth={1} />
+                            </div>
+                            <div className="w-10 h-10 bg-[#E8F1EB] rounded-full flex items-center justify-center mb-6">
+                                <Hourglass size={18} className="text-brand-leaf" />
+                            </div>
+                            <h3 className="font-bold text-xl text-brand-text mb-3">{t('t2Title')}</h3>
+                            <p className="text-brand-gray text-sm mb-8 leading-relaxed pr-8">
+                                {t('t2Desc')}
+                            </p>
+                            <Link href="/diagnostics/bio-age" className="text-brand-leaf text-sm font-bold w-fit flex items-center gap-2 hover:text-brand-forest transition-colors mt-auto">
+                                {t('btnT2')} <span className="text-lg leading-none">&rarr;</span>
                             </Link>
                         </div>
                     </div>
@@ -162,11 +178,11 @@ export default function DiagnosticsPage() {
                         </Link>
 
                         {/* Card 8 - Systemic Bio-Age Calculator */}
-                        <Link href="/diagnostics/bio-age" className="block outline-none">
+                        <Link href="/diagnostics/systemic-bio-age" className="block outline-none">
                             <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
                                 <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><Hourglass size={20} className="fill-brand-leaf/20" /></div>
-                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('t2Title')}</h4>
-                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('t2Desc')}</p>
+                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p8Title')}</h4>
+                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p8Desc')}</p>
                                 <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
                                     {t('evalText')}
                                 </div>

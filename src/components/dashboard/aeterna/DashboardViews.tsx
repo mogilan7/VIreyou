@@ -160,8 +160,8 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
     const circadian = getLatestTest('circadian');
     const sarcF = getLatestTest('sarc-f');
     const energy = getLatestTest('energy');
-    const bioAge = getLatestTest('bio-age');
-    const bioAgeRaw = bioAge?.rawData || {}; // Contains { cardio: 30, ... }
+    const bioAge = getLatestTest('systemic-bio-age') || getLatestTest('bio-age'); 
+    const bioAgeRaw = getLatestTest('systemic-bio-age')?.rawData || {}; // Contains { cardio: 30, ... }
 
     const radarData = [
         { subject: 'ССС', A: bioAgeRaw.cardio || 46, fullMark: 65 },
