@@ -58,9 +58,10 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
 
     let links = role === "specialist" ? [...specialistLinks] : [...clientLinks];
 
-    if (user?.email === 'mogilev.andrey@gmail.com' && role === 'client') {
+    if (user?.email?.toLowerCase() === 'mogilev.andrey@gmail.com' && role === 'client') {
         links.splice(1, 0, { name: 'Панель Специалиста', href: "/specialist", icon: <LayoutDashboard size={18} /> });
     }
+
 
 
     return (

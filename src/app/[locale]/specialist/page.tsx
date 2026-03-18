@@ -29,9 +29,10 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
     let isSpecialist = false;
 
     if (user) {
-        isAdmin = user.email === 'mogilev.andrey@gmail.com';
+        isAdmin = user.email?.toLowerCase() === 'mogilev.andrey@gmail.com';
         
         const { data: profile } = await supabase
+
             .from('profiles')
             .select('role')
             .eq('id', user.id)

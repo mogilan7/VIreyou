@@ -19,13 +19,13 @@ export default async function ClientsPage() {
     let clients: any[] = [];
 
     if (user) {
-        isAdmin = user.email === 'mogilev.andrey@gmail.com';
+        isAdmin = user.email?.toLowerCase() === 'mogilev.andrey@gmail.com';
         
         const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
+                            .from('profiles')
+                            .select('role')
+                            .eq('id', user.id)
+                            .single();
 
         isSpecialist = profile?.role === 'specialist' || profile?.role === 'admin';
 
@@ -47,11 +47,11 @@ export default async function ClientsPage() {
                 clients = clients.filter((c: any) => c.role !== 'specialist');
             }
         }
-
     } else {
         const { notFound } = require('next/navigation');
         return notFound();
     }
+
 
     return (
         <div className="bg-[#FAFAFA] min-h-screen text-brand-text flex font-sans">
