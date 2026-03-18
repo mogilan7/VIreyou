@@ -58,15 +58,16 @@ export async function updateProfile(formData: FormData): Promise<{ success: bool
 
             if (updateError) {
                 console.error("Profile update error:", updateError);
-                return { success: false, error: 'Failed to update profile data' };
+                return { success: false, error: updateError.message };
             }
         }
 
         revalidatePath('/', 'layout');
         return { success: true };
 
-    } catch (e) {
+    } catch (e: any) {
         console.error("Exception in updateProfile:", e);
-        return { success: false, error: 'An unexpected error occurred' };
+        return { success: false, error: e.message || 'An unexpected error occurred' };
     }
+
 }

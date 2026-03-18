@@ -9,6 +9,7 @@ export default function ProfileForm({ initialProfile }: { initialProfile: any })
     const t = useTranslations('ProfileSettings');
     const [isSaving, setIsSaving] = useState(false);
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [errorMessage, setErrorMessage] = useState<string>('');
     const [avatarPreview, setAvatarPreview] = useState<string | null>(initialProfile?.avatar_url || null);
 
     // For file input triggering
@@ -29,6 +30,7 @@ export default function ProfileForm({ initialProfile }: { initialProfile: any })
         e.preventDefault();
         setIsSaving(true);
         setStatus('idle');
+        setErrorMessage('');
 
         const formData = new FormData(e.currentTarget);
 
@@ -39,10 +41,12 @@ export default function ProfileForm({ initialProfile }: { initialProfile: any })
             setTimeout(() => setStatus('idle'), 3000);
         } else {
             console.error("Profile update failed", result);
+            setErrorMessage(result?.error || t('error'));
             setStatus('error');
         }
         setIsSaving(false);
     };
+
 
     return (
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -127,7 +131,8 @@ export default function ProfileForm({ initialProfile }: { initialProfile: any })
             <div className="pt-6 border-t border-brand-sage/30 flex items-center justify-between">
                 <div className="text-sm font-medium">
                     {status === 'success' && <span className="text-brand-leaf flex items-center gap-1"><CheckCircle size={16} /> {t('success')}</span>}
-                    {status === 'error' && <span className="text-red-500 flex items-center gap-1"><AlertCircle size={16} /> {t('error')}</span>}
+                    {status === 'error' && <span className="text-red-500 flex items-center gap-1 text-xs"><AlertCircle size={16} className="flex-shrink-0" /> {errorMessage}</span>}
+
                 </div>
 
                 <button
