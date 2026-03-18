@@ -102,7 +102,7 @@ export default async function ClientDashboardPage() {
                 test_type: r.test_type,
                 score: r.score,
                 interpretation: r.interpretation,
-                rawData: r.rawData
+                rawData: r.raw_data || r.rawData
             }));
 
             if (dbUser && (dbUser as any).accessPermissions.length > 0) {
