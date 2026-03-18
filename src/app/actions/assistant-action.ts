@@ -70,6 +70,7 @@ export async function talkToAssistant(messages: any[], formData: any) {
   const formattedMessages = [...messages];
   if (formData && Object.keys(formData).length > 0 && formattedMessages.length === 0) {
     const contextContent = `Данные клиента из формы перед началом диалога:
+- Имя: ${formData.name || 'не указано'}
 - Возраст: ${formData.age || 'не указан'}
 - Пол: ${formData.sex === 'male' ? 'Мужской' : 'Женский'}
 - Рост: ${formData.height || 'не указан'} см
@@ -78,7 +79,7 @@ export async function talkToAssistant(messages: any[], formData: any) {
 - Бедра: ${formData.hips || 'не указан'} см
 - Активность: ${formData.activity || 'не указана'}
 
-Используй эти данные для контекста, но начни диалог с открытого вопроса о целях, как указано в инструкции. Не спрашивай эти данные повторно.`;
+Используй эти данные для контекста. Обращайся к клиенту по имени. Начни диалог с приветствия по имени и открытого вопроса о целях, как указано в инструкции. Не спрашивай эти данные повторно.`;
     
     formattedMessages.push({ role: 'system', content: contextContent });
   }

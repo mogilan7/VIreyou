@@ -11,9 +11,12 @@ import {
   CheckCircle2, 
   Info,
   MessageSquare,
-  ArrowRight
+  ArrowRight,
+  Save
 } from 'lucide-react';
 import { talkToAssistant } from '@/app/actions/assistant-action';
+import { createClient } from '@/utils/supabase/client';
+import { saveTestResult } from '@/actions/save-test';
 
 interface AssistantModalProps {
   isOpen: boolean;
@@ -31,8 +34,13 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  const [user, setUser] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const [formData, setFormData] = useState({
+    name: '',
     age: '',
     sex: 'male',
     height: '',
@@ -49,6 +57,22 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
   useEffect(() => {
     scrollToBottom();
   }, [messages, loading]);
+
+  // Auth check on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUser(user);
+        setFormData(prev => ({
+          ...prev,
+          name: user.user_metadata?.full_name || ''
+        }));
+      }
+    };
+    checkAuth();
+  }, []);
 
   if (!isOpen) return null;
 
@@ -110,6 +134,32 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
       }
   };
 
+  const handleSaveToRecommendations = async () => {
+      if (!user || isSaving || saveSuccess) return;
+      setIsSaving(true);
+      try {
+          const reportContent = messages.length > 0 ? messages[messages.length - 1].content : '';
+          
+          const response = await saveTestResult({
+              testType: 'ai-recommendation',
+              score: 0,
+              interpretation: 'ИИ-рекомендации по итогам диалога',
+              rawData: { report: reportContent }
+          });
+
+          if (response.success) {
+              setSaveSuccess(true);
+          } else {
+              alert(`Ошибка сохранения: ${response.error}`);
+          }
+      } catch (err) {
+          console.error(err);
+          alert('Произошла ошибка при сохранении');
+      } finally {
+          setIsSaving(false);
+      }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
@@ -147,6 +197,10 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 space-y-1.5">
+                  <label className="block text-sm font-semibold text-slate-700">Ваше Имя</label>
+                  <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-forest focus:bg-white outline-none" placeholder="Андрей" required />
+                </div>
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-slate-700">Возраст</label>
                   <input type="number" name="age" value={formData.age} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-forest focus:bg-white outline-none" placeholder="30" />
@@ -315,12 +369,36 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
                       </div>
                   </div>
 
-                  <button 
-                    onClick={onClose}
-                    className="mt-4 w-full py-3 text-sm font-bold text-slate-400 hover:text-brand-forest transition-all"
-                  >
-                    Закрыть окно
-                  </button>
+                  {/* Actions for Saving */}
+                  <div className="mt-4 space-y-3">
+                      {user ? (
+                          <button 
+                            onClick={handleSaveToRecommendations}
+                            disabled={isSaving || saveSuccess}
+                            className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all transform hover:scale-[1.01] active:scale-98
+                                ${saveSuccess 
+                                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                                    : 'bg-brand-mint text-brand-forest hover:bg-brand-mint/90'}`}
+                          >
+                              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                              {saveSuccess ? 'Сохранено в Назначения!' : 'Сохранить рекомендации в Кабинет'}
+                          </button>
+                      ) : (
+                          <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex flex-col items-center gap-3 text-center">
+                              <p className="text-xs font-semibold text-amber-800">Чтобы сохранить рекомендации в Личный Кабинет, необходимо зарегистрироваться.</p>
+                              <a href="/register" className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-sm shadow-md transition-all">
+                                  Зарегистрироваться
+                              </a>
+                          </div>
+                      )}
+
+                      <button 
+                        onClick={onClose}
+                        className="w-full py-3 text-sm font-bold text-slate-400 hover:text-brand-forest transition-all"
+                      >
+                        Закрыть окно
+                      </button>
+                  </div>
               </div>
           )}
 

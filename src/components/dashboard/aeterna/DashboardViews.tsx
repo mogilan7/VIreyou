@@ -35,7 +35,7 @@ interface DashboardViewsProps {
 export default function DashboardViews({ profile, testResults, healthData, biomarkerResults = [] }: DashboardViewsProps) {
     const router = useRouter();
     const { theme } = useDashboardTheme();
-    const [activeView, setActiveView] = useState<'overview' | 'diagnostics'>('overview');
+  const [activeView, setActiveView] = useState<'overview' | 'diagnostics' | 'recommendations'>('overview');
     const [showAllMarkers, setShowAllMarkers] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [selectedMarkers, setSelectedMarkers] = useState<string[]>([]);
@@ -234,7 +234,10 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                     >
                         Диагностика & Тесты
                     </button>
-                    <button className="pb-2 opacity-20 cursor-not-allowed">
+                    <button
+                        onClick={() => setActiveView('recommendations')}
+                        className={`relative pb-2 transition-all opacity-50 ${activeView === 'recommendations' ? `opacity-100 ${accentColor} after:content-[""] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] ${activeNavBorder}` : 'hover:opacity-100'}`}
+                    >
                         План терапии
                     </button>
                 </nav>
@@ -618,6 +621,40 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                     </div>
                 )
             }
+
+            {
+                activeView === 'recommendations' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-500">
+                        <div className="dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl p-6 shadow-md transition-colors duration-300">
+                            <h3 className="font-semibold dark:text-slate-300 text-brand-text mb-4">План терапии и Назначения</h3>
+                            <div className="space-y-4">
+                                {testResults.filter(r => r.test_type === 'ai-recommendation').length === 0 ? (
+                                    <p className="text-sm opacity-50 italic text-center py-8 border border-dashed rounded-xl border-slate-200 dark:border-slate-700">Назначений не найдено. Пройдите диалог с ИИ ассистентом.</p>
+                                ) : (
+                                    testResults.filter(r => r.test_type === 'ai-recommendation').map((item, index) => {
+                                        const report = item.rawData?.report || item.interpretation || '';
+                                        return (
+                                            <div key={index} className="p-5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border dark:border-white/5 border-brand-sage/10 shadow-sm">
+                                                <p className="text-xs font-bold text-brand-forest mb-3">Рекомендации ИИ-ассистента</p>
+                                                <div className="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 space-y-2">
+                                                    {report.split('\n').map((line: string, i: number) => {
+                                                        if (line.startsWith('###')) return <h4 key={i} className="text-sm font-bold mt-4 mb-1 text-slate-800 dark:text-slate-200">{line.replace('###', '').trim()}</h4>;
+                                                        if (line.startsWith('##')) return <h3 key={i} className="text-base font-bold mt-5 mb-2 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-700 pb-1">{line.replace('##', '').trim()}</h3>;
+                                                        if (line.startsWith('-') || line.startsWith('*')) return <li key={i} className="ml-4 mb-1 text-sm">{line.replace(/^[*-]\s*/, '').trim()}</li>;
+                                                        if (line.trim() === '') return <div key={i} className="h-1" />;
+                                                        return <p key={i} className="text-sm leading-relaxed">{line}</p>;
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
         </div>
     );
 }
