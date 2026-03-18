@@ -38,14 +38,16 @@ export default async function ClientsPage() {
         let clientsQuery = supabase.from('profiles').select('*');
         if (!isAdmin) {
             clientsQuery = clientsQuery.eq('assigned_specialist_id', user.id);
-        } else {
-            clientsQuery = clientsQuery.neq('role', 'specialist');
         }
 
         const { data: fetchedClients } = await clientsQuery;
         if (fetchedClients) {
             clients = fetchedClients;
+            if (isAdmin) {
+                clients = clients.filter((c: any) => c.role !== 'specialist');
+            }
         }
+
     } else {
         const { notFound } = require('next/navigation');
         return notFound();

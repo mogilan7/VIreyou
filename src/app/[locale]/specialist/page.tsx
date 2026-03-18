@@ -46,17 +46,18 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
 
         // Fetch clients list
         let clientsQuery = supabase.from('profiles').select('*');
-        
         if (!isAdmin) {
-            // Regular specialists only see their assigned clients
             clientsQuery = clientsQuery.eq('assigned_specialist_id', user.id);
-        } else {
-            // Admins can see all users who are not specialists/admins to promote them
-            clientsQuery = clientsQuery.neq('role', 'specialist');
-
         }
 
-        const { data: clients } = await clientsQuery;
+        const { data: rawClients } = await clientsQuery;
+        let clients = rawClients || [];
+
+        if (isAdmin) {
+            // Include users who are NOT specialists (handles null/client/etc)
+            clients = clients.filter(c => c.role !== 'specialist');
+        }
+
 
 
         if (clients && clients.length > 0) {
