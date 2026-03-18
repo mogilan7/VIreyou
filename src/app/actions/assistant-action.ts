@@ -2,8 +2,13 @@
 
 import OpenAI from "openai";
 
+import { Resend } from 'resend';
+
 const apiKey = process.env.OPENAI_API_KEY;
+const resendApiKey = process.env.RESEND_API_KEY; // Add this to .env
+
 const openai = new OpenAI({ apiKey });
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 export async function talkToAssistant(messages: any[], formData: any) {
   if (!apiKey) {
@@ -44,19 +49,22 @@ export async function talkToAssistant(messages: any[], formData: any) {
 - Возрастные (45+) -> Мужчины: IPSS/МИЭФ-5, Женщины: Грина/SARC-F.
 - Риски -> Курение/давление -> SCORE, Фагерстрем, RUS-AUDIT.
 
-Формат итогового отчета для специалиста (сформируй, когда диалог исчерпан или клиент готов):
-Резюме:
-- Запрос клиента (Точка Б).
-- Текущий статус: жалобы, образ жизни.
-- Рекомендованная диагностика с обоснованием.
-- Готовность к боту.
+КОГДА ТЕБЯ ПРОСЯТ СФОРМИРОВАТЬ ИТОГОВЫЙ ОТЧЕТ, ОБЯЗАТЕЛЬНО ИСПОЛЬЗУЙ СЛЕДУЮЩИЙ ДЕЛИМИТЕРНЫЙ ФОРМАТ:
 
-Формат итогового отчета для КЛИЕНТА (сформируй в конце):
-Сообщение:
-- Подтверждение целей (Точки Б).
-- Дорожная карта (Тесты + ТГ-бот).
-- Первые шаги (запуск бота @vi_reyou_bot, первый тест).
-- Поддержка.`;
+===SPECIALIST_REPORT===
+(Здесь напиши отчет по форме для специалиста)
+Запрос клиента (Точка Б): ...
+Текущий статус: ...
+Рекомендованная диагностика: ...
+Готовность к боту: ...
+
+===CLIENT_REPORT===
+(Здесь напиши отчет по форме для клиента)
+Приветствие/Подтверждение целей: ...
+Дорожная карта: ...
+Первые шаги: ...
+Поддержка/Мотивация: ...
+`;
 
   // Insert form data as context if it's the start of the conversation
   const formattedMessages = [...messages];
@@ -85,8 +93,38 @@ export async function talkToAssistant(messages: any[], formData: any) {
       temperature: 0.7,
     });
 
+    let fullContent = response.choices[0]?.message?.content || "";
+
+    // Check if the response contains the delimiters
+    if (fullContent.includes('===SPECIALIST_REPORT===')) {
+        const parts = fullContent.split('===CLIENT_REPORT===');
+        const specialistPart = parts[0].replace('===SPECIALIST_REPORT===', '').trim();
+        const clientPart = parts[1] || "";
+
+        // Send Email to Specialist
+        if (resend && specialistPart) {
+            try {
+                await resend.emails.send({
+                    from: 'Longevity Coach <onboarding@resend.dev>',
+                    to: 'cleverval23@gmail.com',
+                    subject: 'Новый отчет ИИ-ассистента для специалиста',
+                    text: specialistPart,
+                    html: `<div><h2 style="color: #1E3A5F;">Отчет ИИ-ассистента для специалиста</h2><pre style="white-space: pre-wrap; font-family: sans-serif; font-size: 14px; line-height: 1.6;">${specialistPart}</pre></div>`
+                });
+                console.log("Email sent successfully to specialist.");
+            } catch (emailError) {
+                console.error("Failed to send email to specialist:", emailError);
+            }
+        }
+
+        return {
+            content: clientPart.trim() || fullContent,
+            role: "assistant"
+        };
+    }
+
     return {
-        content: response.choices[0]?.message?.content || "Не удалось получить ответ ИИ.",
+        content: fullContent,
         role: "assistant"
     };
   } catch (error: any) {
@@ -94,3 +132,4 @@ export async function talkToAssistant(messages: any[], formData: any) {
     throw new Error(error.message || "Ошибка при обращении к ИИ");
   }
 }
+
