@@ -41,12 +41,35 @@ export async function talkToAssistant(messages: any[], formData: any) {
    - Шкала Грина / IPSS / МИЭФ-5: Гендерно-специфическое здоровье.
 
 Логика предложения тестов:
-- Память/туман в голове -> Mini-Cog.
-- Сон -> Индекс бессонницы + Циркадные ритмы.
-- Лишний вес -> Калькулятор TDEE.
-- Проблемы с табаком/алкоголем -> Фагерстрем / RUS-AUDIT.
-- Возрастные (45+) -> Мужчины: IPSS/МИЭФ-5, Женщины: Грина/SARC-F.
-- Риски -> Курение/давление -> SCORE.
+- Память/туман в голове -> [Mini-Cog](/ru/cabinet/diagnostics/mini-cog).
+- Сон -> [Индекс бессонницы](/ru/cabinet/diagnostics/insomnia) + [Циркадные ритмы](/ru/cabinet/diagnostics/circadian).
+- Линший вес -> [Калькулятор TDEE](/ru/cabinet/diagnostics/energy).
+- Проблемы с табаком/алкоголем -> [Тест Фагерстрема](/ru/cabinet/diagnostics/nicotine) / [RUS-AUDIT](/ru/cabinet/diagnostics/alcohol).
+- Возрастные (45+) -> Мужчины: [IPSS](/ru/cabinet/diagnostics/ipss)/[МИЭФ-5](/ru/cabinet/diagnostics/mief-5), Женщины: [Грина](/ru/cabinet/diagnostics/greene-scale)/[SARC-F](/ru/cabinet/diagnostics/sarc-f).
+- Риски -> Курение/давление -> [SCORE](/ru/cabinet/diagnostics/score).
+
+**КРИТИЧЕСКИЕ ПРАВИЛА ОФОРМЛЕНИЯ ССЫЛОК**:
+Когда ты перечисляешь или предлагаешь пройти тесты, **ОБЯЗАТЕЛЬНО** делай их название в виде Markdown-ссылки. 
+Формат: [Название теста](/ru/cabinet/diagnostics/путь)
+Список путей:
+- Биовозраст -> /ru/cabinet/diagnostics/bio-age
+- Системный Биовозраст -> /ru/cabinet/diagnostics/systemic-bio-age
+- Mini-Cog -> /ru/cabinet/diagnostics/mini-cog
+- Индекс бессонницы -> /ru/cabinet/diagnostics/insomnia
+- Циркадные ритмы -> /ru/cabinet/diagnostics/circadian
+- SCORE -> /ru/cabinet/diagnostics/score
+- RUS-AUDIT -> /ru/cabinet/diagnostics/alcohol
+- Тест Фагерстрема -> /ru/cabinet/diagnostics/nicotine
+- SARC-F -> /ru/cabinet/diagnostics/sarc-f
+- Грина -> /ru/cabinet/diagnostics/greene-scale
+- IPSS -> /ru/cabinet/diagnostics/ipss
+- МИЭФ-5 -> /ru/cabinet/diagnostics/mief-5
+- Калькулятор TDEE -> /ru/cabinet/diagnostics/energy
+
+Например: "Я рекомендую пройти [Индекс бессонницы](/ru/cabinet/diagnostics/insomnia)."
+
+
+
 
 КОГДА ТЕБЯ ПРОСЯТ СФОРМИРОВАТЬ ИТОГОВЫЙ ОТЧЕТ, ОБЯЗАТЕЛЬНО ИСПОЛЬЗУЙ СЛЕДУЮЩИЙ ДЕЛИМИТЕРНЫЙ ФОРМАТ:
 

@@ -32,6 +32,29 @@ interface DashboardViewsProps {
     biomarkerResults?: any[];
 }
 
+const renderTextWithLinks = (text: string) => {
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = linkRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push(text.substring(lastIndex, match.index));
+        }
+        parts.push(
+            <a key={match.index} href={match[2]} className="text-brand-mint font-bold hover:underline transition-all">
+                {match[1]}
+            </a>
+        );
+        lastIndex = linkRegex.lastIndex;
+    }
+    if (lastIndex < text.length) {
+        parts.push(text.substring(lastIndex));
+    }
+    return parts.length > 0 ? parts : text;
+};
+
 export default function DashboardViews({ profile, testResults, healthData, biomarkerResults = [] }: DashboardViewsProps) {
     const router = useRouter();
     const { theme } = useDashboardTheme();
@@ -640,9 +663,9 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                                     {report.split('\n').map((line: string, i: number) => {
                                                         if (line.startsWith('###')) return <h4 key={i} className="text-sm font-bold mt-4 mb-1 text-slate-800 dark:text-slate-200">{line.replace('###', '').trim()}</h4>;
                                                         if (line.startsWith('##')) return <h3 key={i} className="text-base font-bold mt-5 mb-2 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-700 pb-1">{line.replace('##', '').trim()}</h3>;
-                                                        if (line.startsWith('-') || line.startsWith('*')) return <li key={i} className="ml-4 mb-1 text-sm">{line.replace(/^[*-]\s*/, '').trim()}</li>;
+                                                        if (line.startsWith('-') || line.startsWith('*')) return <li key={i} className="ml-4 mb-1 text-sm">{renderTextWithLinks(line.replace(/^[*-]\s*/, '').trim())}</li>;
                                                         if (line.trim() === '') return <div key={i} className="h-1" />;
-                                                        return <p key={i} className="text-sm leading-relaxed">{line}</p>;
+                                                        return <p key={i} className="text-sm leading-relaxed">{renderTextWithLinks(line)}</p>;
                                                     })}
                                                 </div>
                                             </div>

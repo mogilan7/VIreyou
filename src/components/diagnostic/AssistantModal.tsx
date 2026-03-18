@@ -28,6 +28,29 @@ interface Message {
   content: string;
 }
 
+const renderTextWithLinks = (text: string) => {
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = linkRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push(text.substring(lastIndex, match.index));
+        }
+        parts.push(
+            <a key={match.index} href={match[2]} className="text-brand-mint font-bold hover:underline transition-all">
+                {match[1]}
+            </a>
+        );
+        lastIndex = linkRegex.lastIndex;
+    }
+    if (lastIndex < text.length) {
+        parts.push(text.substring(lastIndex));
+    }
+    return parts.length > 0 ? parts : text;
+};
+
 export default function AssistantModal({ isOpen, onClose }: AssistantModalProps) {
   const [step, setStep] = useState(0); // 0: Form, 1: Chat, 2: Finished/Report
   const [loading, setLoading] = useState(false);
@@ -341,9 +364,9 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
                       {messages.length > 0 && messages[messages.length - 1].content.split('\n').map((line, i) => {
                           if (line.startsWith('###')) return <h3 key={i} className="text-lg font-bold text-brand-forest mt-4 mb-2">{line.replace('###', '').trim()}</h3>;
                           if (line.startsWith('##')) return <h2 key={i} className="text-xl font-extrabold text-slate-900 border-b border-brand-forest/10 pb-2 mb-4 mt-6">{line.replace('##', '').trim()}</h2>;
-                          if (line.startsWith('-') || line.startsWith('*')) return <li key={i} className="ml-4 list-none mb-2 relative pl-5 before:content-[''] before:absolute before:left-0 before:top-2 before:w-1.5 before:h-1.5 before:bg-brand-mint before:rounded-full text-sm">{line.replace(/^[*-]\s*/, '').trim()}</li>;
+                          if (line.startsWith('-') || line.startsWith('*')) return <li key={i} className="ml-4 list-none mb-2 relative pl-5 before:content-[''] before:absolute before:left-0 before:top-2 before:w-1.5 before:h-1.5 before:bg-brand-mint before:rounded-full text-sm">{renderTextWithLinks(line.replace(/^[*-]\s*/, '').trim())}</li>;
                           if (line.trim() === '') return <div key={i} className="h-1" />;
-                          return <p key={i} className="leading-relaxed font-medium opacity-90 text-sm mb-2">{line}</p>;
+                          return <p key={i} className="leading-relaxed font-medium opacity-90 text-sm mb-2">{renderTextWithLinks(line)}</p>;
                       })}
                   </div>
 
