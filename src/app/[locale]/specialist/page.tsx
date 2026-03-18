@@ -7,9 +7,13 @@ export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
 
-export default async function SpecialistDashboard() {
+export default async function SpecialistDashboard(props: { searchParams: Promise<{ id?: string }> }) {
+    const searchParams = await props.searchParams;
+    const clientId = searchParams.id;
+
     const t = await getTranslations('Dashboard.Specialist');
     const supabase = await createClient();
+
 
     // Get current specialist
     const { data: { user } } = await supabase.auth.getUser();
@@ -57,8 +61,13 @@ export default async function SpecialistDashboard() {
 
         if (clients && clients.length > 0) {
             assignedClients = clients;
-            console.log(`Total clients: ${assignedClients.length}`);
-            activeClient = clients[0]; // Just showing the first one for now
+            
+            if (clientId) {
+                activeClient = clients.find(c => c.id === clientId) || clients[0];
+            } else {
+                activeClient = clients[0];
+            }
+
 
             // Fetch test results for the active client
             const { data: results } = await supabase
