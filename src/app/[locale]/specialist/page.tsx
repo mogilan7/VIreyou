@@ -36,11 +36,20 @@ export default async function SpecialistDashboard() {
             return notFound();
         }
 
-        // Fetch clients assigned to this specialist
-        const { data: clients } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('assigned_specialist_id', user.id);
+        // Fetch clients list
+        let clientsQuery = supabase.from('profiles').select('*');
+        
+        if (!isAdmin) {
+            // Regular specialists only see their assigned clients
+            clientsQuery = clientsQuery.eq('assigned_specialist_id', user.id);
+        } else {
+            // Admins can see all users who are not specialists/admins to promote them
+            clientsQuery = clientsQuery.neq('role', 'specialist');
+
+        }
+
+        const { data: clients } = await clientsQuery;
+
 
         if (clients && clients.length > 0) {
             assignedClients = clients;
