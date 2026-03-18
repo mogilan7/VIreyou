@@ -129,21 +129,8 @@ export async function talkToAssistant(messages: any[], formData: any) {
         const specialistPart = parts[0].replace('===SPECIALIST_REPORT===', '').trim();
         const clientPart = parts[1] || "";
 
-        // Send Email to Specialist
-        if (resend && specialistPart) {
-            try {
-                await resend.emails.send({
-                    from: 'Longevity Coach <onboarding@resend.dev>',
-                    to: 'cleverval23@gmail.com',
-                    subject: 'Новый отчет ИИ-ассистента для специалиста',
-                    text: specialistPart,
-                    html: `<div><h2 style="color: #1E3A5F;">Отчет ИИ-ассистента для специалиста</h2><pre style="white-space: pre-wrap; font-family: sans-serif; font-size: 14px; line-height: 1.6;">${specialistPart}</pre></div>`
-                });
-                console.log("Email sent successfully to specialist.");
-            } catch (emailError) {
-                console.error("Failed to send email to specialist:", emailError);
-            }
-        }
+        // Specialist report email sending removed as per request.
+
 
         return {
             content: clientPart.trim() || fullContent,

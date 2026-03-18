@@ -12,7 +12,8 @@ import {
   Info,
   MessageSquare,
   ArrowRight,
-  Save
+  Save,
+  Lock
 } from 'lucide-react';
 import { talkToAssistant } from '@/app/actions/assistant-action';
 import { createClient } from '@/utils/supabase/client';
@@ -59,8 +60,10 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
 
   const [formData, setFormData] = useState({
     name: '',
@@ -93,9 +96,11 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
           name: user.user_metadata?.full_name || ''
         }));
       }
+      setAuthLoading(false);
     };
     checkAuth();
   }, []);
+
 
   if (!isOpen) return null;
 
@@ -172,6 +177,14 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
 
           if (response.success) {
               setSaveSuccess(true);
+              
+              // Automatically assign to specialist
+              const supabase = createClient();
+              await supabase
+                  .from('profiles')
+                  .update({ assigned_specialist_id: '563938a6-2ca7-44db-9604-d60673b56c08' })
+                  .eq('id', user.id);
+                  
           } else {
               alert(`Ошибка сохранения: ${response.error}`);
           }
@@ -182,6 +195,7 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
           setIsSaving(false);
       }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -211,9 +225,39 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
 
         <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col scrollbar-hide">
           
-          {/* Step 0: Initial Form */}
-          {step === 0 && (
+          {/* Auth loading spinner */}
+          {authLoading && (
+            <div className="flex-1 flex flex-col items-center justify-center space-y-2">
+                <Loader2 className="w-8 h-8 text-brand-forest animate-spin" />
+                <p className="text-xs text-slate-400">Проверка доступа...</p>
+            </div>
+          )}
+
+          {/* Auth Check for Guest */}
+          {!authLoading && !user && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 my-auto max-w-sm mx-auto w-full text-center">
+              <div className="p-5 bg-brand-mint/10 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                <Lock className="w-10 h-10 text-brand-forest" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800">Доступ ограничен</h2>
+              <p className="text-slate-500 text-sm">
+                ИИ-Коуч доступен только для авторизованных клиентов.
+              </p>
+              <div className="flex flex-col gap-4 mt-6">
+                <a 
+                  href="/ru/login" 
+                  className="w-full px-8 py-4 bg-brand-forest text-white rounded-2xl font-bold text-center shadow-xl shadow-brand-forest/20 hover:bg-brand-forest-dark transition-all transform hover:scale-[1.02] active:scale-95"
+                >
+                  Войти или Создать аккаунт
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Step 0: Initial Form (Only if LOGGED IN) */}
+          {step === 0 && !authLoading && user && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 my-auto max-w-md mx-auto w-full">
+
               <div className="text-center space-y-2 mb-6">
                 <h2 className="text-xl font-bold text-slate-800">Приветственное анкетирование</h2>
                 <p className="text-sm text-slate-500">Заполните базовые параметры для ИИ-ассистента</p>
