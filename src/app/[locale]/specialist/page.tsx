@@ -3,6 +3,10 @@ import { Search, MapPin, FileText, Download, TrendingUp, TrendingDown, Minus, Ed
 import { getTranslations } from "next-intl/server";
 import { createClient } from '@/utils/supabase/server';
 
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
+
 export default async function SpecialistDashboard() {
     const t = await getTranslations('Dashboard.Specialist');
     const supabase = await createClient();
