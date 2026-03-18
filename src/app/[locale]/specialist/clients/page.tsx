@@ -37,16 +37,22 @@ export default async function ClientsPage() {
         }
 
         // Fetch clients list with Prisma to bypass Supabase RLS policies
-        let fetchedClients = await prisma.profiles.findMany({
-            where: !isAdmin ? { assigned_specialist_id: user.id } : undefined
-        });
+        try {
+            const fetchedClients = await prisma.profiles.findMany({
+                where: !isAdmin ? { assigned_specialist_id: user.id } : undefined
+            });
 
-        if (fetchedClients) {
-            clients = fetchedClients;
-            if (isAdmin) {
-                clients = clients.filter((c: any) => c.role !== 'specialist');
+            if (fetchedClients) {
+                clients = fetchedClients;
+                if (isAdmin) {
+                    clients = clients.filter((c: any) => c.role !== 'specialist');
+                }
             }
+        } catch (e: any) {
+            console.error("Prisma loading error List page:", e);
+            clients = [];
         }
+
 
     } else {
         const { notFound } = require('next/navigation');

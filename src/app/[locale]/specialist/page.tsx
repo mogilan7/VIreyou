@@ -48,14 +48,22 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
         }
 
         // Fetch clients list with Prisma to bypass Supabase RLS policies
-        let clients = await prisma.profiles.findMany({
-            where: !isAdmin ? { assigned_specialist_id: user.id } : undefined
-        });
+        let clients: any[] = [];
+        try {
+            const fetchedClients = await prisma.profiles.findMany({
+                where: !isAdmin ? { assigned_specialist_id: user.id } : undefined
+            });
+            clients = fetchedClients || [];
+        } catch (e: any) {
+            console.error("Prisma loading error:", e);
+            clients = []; // fallback to empty to avoid crashing full layout
+        }
 
         if (isAdmin) {
             // Include users who are NOT specialists (handles null/client/etc)
-            clients = (clients || []).filter((c: any) => c.role !== 'specialist');
+            clients = clients.filter((c: any) => c.role !== 'specialist');
         }
+
 
 
 
