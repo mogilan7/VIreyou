@@ -2,8 +2,10 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import prisma from '@/lib/prisma';
 
 export async function updateProfile(formData: FormData): Promise<{ success: boolean; error?: string }> {
+
     try {
         const supabase = await createClient();
 
@@ -51,16 +53,17 @@ export async function updateProfile(formData: FormData): Promise<{ success: bool
         if (avatarUrl) updates.avatar_url = avatarUrl; // Using avatar_url to match existing schema
 
         if (Object.keys(updates).length > 0) {
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update(updates)
-                .eq('id', user.id);
-
-            if (updateError) {
-                console.error("Profile update error:", updateError);
-                return { success: false, error: updateError.message };
+            try {
+                await prisma.profiles.update({
+                    where: { id: user.id },
+                    data: updates
+                });
+            } catch (e: any) {
+                console.error("Profile update error with Prisma:", e);
+                return { success: false, error: 'Failed to update profile: ' + (e.message || e) };
             }
         }
+
 
         revalidatePath('/', 'layout');
         return { success: true };
