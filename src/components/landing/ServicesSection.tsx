@@ -1,7 +1,12 @@
+"use client";
+
+import { useState } from "react";
 import { useTranslations } from "next-intl";
+import AssistantModal from "@/components/diagnostic/AssistantModal";
 
 export default function ServicesSection() {
     const t = useTranslations('Landing.Services');
+    const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
     return (
         <section id="services" className="py-32 px-6 bg-white relative overflow-hidden">
@@ -20,8 +25,14 @@ export default function ServicesSection() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {/* Step 1 */}
-                    <div className="group p-10 bg-[#FAFAFA] border border-brand-sage/30 rounded-[2rem] hover:bg-brand-forest transition-colors duration-500 hover:border-brand-forest">
+                    {/* Step 1 - Clickable */}
+                    <div 
+                        onClick={() => setIsAssistantOpen(true)}
+                        className="group p-10 bg-[#FAFAFA] border border-brand-sage/30 rounded-[2rem] hover:bg-brand-forest transition-colors duration-500 hover:border-brand-forest cursor-pointer relative"
+                    >
+                        <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity text-brand-mint text-xs font-bold border border-brand-mint/30 px-2 py-1 rounded-full">
+                            Запустить ИИ
+                        </div>
                         <div className="text-7xl font-serif text-brand-sage mb-10 group-hover:text-white/80 transition-colors duration-500">
                             01
                         </div>
@@ -73,6 +84,13 @@ export default function ServicesSection() {
                     </div>
                 </div>
             </div>
+
+            {/* Assistant Modal */}
+            <AssistantModal 
+                isOpen={isAssistantOpen} 
+                onClose={() => setIsAssistantOpen(false)} 
+            />
         </section>
     );
 }
+
