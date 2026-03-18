@@ -3,8 +3,10 @@ import { Search, MapPin, User, ShieldAlert } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { createClient } from '@/utils/supabase/server';
 import { Link } from "@/i18n/routing";
+import prisma from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
+
 export const fetchCache = 'force-no-store';
 
 export default async function ClientsPage() {
@@ -34,19 +36,18 @@ export default async function ClientsPage() {
             return notFound();
         }
 
-        // Fetch clients list
-        let clientsQuery = supabase.from('profiles').select('*');
-        if (!isAdmin) {
-            clientsQuery = clientsQuery.eq('assigned_specialist_id', user.id);
-        }
+        // Fetch clients list with Prisma to bypass Supabase RLS policies
+        let fetchedClients = await prisma.profiles.findMany({
+            where: !isAdmin ? { assigned_specialist_id: user.id } : undefined
+        });
 
-        const { data: fetchedClients } = await clientsQuery;
         if (fetchedClients) {
             clients = fetchedClients;
             if (isAdmin) {
                 clients = clients.filter((c: any) => c.role !== 'specialist');
             }
         }
+
     } else {
         const { notFound } = require('next/navigation');
         return notFound();

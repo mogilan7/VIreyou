@@ -2,8 +2,10 @@ import Sidebar from "@/components/dashboard/Sidebar";
 import { Search, MapPin, FileText, Download, TrendingUp, TrendingDown, Minus, Edit3, CalendarPlus, Clock, MessageSquare, Printer, Users } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { createClient } from '@/utils/supabase/server';
+import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
+
 export const fetchCache = 'force-no-store';
 
 
@@ -45,19 +47,16 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
             return notFound();
         }
 
-        // Fetch clients list
-        let clientsQuery = supabase.from('profiles').select('*');
-        if (!isAdmin) {
-            clientsQuery = clientsQuery.eq('assigned_specialist_id', user.id);
-        }
-
-        const { data: rawClients } = await clientsQuery;
-        let clients = rawClients || [];
+        // Fetch clients list with Prisma to bypass Supabase RLS policies
+        let clients = await prisma.profiles.findMany({
+            where: !isAdmin ? { assigned_specialist_id: user.id } : undefined
+        });
 
         if (isAdmin) {
             // Include users who are NOT specialists (handles null/client/etc)
-            clients = clients.filter(c => c.role !== 'specialist');
+            clients = (clients || []).filter((c: any) => c.role !== 'specialist');
         }
+
 
 
 
