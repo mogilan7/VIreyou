@@ -1,5 +1,5 @@
 import Sidebar from "@/components/dashboard/Sidebar";
-import { Search, MapPin, FileText, Download, TrendingUp, TrendingDown, Minus, Edit3, CalendarPlus, Clock, MessageSquare, Printer } from "lucide-react";
+import { Search, MapPin, FileText, Download, TrendingUp, TrendingDown, Minus, Edit3, CalendarPlus, Clock, MessageSquare, Printer, Users } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { createClient } from '@/utils/supabase/server';
 
@@ -17,7 +17,25 @@ export default async function SpecialistDashboard() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let clientTestResults: any[] = [];
 
+    let isAdmin = false;
+    let isSpecialist = false;
+
     if (user) {
+        isAdmin = user.email === 'mogilev.andrey@gmail.com';
+        
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        isSpecialist = profile?.role === 'specialist' || profile?.role === 'admin';
+
+        if (!isAdmin && !isSpecialist) {
+            const { notFound } = require('next/navigation');
+            return notFound();
+        }
+
         // Fetch clients assigned to this specialist
         const { data: clients } = await supabase
             .from('profiles')
@@ -41,7 +59,12 @@ export default async function SpecialistDashboard() {
                 clientTestResults = results;
             }
         }
+    } else {
+        // Not logged in -> hide existence
+        const { notFound } = require('next/navigation');
+        return notFound();
     }
+
 
     // Map real diagnostic results to the table format.
     // If no real data, show placeholders.
@@ -135,6 +158,20 @@ export default async function SpecialistDashboard() {
                             <div className={`font-bold text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-full mb-8 z-10 ${activeClient ? 'bg-[#E8F1EB] text-brand-leaf' : 'bg-gray-100 text-gray-500'}`}>
                                 {activeClient ? t('profileActive') : 'INACTIVE'}
                             </div>
+
+                            {/* Grant Specialist Access for Admin */}
+                            {isAdmin && activeClient && activeClient.role !== 'specialist' && (
+                                <form action={async () => {
+                                    'use server';
+                                    const { grantSpecialistAccess } = require('@/app/actions/grant-access');
+                                    await grantSpecialistAccess(activeClient.id);
+                                }}>
+                                    <button type="submit" className="w-full mb-6 bg-brand-forest hover:bg-brand-forest-dark text-white px-4 py-3 rounded-2xl font-bold text-sm transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 z-10">
+                                        <Users size={16} /> Назначить Доктором
+                                    </button>
+                                </form>
+                            )}
+
 
                             <div className="w-full space-y-5 z-10">
                                 <div className="flex justify-between items-center text-sm border-b border-brand-sage/30 pb-3">
