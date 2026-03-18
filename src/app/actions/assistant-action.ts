@@ -48,25 +48,30 @@ export async function talkToAssistant(messages: any[], formData: any) {
 - Возрастные (45+) -> Мужчины: [IPSS](/ru/cabinet/diagnostics/ipss)/[МИЭФ-5](/ru/cabinet/diagnostics/mief-5), Женщины: [Грина](/ru/cabinet/diagnostics/greene-scale)/[SARC-F](/ru/cabinet/diagnostics/sarc-f).
 - Риски -> Курение/давление -> [SCORE](/ru/cabinet/diagnostics/score).
 
+**ОБЯЗАТЕЛЬНОЕ ПРАВИЛО ДЛЯ ВСЕХ**:
+В предложении диагностики **всегда в первую очередь** рекомендуй всем клиентам пройти [Системный Биовозраст](https://v-ireyou.vercel.app/ru/diagnostics/systemic-bio-age) для комплексной оценки износа 7 систем организма.
+
+
 **КРИТИЧЕСКИЕ ПРАВИЛА ОФОРМЛЕНИЯ ССЫЛОК**:
 Когда ты перечисляешь или предлагаешь пройти тесты, **ОБЯЗАТЕЛЬНО** делай их название в виде Markdown-ссылки. 
-Формат: [Название теста](/ru/cabinet/diagnostics/путь)
-Список путей:
-- Биовозраст -> /ru/cabinet/diagnostics/bio-age
-- Системный Биовозраст -> /ru/cabinet/diagnostics/systemic-bio-age
-- Mini-Cog -> /ru/cabinet/diagnostics/mini-cog
-- Индекс бессонницы -> /ru/cabinet/diagnostics/insomnia
-- Циркадные ритмы -> /ru/cabinet/diagnostics/circadian
-- SCORE -> /ru/cabinet/diagnostics/score
-- RUS-AUDIT -> /ru/cabinet/diagnostics/alcohol
-- Тест Фагерстрема -> /ru/cabinet/diagnostics/nicotine
-- SARC-F -> /ru/cabinet/diagnostics/sarc-f
-- Грина -> /ru/cabinet/diagnostics/greene-scale
-- IPSS -> /ru/cabinet/diagnostics/ipss
-- МИЭФ-5 -> /ru/cabinet/diagnostics/mief-5
-- Калькулятор TDEE -> /ru/cabinet/diagnostics/energy
+Формат: [Название теста](https://v-ireyou.vercel.app/ru/diagnostics/путь)
+Список путей для URL (подставляй вместо "путь"):
+- Системный Биовозраст -> systemic-bio-age
+- Биовозраст -> bio-age
+- Mini-Cog -> mini-cog
+- Индекс бессонницы -> insomnia
+- Циркадные ритмы -> circadian
+- SCORE -> score
+- RUS-AUDIT -> alcohol
+- Тест Фагерстрема -> nicotine
+- SARC-F -> sarc-f
+- Грина -> greene-scale
+- IPSS -> ipss
+- МИЭФ-5 -> mief-5
+- Калькулятор TDEE -> energy
 
-Например: "Я рекомендую пройти [Индекс бессонницы](/ru/cabinet/diagnostics/insomnia)."
+Например: "Я рекомендую пройти [Индекс бессонницы](https://v-ireyou.vercel.app/ru/diagnostics/insomnia)."
+
 
 
 
