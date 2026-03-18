@@ -6,6 +6,8 @@ import { useDashboardTheme } from "./ThemeContext";
 import { logout } from "@/app/[locale]/login/actions/auth";
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import { createClient } from "@/utils/supabase/client";
+
 
 export default function Sidebar({ role, profileName }: { role: "client" | "specialist", profileName?: string }) {
     const pathname = usePathname();
@@ -16,10 +18,22 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
 
     const toggleLocale = locale === 'en' ? 'ru' : 'en';
 
+    const [user, setUser] = useState<any>(null);
+
     // Close sidebar on navigation (mobile)
     useEffect(() => {
         setIsOpen(false);
     }, [pathname]);
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            const supabase = createClient();
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            setUser(currentUser);
+        };
+        fetchUser();
+    }, []);
+
 
     const handleLogout = async () => {
         await logout(locale);
@@ -42,7 +56,12 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
         { name: t('sSet'), href: "/specialist/settings", icon: <Settings size={18} /> },
     ];
 
-    const links = role === "specialist" ? specialistLinks : clientLinks;
+    let links = role === "specialist" ? [...specialistLinks] : [...clientLinks];
+
+    if (user?.email === 'mogilev.andrey@gmail.com' && role === 'client') {
+        links.splice(1, 0, { name: 'Панель Специалиста', href: "/specialist", icon: <LayoutDashboard size={18} /> });
+    }
+
 
     return (
         <>
