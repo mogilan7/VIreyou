@@ -63,19 +63,19 @@ export async function updateProfile(formData: FormData): Promise<{ success: bool
 
         const welcome_data = {
             ...existingWelcome,
-            weight: weight !== null ? weight : existingWelcome.weight,
-            waist: waist !== null ? waist : existingWelcome.waist,
-            hips: hips !== null ? hips : existingWelcome.hips,
-            smoking: smoking !== null ? smoking : existingWelcome.smoking,
-            alcohol: alcohol !== null ? alcohol : existingWelcome.alcohol,
-            activity: activity !== null ? activity : existingWelcome.activity,
-            diet: diet !== null ? diet : existingWelcome.diet,
-            chronic: chronic !== null ? chronic : existingWelcome.chronic,
-            meds: meds !== null ? meds : existingWelcome.meds,
-            heredity: heredity !== null ? heredity : existingWelcome.heredity
+            weight: weight !== null && weight !== '' ? weight : existingWelcome.weight,
+            waist: waist !== null && waist !== '' ? waist : existingWelcome.waist,
+            hips: hips !== null && hips !== '' ? hips : existingWelcome.hips,
+            smoking: smoking !== null && smoking !== '' ? smoking : existingWelcome.smoking,
+            alcohol: alcohol !== null && alcohol !== '' ? alcohol : existingWelcome.alcohol,
+            activity: activity !== null && activity !== '' ? activity : existingWelcome.activity,
+            diet: diet !== null && diet !== '' ? diet : existingWelcome.diet,
+            chronic: chronic !== null && chronic !== '' ? chronic : existingWelcome.chronic,
+            meds: meds !== null && meds !== '' ? meds : existingWelcome.meds,
+            heredity: heredity !== null && heredity !== '' ? heredity : existingWelcome.heredity
         };
-
         // Prepare update payload
+
         const updates: any = {};
         if (fullName !== null) updates.full_name = fullName;
         if (dob) updates.date_of_birth = new Date(dob);
