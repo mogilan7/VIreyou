@@ -153,7 +153,7 @@ export default async function LifestylePage() {
                                             <div key={h.id} className="flex gap-3 items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/30">
                                                 <Cigarette size={18} className="text-amber-500 flex-shrink-0" />
                                                 <div className="flex-1">
-                                                    <p className="text-sm dark:text-slate-300">{h.description}</p>
+                                                    <p className="text-sm dark:text-slate-300">{h.habit_key}</p>
                                                     <p className="text-[10px] text-gray-400">{new Date(h.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                                                 </div>
                                             </div>
