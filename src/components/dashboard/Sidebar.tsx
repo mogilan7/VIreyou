@@ -21,8 +21,19 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
     const toggleLocale = locale === 'en' ? 'ru' : 'en';
 
     const [user, setUser] = useState<any>(null);
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-    const [fetchedName, setFetchedName] = useState<string | null>(null);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('sidebar_avatar_url');
+        }
+        return null;
+    });
+    const [fetchedName, setFetchedName] = useState<string | null>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('sidebar_fetched_name');
+        }
+        return null;
+    });
+
 
     // Close sidebar on navigation (mobile)
     useEffect(() => {
@@ -39,9 +50,11 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                 const profile = await getSidebarProfile();
                 if (profile?.avatar_url) {
                     setAvatarUrl(profile.avatar_url);
+                    localStorage.setItem('sidebar_avatar_url', profile.avatar_url);
                 }
                 if (profile?.full_name) {
                     setFetchedName(profile.full_name);
+                    localStorage.setItem('sidebar_fetched_name', profile.full_name);
                 }
             }
 
@@ -53,6 +66,10 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
 
 
     const handleLogout = async () => {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('sidebar_avatar_url');
+            localStorage.removeItem('sidebar_fetched_name');
+        }
         await logout(locale);
     };
 
@@ -179,8 +196,9 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                     ) : (
                         <div className="flex items-center gap-3 py-4 border-t dark:border-white/5 border-brand-sage/20">
                             <div className="w-11 h-11 rounded-full bg-brand-sage/50 flex-shrink-0 overflow-hidden relative border-2 border-teal-500/20 shadow-md">
-                                <Image src={avatarUrl || "/hero-specialist.png"} alt="Dr. Valentina" width={44} height={44} className="object-cover w-full h-full object-[center_top]" />
+                                <Image src={avatarUrl || "/hero-specialist.png"} alt="Dr. Valentina" width={44} height={44} className="object-cover w-full h-full" />
                             </div>
+
                             <div className="overflow-hidden">
                                 <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{fetchedName || profileName || "Специалист"}</p>
                                 <p className="text-[10px] text-brand-gray tracking-widest uppercase mt-1 opacity-60 font-medium">{t('sRole')}</p>
