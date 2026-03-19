@@ -241,8 +241,9 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6 border-b dark:border-slate-800 border-brand-sage/40 pb-6">
                 <div>
                     <h1 className="text-sm font-medium opacity-50 uppercase tracking-widest mb-1">Health Intelligence</h1>
-                    <h2 className="text-2xl font-bold">{profile.full_name || 'User'}</h2>
+                    <div className="h-8"></div> {/* Spacer node */}
                 </div>
+
 
                 <nav className="flex gap-8 text-sm font-medium">
                     <button

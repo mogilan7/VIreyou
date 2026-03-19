@@ -65,10 +65,11 @@ export default async function ArchivePage() {
                     <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6 border-b dark:border-slate-800 border-brand-sage/40 pb-6">
                         <div>
                             <h1 className="text-sm font-medium opacity-50 uppercase tracking-widest mb-1">Health Intelligence</h1>
-                            <h2 className="text-2xl font-bold dark:text-white">{profileName}</h2>
+                            <div className="h-8"></div> {/* Spacer node */}
                         </div>
 
                         <nav className="flex gap-8 text-sm font-medium">
+
                             <div className="relative pb-2 transition-all text-teal-500 dark:text-teal-400 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] after:bg-teal-500">
                                 {ct('maTitle')}
                             </div>
