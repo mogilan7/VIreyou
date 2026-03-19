@@ -19,6 +19,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
     const toggleLocale = locale === 'en' ? 'ru' : 'en';
 
     const [user, setUser] = useState<any>(null);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
     // Close sidebar on navigation (mobile)
     useEffect(() => {
@@ -30,9 +31,22 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
             const supabase = createClient();
             const { data: { user: currentUser } } = await supabase.auth.getUser();
             setUser(currentUser);
+            
+            if (currentUser) {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('avatar_url')
+                    .eq('id', currentUser.id)
+                    .single();
+                
+                if (data?.avatar_url) {
+                    setAvatarUrl(data.avatar_url);
+                }
+            }
         };
         fetchUser();
     }, []);
+
 
 
     const handleLogout = async () => {
@@ -152,7 +166,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                     {role === "client" ? (
                         <div className="flex items-center gap-3 py-4 border-t dark:border-white/5 border-brand-sage/20">
                             <div className="w-11 h-11 rounded-full bg-slate-800 flex-shrink-0 overflow-hidden relative border-2 border-brand-leaf/20 shadow-md">
-                                <Image src="/andrei-avatar.png" alt={profileName || "User"} width={44} height={44} className="object-cover w-full h-full" />
+                                <Image src={avatarUrl || "/andrei-avatar.png"} alt={profileName || "User"} width={44} height={44} className="object-cover w-full h-full" />
                             </div>
                             <div className="overflow-hidden">
                                 <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{profileName || "Пользователь"}</p>
@@ -162,7 +176,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                     ) : (
                         <div className="flex items-center gap-3 py-4 border-t dark:border-white/5 border-brand-sage/20">
                             <div className="w-11 h-11 rounded-full bg-brand-sage/50 flex-shrink-0 overflow-hidden relative border-2 border-teal-500/20 shadow-md">
-                                <Image src="/hero-specialist.png" alt="Dr. Valentina" width={44} height={44} className="object-cover w-full h-full object-[center_top]" />
+                                <Image src={avatarUrl || "/hero-specialist.png"} alt="Dr. Valentina" width={44} height={44} className="object-cover w-full h-full object-[center_top]" />
                             </div>
                             <div className="overflow-hidden">
                                 <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">Valentina S.</p>
@@ -172,10 +186,11 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                     )}
                     <button
                         onClick={handleLogout}
-                        className="w-full mt-4 flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl border border-red-500/20 text-red-500 hover:bg-red-500/10 hover:text-red-600 transition-all text-sm font-bold active:scale-95"
+                        className={`w-full mt-4 flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl border transition-all text-sm font-semibold active:scale-95 ${theme === 'dark' ? 'border-white/5 text-slate-400 hover:bg-white/5' : 'border-brand-sage/30 text-brand-gray/80 hover:bg-brand-sage/20 hover:text-brand-text'}`}
                     >
-                        <LogOut size={16} /> Logout
+                        <LogOut size={16} className="opacity-60" /> Logout
                     </button>
+
                 </div>
             </aside>
         </>
