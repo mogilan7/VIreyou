@@ -31,8 +31,9 @@ export default async function MyResultsPage() {
             .order('created_at', { ascending: false });
 
         if (data && data.length > 0) {
-            results = data;
+            results = data.filter((r: any) => r.test_type !== 'ai-recommendation');
         } else if (isDemo) {
+
             // Synchronized demo data fallback from page.tsx
             const demoCreatedAt = new Date().toISOString();
             results = [
