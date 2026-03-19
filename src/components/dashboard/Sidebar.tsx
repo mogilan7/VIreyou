@@ -20,6 +20,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
 
     const [user, setUser] = useState<any>(null);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [fetchedName, setFetchedName] = useState<string | null>(null);
 
     // Close sidebar on navigation (mobile)
     useEffect(() => {
@@ -35,17 +36,21 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
             if (currentUser) {
                 const { data } = await supabase
                     .from('profiles')
-                    .select('avatar_url')
+                    .select('full_name, avatar_url')
                     .eq('id', currentUser.id)
                     .single();
                 
                 if (data?.avatar_url) {
                     setAvatarUrl(data.avatar_url);
                 }
+                if (data?.full_name) {
+                    setFetchedName(data.full_name);
+                }
             }
         };
         fetchUser();
     }, []);
+
 
 
 
@@ -169,7 +174,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                                 <Image src={avatarUrl || "/andrei-avatar.png"} alt={profileName || "User"} width={44} height={44} className="object-cover w-full h-full" />
                             </div>
                             <div className="overflow-hidden">
-                                <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{profileName || "Пользователь"}</p>
+                                <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{fetchedName || profileName || "Пользователь"}</p>
                                 <p className="text-[10px] text-brand-gray tracking-widest uppercase mt-1 opacity-60 font-medium">{t('cPlan')}</p>
                             </div>
                         </div>
@@ -179,11 +184,12 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                                 <Image src={avatarUrl || "/hero-specialist.png"} alt="Dr. Valentina" width={44} height={44} className="object-cover w-full h-full object-[center_top]" />
                             </div>
                             <div className="overflow-hidden">
-                                <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">Valentina S.</p>
+                                <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{fetchedName || profileName || "Специалист"}</p>
                                 <p className="text-[10px] text-brand-gray tracking-widest uppercase mt-1 opacity-60 font-medium">{t('sRole')}</p>
                             </div>
                         </div>
                     )}
+
                     <button
                         onClick={handleLogout}
                         className={`w-full mt-4 flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl border transition-all text-sm font-semibold active:scale-95 ${theme === 'dark' ? 'border-white/5 text-slate-400 hover:bg-white/5' : 'border-brand-sage/30 text-brand-gray/80 hover:bg-brand-sage/20 hover:text-brand-text'}`}
