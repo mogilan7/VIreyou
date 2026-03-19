@@ -91,7 +91,9 @@ export async function generateDiagnosticReport(formData: any, locale: string = '
     // Save to profile if logged in
     try {
         const { createClient } = require('@/utils/supabase/server');
-        const prisma = require('@/lib/prisma').default;
+        const prismaModule = require('@/lib/prisma');
+        const prisma = prismaModule.default || prismaModule;
+        
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -105,6 +107,7 @@ export async function generateDiagnosticReport(formData: any, locale: string = '
     }
 
     return content;
+
 
 
   } catch (error: any) {

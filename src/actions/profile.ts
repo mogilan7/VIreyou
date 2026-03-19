@@ -20,6 +20,18 @@ export async function updateProfile(formData: FormData): Promise<{ success: bool
         const height = formData.get('height') as string;
         const avatarFile = formData.get('avatar') as File | null;
 
+        // Welcome Data fields
+        const weight = formData.get('weight') as string;
+        const waist = formData.get('waist') as string;
+        const hips = formData.get('hips') as string;
+        const smoking = formData.get('smoking') as string;
+        const alcohol = formData.get('alcohol') as string;
+        const activity = formData.get('activity') as string;
+        const diet = formData.get('diet') as string;
+        const chronic = formData.get('chronic') as string;
+        const meds = formData.get('meds') as string;
+        const heredity = formData.get('heredity') as string;
+
         let avatarUrl = undefined;
 
         // Upload avatar if provided
@@ -45,6 +57,24 @@ export async function updateProfile(formData: FormData): Promise<{ success: bool
             avatarUrl = publicUrlData.publicUrl;
         }
 
+        // Fetch existing Welcome Data to preserve Symptoms
+        const existingProfile = await prisma.profiles.findUnique({ where: { id: user.id } });
+        const existingWelcome = (existingProfile as any)?.welcome_data || {};
+
+        const welcome_data = {
+            ...existingWelcome,
+            weight: weight !== null ? weight : existingWelcome.weight,
+            waist: waist !== null ? waist : existingWelcome.waist,
+            hips: hips !== null ? hips : existingWelcome.hips,
+            smoking: smoking !== null ? smoking : existingWelcome.smoking,
+            alcohol: alcohol !== null ? alcohol : existingWelcome.alcohol,
+            activity: activity !== null ? activity : existingWelcome.activity,
+            diet: diet !== null ? diet : existingWelcome.diet,
+            chronic: chronic !== null ? chronic : existingWelcome.chronic,
+            meds: meds !== null ? meds : existingWelcome.meds,
+            heredity: heredity !== null ? heredity : existingWelcome.heredity
+        };
+
         // Prepare update payload
         const updates: any = {};
         if (fullName !== null) updates.full_name = fullName;
@@ -53,7 +83,7 @@ export async function updateProfile(formData: FormData): Promise<{ success: bool
             const { Prisma } = require('@prisma/client');
             updates.height = new Prisma.Decimal(height);
         }
-
+        updates.welcome_data = welcome_data;
 
         if (avatarUrl) updates.avatar_url = avatarUrl; // Using avatar_url to match existing schema
 
