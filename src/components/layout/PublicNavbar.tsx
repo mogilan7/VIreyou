@@ -19,7 +19,7 @@ const NavLinks = ({ mobile = false, isCabinet, isSpecialist, t, tDashboard, setI
             { name: tDashboard('cDash'), href: "/cabinet" },
             { name: tDashboard('cRes'), href: "/cabinet/results" },
             { name: tDashboard('cArch'), href: "/cabinet/archive" },
-            { name: tDashboard('cAssgn'), href: "/cabinet/assignments" },
+            { name: tDashboard('cAssgn'), href: "/cabinet/lifestyle" },
             { name: tDashboard('cCons'), href: "/cabinet/consultations" },
             { name: tDashboard('cProf'), href: "/cabinet/profile" },
         ];

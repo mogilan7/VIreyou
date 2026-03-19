@@ -1,5 +1,5 @@
 "use client";
-import { LayoutDashboard, Users, Calendar, Activity, Settings, FileText, CheckSquare, MessageSquare, LogOut, Sun, Moon, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, Activity, Settings, FileText, CheckSquare, MessageSquare, LogOut, Sun, Moon, Menu, X, Heart } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { Link as IntlLink, usePathname } from "@/i18n/routing";
 import { useDashboardTheme } from "./ThemeContext";
@@ -77,7 +77,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
         { name: t('cDash'), href: "/cabinet", icon: <LayoutDashboard size={18} /> },
         { name: t('cRes'), href: "/cabinet/results", icon: <Activity size={18} /> },
         { name: t('cArch'), href: "/cabinet/archive", icon: <FileText size={18} /> },
-        { name: t('cAssgn'), href: "/cabinet/assignments", icon: <CheckSquare size={18} /> },
+        { name: t('cAssgn'), href: "/cabinet/lifestyle", icon: <Heart size={18} /> },
         { name: t('cCons'), href: "/cabinet/consultations", icon: <MessageSquare size={18} /> },
         { name: t('cProf'), href: "/cabinet/profile", icon: <Settings size={18} /> },
     ];
