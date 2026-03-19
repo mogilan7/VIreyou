@@ -183,7 +183,7 @@ const ScoreCalculatorPage = () => {
                                 <input
                                     type="range" min="40" max="65" step="1"
                                     value={age} onChange={(e) => setAge(parseInt(e.target.value))}
-                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 touch-none"
                                 />
                             </div>
 
@@ -196,7 +196,7 @@ const ScoreCalculatorPage = () => {
                                 <input
                                     type="range" min="100" max="180" step="5"
                                     value={systolicBP} onChange={(e) => setSystolicBP(parseInt(e.target.value))}
-                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 touch-none"
                                 />
                             </div>
 
@@ -209,7 +209,7 @@ const ScoreCalculatorPage = () => {
                                 <input
                                     type="range" min="3" max="8" step="0.1"
                                     value={cholesterol} onChange={(e) => setCholesterol(parseFloat(e.target.value))}
-                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 touch-none"
                                 />
                                 <div className="flex justify-between text-[10px] text-slate-400 font-medium px-1">
                                     <span>3.0 ({t('labelLow')})</span>

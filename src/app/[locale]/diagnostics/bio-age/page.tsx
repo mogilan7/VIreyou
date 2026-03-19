@@ -180,8 +180,9 @@ export default function BioAgeCalculatorPage() {
                 max={max}
                 value={value}
                 onChange={(e) => setValue(Number(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 touch-none"
             />
+
         </div>
     );
 
