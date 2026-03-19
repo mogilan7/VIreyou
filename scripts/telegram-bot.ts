@@ -134,6 +134,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
                   [Markup.button.callback('🍎 Анализ питания', 'menu_nutrition')],
                   [Markup.button.callback('🏃‍♂️ Физическая активность', 'menu_activity')],
                   [Markup.button.callback('🛌 Анализ сна', 'menu_sleep')],
+                  [Markup.button.callback('💧 Вода', 'menu_water')],
                   [Markup.button.callback('🚭 Вредные привычки', 'menu_habits')],
                   [Markup.button.callback('⚙️ Настройки', 'menu_settings')]
               ])
@@ -145,6 +146,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
                   [Markup.button.callback('🍎 Анализ питания', 'menu_nutrition')],
                   [Markup.button.callback('🏃‍♂️ Физическая активность', 'menu_activity')],
                   [Markup.button.callback('🛌 Анализ сна', 'menu_sleep')],
+                  [Markup.button.callback('💧 Вода', 'menu_water')],
                   [Markup.button.callback('🚭 Вредные привычки', 'menu_habits')],
                   [Markup.button.callback('⚙️ Настройки', 'menu_settings')]
               ])
@@ -279,6 +281,20 @@ bot.on('voice', async (ctx: any) => {
 // ----------------------------------------------------
 // Обработка ТЕКСТА
 // ----------------------------------------------------
+
+bot.hears(/^(\d+)\s*(мл|ml|миллилитров)$/i, async (ctx: any) => {
+    const volume = parseInt(ctx.match[1]);
+    const user = ctx.state.user;
+
+    if (!user) return ctx.reply("❌ Пользователь не привязан.");
+
+    await prisma.hydrationLog.create({
+        data: { user_id: user.id, volume_ml: volume }
+    });
+
+    return ctx.reply(`✅ Записано: **+${volume} мл** выпитой воды! 💦`);
+});
+
 bot.on('text', async (ctx: any) => {
   const text = ctx.message.text;
 
@@ -354,6 +370,28 @@ cron.schedule('* * * * *', async () => {
 });
 
 // Обработчики кнопок
+bot.action('menu_water', async (ctx: any) => {
+    ctx.answerCbQuery();
+    await ctx.reply("💧 **Регистрация воды**\n\nСколько миллилитров (мл) вы выпили?\n\nВыберите из пресетов ниже, либо просто напишите в чат (например: `200мл`).", 
+        Markup.inlineKeyboard([
+            [Markup.button.callback('💧 250 мл', 'water_250')],
+            [Markup.button.callback('💧 500 мл', 'water_500')],
+            [Markup.button.callback('💧 750 мл', 'water_750')]
+        ])
+    );
+});
+
+bot.action('water_750', async (ctx: any) => {
+    const user = await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
+    if (!user) return ctx.answerCbQuery("Пользователь не найден.");
+    
+    await prisma.hydrationLog.create({
+        data: { user_id: user.id, volume_ml: 750 }
+    });
+    ctx.answerCbQuery("✅ +750мл успешно сохранено!");
+    ctx.reply("💧 Отлично! Выпито +750мл.");
+});
+
 bot.action('water_250', async (ctx: any) => {
     // В inline-кнопках ctx.from.id — это тот, кто нажал
     const user = await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
@@ -476,10 +514,14 @@ bot.action('save_time_3_preset1', (ctx: any) => presetSave(ctx, "09:00", "15:00"
 bot.action('save_time_3_preset2', (ctx: any) => presetSave(ctx, "08:00", "14:00", "20:00", "Напоминания установлены на **08:00**, **14:00** и **20:00**"));
 
 
+bot.catch((err: any, ctx: any) => {
+    console.error(`[TelegrafError] for ${ctx.updateType || 'unknown'}:`, err.message || err);
+});
+
 // Запуск
 
 console.log("Starting Telegram Bot (Long Polling)...");
-bot.launch().then(() => {
+bot.launch({ dropPendingUpdates: true }).then(() => {
     console.log("✅ Bot is polling for updates");
 }).catch(err => {
     console.error("Bot launch failed:", err);

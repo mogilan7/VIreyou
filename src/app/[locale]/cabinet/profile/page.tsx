@@ -38,6 +38,32 @@ export default async function ProfilePage() {
                 <div className="bg-white p-8 rounded-3xl border border-brand-sage/40 shadow-sm max-w-2xl">
                     <ProfileForm initialProfile={profile} />
                 </div>
+
+                {/* Telegram Bot Connection Card */}
+                {user?.email && (
+                    <div className="bg-white p-8 rounded-3xl border border-brand-sage/40 shadow-sm max-w-2xl mt-8">
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="p-3 rounded-2xl bg-teal-50 text-teal-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-brand-text">🤖 Telegram-ассистент</h3>
+                                <p className="text-xs text-brand-gray">Мгновенный анализ питания, сна и воды</p>
+                            </div>
+                        </div>
+                        <p className="text-sm text-brand-gray mb-6">
+                            Подключите бота, чтобы отправлять отчеты прямо в мессенджер. Бот автоматически занесет данные в ваш календарь.
+                        </p>
+                        <a 
+                            href={`https://t.me/SayAndSaveBot?start=${Buffer.from(user.email).toString('base64')}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="inline-flex items-center gap-2 px-6 py-3.5 bg-brand-leaf text-white rounded-2xl font-medium hover:bg-brand-leaf/90 transition-all shadow-sm hover:shadow-md active:scale-95"
+                        >
+                            🚀 Подключить Telegram-бота
+                        </a>
+                    </div>
+                )}
             </main>
         </div>
     );
