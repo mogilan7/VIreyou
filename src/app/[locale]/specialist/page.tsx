@@ -179,9 +179,14 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
 
                             <div className="w-24 h-24 rounded-3xl bg-[#F0EBE1] border-4 border-white shadow-sm overflow-hidden mb-5 relative z-10 p-1">
                                 <div className="w-full h-full rounded-2xl overflow-hidden bg-brand-sage/50 flex flex-col items-center justify-center font-serif text-2xl text-brand-gray">
-                                    {activeClient ? activeClient.full_name?.charAt(0) : '?'}
+                                    {activeClient?.avatar_url ? (
+                                        <img src={activeClient.avatar_url} alt={activeClient.full_name || "Client"} className="w-full h-full object-cover" />
+                                    ) : (
+                                        activeClient ? activeClient.full_name?.charAt(0) : '?'
+                                    )}
                                 </div>
                             </div>
+
 
                             <h2 className="font-serif text-2xl text-brand-text font-bold mb-3 z-10">
                                 {activeClient ? activeClient.full_name : 'Select Client'}

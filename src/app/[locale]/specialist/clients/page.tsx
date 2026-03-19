@@ -104,11 +104,16 @@ export default async function ClientsPage() {
                                 {clients.map((client) => (
                                     <tr key={client.id} className="group hover:bg-brand-bg/50 transition-colors">
                                         <td className="py-5 border-b border-brand-sage/20 font-bold text-sm text-brand-text group-last:border-0 flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-brand-sage/20 flex items-center justify-center font-serif text-sm text-brand-gray">
-                                                {client.full_name?.charAt(0) || '?'}
+                                            <div className="w-8 h-8 rounded-full bg-brand-sage/20 flex items-center justify-center font-serif text-sm text-brand-gray overflow-hidden box-content border">
+                                                {client.avatar_url ? (
+                                                    <img src={client.avatar_url} alt={client.full_name || "Client"} className="w-full h-full object-cover rounded-full" />
+                                                ) : (
+                                                    client.full_name?.charAt(0) || '?'
+                                                )}
                                             </div>
                                             {client.full_name || 'Без Имени'}
                                         </td>
+
                                         <td className="py-5 border-b border-brand-sage/20 text-sm text-brand-text group-last:border-0">
                                             <div className="flex items-center gap-1.5"><MapPin size={14} className="text-brand-gray" /> Remote</div>
                                         </td>
