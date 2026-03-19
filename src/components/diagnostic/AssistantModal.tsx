@@ -91,15 +91,36 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUser(user);
-        setFormData(prev => ({
-          ...prev,
-          name: user.user_metadata?.full_name || ''
-        }));
+        
+        // Import Server Action explicitly
+        const { getSidebarProfile } = await import('@/actions/profile');
+        const profile = await getSidebarProfile();
+        
+        if (profile) {
+          const dob = (profile as any).date_of_birth ? new Date((profile as any).date_of_birth) : null;
+          const calculatedAge = dob && !isNaN(dob.getTime()) ? String(new Date().getFullYear() - dob.getFullYear()) : '';
+
+          setFormData(prev => ({
+            ...prev,
+            name: profile.full_name || user.user_metadata?.full_name || prev.name,
+            height: (profile as any).height || prev.height,
+            age: calculatedAge || prev.age,
+            weight: profile.welcome_data?.weight || prev.weight,
+            waist: profile.welcome_data?.waist || prev.waist,
+            hips: profile.welcome_data?.hips || prev.hips
+          }));
+        } else {
+          setFormData(prev => ({
+            ...prev,
+            name: user.user_metadata?.full_name || ''
+          }));
+        }
       }
       setAuthLoading(false);
     };
     checkAuth();
   }, []);
+
 
 
   if (!isOpen) return null;
