@@ -207,22 +207,25 @@ const ScoreCalculatorPage = () => {
                                     >
                                         {t('smoker')}
                                     </button>
-                                                            {/* Age Slider */}
-                             <SliderInput label={t('age')} value={age} setValue={setAge} min="40" max="65" unit={t('unitYears')} />
+                                </div>
+                            </div>
 
-                             {/* Systolic BP Slider */}
-                             <SliderInput label={t('systolicBP')} value={systolicBP} setValue={setSystolicBP} min="100" max="180" step="5" unit={t('unitMmHg')} />
+                            {/* Age Slider */}
+                            <SliderInput label={t('age')} value={age} setValue={setAge} min="40" max="65" unit={t('unitYears')} />
 
-                             {/* Cholesterol Slider */}
-                             <div className="md:col-span-2 space-y-3">
+                            {/* Systolic BP Slider */}
+                            <SliderInput label={t('systolicBP')} value={systolicBP} setValue={setSystolicBP} min="100" max="180" step="5" unit={t('unitMmHg')} />
+
+                            {/* Cholesterol Slider */}
+                            <div className="md:col-span-2 space-y-3">
                                 <SliderInput label={t('cholesterol')} value={cholesterol} setValue={setCholesterol} min="3" max="8" step="0.1" unit={t('unitMmolL')} />
                                 <div className="flex justify-between text-[10px] text-slate-400 font-medium px-1">
                                     <span>3.0 ({t('labelLow')})</span>
                                     <span>5.0 ({t('labelNorm')})</span>
                                     <span>8.0 ({t('labelHigh')})</span>
                                 </div>
-                             </div>   </div>
                             </div>
+
                         </div>
 
                         {/* Results Section */}
