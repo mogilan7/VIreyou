@@ -48,8 +48,13 @@ export async function updateProfile(formData: FormData): Promise<{ success: bool
         // Prepare update payload
         const updates: any = {};
         if (fullName !== null) updates.full_name = fullName;
-        if (dob) updates.date_of_birth = dob;
-        if (height) updates.height = parseFloat(height);
+        if (dob) updates.date_of_birth = new Date(dob);
+        if (height) {
+            const { Prisma } = require('@prisma/client');
+            updates.height = new Prisma.Decimal(height);
+        }
+
+
         if (avatarUrl) updates.avatar_url = avatarUrl; // Using avatar_url to match existing schema
 
         if (Object.keys(updates).length > 0) {
