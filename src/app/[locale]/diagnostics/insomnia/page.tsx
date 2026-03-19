@@ -91,6 +91,11 @@ export default function InsomniaCalculatorPage() {
     const progress = (answers.filter(a => a !== null).length / questions.length) * 100;
 
     const handleSave = async () => {
+        if (!isAuthenticated) {
+            setSaveStatus('error');
+            setTimeout(() => setSaveStatus('idle'), 4000);
+            return;
+        }
         if (!isAuthenticated) return;
         setIsSaving(true);
         setSaveStatus('idle');
@@ -205,8 +210,8 @@ export default function InsomniaCalculatorPage() {
                         </div>
 
                         {/* Save Button Action */}
-                        {isAuthenticated && (
-                            <div className="mt-8 border-t border-slate-200 pt-6">
+                        <div className="flex flex-col gap-3 w-full">
+            <div className="mt-8 border-t border-slate-200 pt-6">
                                 <button
                                     onClick={handleSave}
                                     disabled={isSaving || saveStatus === 'success'}
@@ -231,7 +236,13 @@ export default function InsomniaCalculatorPage() {
                                     )}
                                 </button>
                             </div>
-                        )}
+                        
+            {!isAuthenticated && (
+                <div className="text-center text-xs text-slate-500 font-medium">
+                   <a href="/ru/login" target="_blank" className="text-indigo-600 hover:underline font-bold">Войдите</a>, чтобы результаты сохранились в медархиве
+                </div>
+            )}
+          </div>
 
                         <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-between items-center border-t border-slate-200 pt-6">
                             <div className="flex items-center gap-2 text-slate-400 text-xs text-center md:text-left">

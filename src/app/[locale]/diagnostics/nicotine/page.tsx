@@ -180,6 +180,11 @@ export default function NicotineCalculatorPage() {
     };
 
     const handleSaveResult = async () => {
+        if (!isAuthenticated) {
+            setSaveStatus('error');
+            setTimeout(() => setSaveStatus('idle'), 4000);
+            return;
+        }
         if (!isAuthenticated) return;
         setIsSaving(true);
         setSaveStatus('idle');
@@ -400,8 +405,8 @@ export default function NicotineCalculatorPage() {
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                                                {isAuthenticated && (
-                                                    <button
+                                                <div className="flex flex-col gap-3 w-full">
+            <button
                                                         onClick={handleSaveResult}
                                                         disabled={isSaving || saveStatus === 'success'}
                                                         className={`flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-bold transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-md
@@ -415,7 +420,13 @@ export default function NicotineCalculatorPage() {
                                                             <>{t('saveBtn')}</>
                                                         )}
                                                     </button>
-                                                )}
+                                                
+            {!isAuthenticated && (
+                <div className="text-center text-xs text-slate-500 font-medium">
+                   <a href="/ru/login" target="_blank" className="text-indigo-600 hover:underline font-bold">Войдите</a>, чтобы результаты сохранились в медархиве
+                </div>
+            )}
+          </div>
 
                                                 <button
                                                     onClick={reset}

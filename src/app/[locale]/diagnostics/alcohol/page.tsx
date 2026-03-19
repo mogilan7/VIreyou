@@ -179,6 +179,11 @@ export default function AlcoholCalculatorPage() {
     };
 
     const handleSaveResult = async () => {
+        if (!isAuthenticated) {
+            setSaveStatus('error');
+            setTimeout(() => setSaveStatus('idle'), 4000);
+            return;
+        }
         if (!isAuthenticated) return;
         setIsSaving(true);
         setSaveStatus('idle');
@@ -343,8 +348,8 @@ export default function AlcoholCalculatorPage() {
                                 </div>
 
                                 {/* Save Button */}
-                                {isAuthenticated && (
-                                    <div className="py-2">
+                                <div className="flex flex-col gap-3 w-full">
+            <div className="py-2">
                                         <button
                                             onClick={handleSaveResult}
                                             disabled={isSaving || saveStatus === 'success'}
@@ -359,7 +364,13 @@ export default function AlcoholCalculatorPage() {
                                             {!isSaving && saveStatus === 'idle' && t('saveToVault')}
                                         </button>
                                     </div>
-                                )}
+                                
+            {!isAuthenticated && (
+                <div className="text-center text-xs text-slate-500 font-medium">
+                   <a href="/ru/login" target="_blank" className="text-indigo-600 hover:underline font-bold">Войдите</a>, чтобы результаты сохранились в медархиве
+                </div>
+            )}
+          </div>
 
 
                                 <div className="space-y-4">

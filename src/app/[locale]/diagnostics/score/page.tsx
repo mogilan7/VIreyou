@@ -72,6 +72,11 @@ const ScoreCalculatorPage = () => {
     };
 
     const handleSave = async () => {
+        if (!isAuthenticated) {
+            setSaveStatus('error');
+            setTimeout(() => setSaveStatus('idle'), 4000);
+            return;
+        }
         if (!isAuthenticated) return;
         setIsSaving(true);
         setSaveStatus('idle');
@@ -238,8 +243,8 @@ const ScoreCalculatorPage = () => {
                             </div>
 
                             {/* Save Button Action */}
-                            {isAuthenticated && (
-                                <div className="mt-6 pt-6 border-t border-slate-200/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="flex flex-col gap-3 w-full">
+            <div className="mt-6 pt-6 border-t border-slate-200/50 flex flex-col sm:flex-row items-center justify-between gap-4">
                                     <div className="text-sm text-slate-600 font-medium">
                                         {tCommon('saveVaultPrompt')}
                                     </div>
@@ -267,7 +272,13 @@ const ScoreCalculatorPage = () => {
                                         )}
                                     </button>
                                 </div>
-                            )}
+                            
+            {!isAuthenticated && (
+                <div className="text-center text-xs text-slate-500 font-medium">
+                   <a href="/ru/login" target="_blank" className="text-indigo-600 hover:underline font-bold">Войдите</a>, чтобы результаты сохранились в медархиве
+                </div>
+            )}
+          </div>
                         </div>
 
                         {/* Legend/Info */}

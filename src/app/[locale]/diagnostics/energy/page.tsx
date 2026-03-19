@@ -89,6 +89,11 @@ export default function EnergyCalculatorPage() {
     }, []);
 
     const handleSave = async () => {
+        if (!isAuthenticated) {
+            setSaveStatus('error');
+            setTimeout(() => setSaveStatus('idle'), 4000);
+            return;
+        }
         if (!isAuthenticated) return;
 
         setIsSaving(true);
@@ -276,8 +281,8 @@ export default function EnergyCalculatorPage() {
                                 </div>
 
                                 {/* Save Button */}
-                                {isAuthenticated && (
-                                    <div className="mt-8 pt-6 border-t border-brand-sage/40">
+                                <div className="flex flex-col gap-3 w-full">
+            <div className="mt-8 pt-6 border-t border-brand-sage/40">
                                         <button
                                             onClick={handleSave}
                                             disabled={isSaving}
@@ -296,7 +301,13 @@ export default function EnergyCalculatorPage() {
                                             <p className="text-red-500 text-sm text-center font-medium mt-2">{t('errorSaving')}</p>
                                         )}
                                     </div>
-                                )}
+                                
+            {!isAuthenticated && (
+                <div className="text-center text-xs text-slate-500 font-medium">
+                   <a href="/ru/login" target="_blank" className="text-indigo-600 hover:underline font-bold">Войдите</a>, чтобы результаты сохранились в медархиве
+                </div>
+            )}
+          </div>
                             </div>
                         </div>
                     </div>

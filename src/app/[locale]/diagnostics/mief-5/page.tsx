@@ -92,6 +92,11 @@ export default function Mief5Page() {
     }, [answers, isComplete]);
 
     const handleSave = async () => {
+        if (!isAuthenticated) {
+            setSaveStatus('error');
+            setTimeout(() => setSaveStatus('idle'), 4000);
+            return;
+        }
         if (!isAuthenticated || !isComplete) return;
         setIsSaving(true);
         setSaveStatus('idle');
@@ -328,8 +333,8 @@ export default function Mief5Page() {
                                 </div>
 
                                 <div className="mt-8 flex flex-col gap-3">
-                                    {isAuthenticated && (
-                                        <button 
+                                    <div className="flex flex-col gap-3 w-full">
+            <button 
                                             onClick={handleSave}
                                             disabled={isSaving || saveStatus === 'success'}
                                             className={`inline-flex items-center justify-center px-6 py-4 rounded-2xl font-bold transition-all shadow-lg w-full ${
@@ -348,7 +353,13 @@ export default function Mief5Page() {
                                                 <><Save className="mr-2 w-5 h-5" /> Сохранить в мед архив</>
                                             )}
                                         </button>
-                                    )}
+                                    
+            {!isAuthenticated && (
+                <div className="text-center text-xs text-slate-500 font-medium">
+                   <a href="/ru/login" target="_blank" className="text-indigo-600 hover:underline font-bold">Войдите</a>, чтобы результаты сохранились в медархиве
+                </div>
+            )}
+          </div>
 
                                     <button 
                                         onClick={resetForm}

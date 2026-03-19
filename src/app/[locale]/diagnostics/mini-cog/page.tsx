@@ -122,6 +122,11 @@ export default function MiniCogCalculatorPage() {
     const totalScore = calculateScore();
 
     const handleSave = async () => {
+        if (!isAuthenticated) {
+            setSaveStatus('error');
+            setTimeout(() => setSaveStatus('idle'), 4000);
+            return;
+        }
         if (!isAuthenticated) return;
         setIsSaving(true);
         setSaveStatus('idle');
@@ -364,8 +369,8 @@ export default function MiniCogCalculatorPage() {
                                 </div>
 
                                 {/* Save Button Action */}
-                                {isAuthenticated && (
-                                    <div className="w-full mb-4">
+                                <div className="flex flex-col gap-3 w-full">
+            <div className="w-full mb-4">
                                         <button
                                             onClick={handleSave}
                                             disabled={isSaving || saveStatus === 'success'}
@@ -390,7 +395,13 @@ export default function MiniCogCalculatorPage() {
                                             )}
                                         </button>
                                     </div>
-                                )}
+                                
+            {!isAuthenticated && (
+                <div className="text-center text-xs text-slate-500 font-medium">
+                   <a href="/ru/login" target="_blank" className="text-indigo-600 hover:underline font-bold">Войдите</a>, чтобы результаты сохранились в медархиве
+                </div>
+            )}
+          </div>
 
                                 <button
                                     onClick={() => {
