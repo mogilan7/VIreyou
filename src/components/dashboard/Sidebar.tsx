@@ -4,6 +4,8 @@ import { useTranslations, useLocale } from "next-intl";
 import { Link as IntlLink, usePathname } from "@/i18n/routing";
 import { useDashboardTheme } from "./ThemeContext";
 import { logout } from "@/app/[locale]/login/actions/auth";
+import { getSidebarProfile } from "@/actions/profile";
+
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
@@ -34,19 +36,15 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
             setUser(currentUser);
             
             if (currentUser) {
-                const { data } = await supabase
-                    .from('profiles')
-                    .select('full_name, avatar_url')
-                    .eq('id', currentUser.id)
-                    .single();
-                
-                if (data?.avatar_url) {
-                    setAvatarUrl(data.avatar_url);
+                const profile = await getSidebarProfile();
+                if (profile?.avatar_url) {
+                    setAvatarUrl(profile.avatar_url);
                 }
-                if (data?.full_name) {
-                    setFetchedName(data.full_name);
+                if (profile?.full_name) {
+                    setFetchedName(profile.full_name);
                 }
             }
+
         };
         fetchUser();
     }, []);

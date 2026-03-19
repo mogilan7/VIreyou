@@ -77,5 +77,26 @@ export async function updateProfile(formData: FormData): Promise<{ success: bool
         console.error("Exception in updateProfile:", e);
         return { success: false, error: e.message || 'An unexpected error occurred' };
     }
+}
 
+export async function getSidebarProfile(): Promise<{ full_name: string | null; avatar_url: string | null } | null> {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+
+        const profile = await prisma.profiles.findUnique({
+            where: { id: user.id }
+        });
+
+        if (!profile) return null;
+
+        return {
+            full_name: profile.full_name,
+            avatar_url: profile.avatar_url
+        };
+    } catch (e) {
+        console.error("Error in getSidebarProfile:", e);
+        return null;
+    }
 }
