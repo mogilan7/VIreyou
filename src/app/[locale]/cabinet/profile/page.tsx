@@ -2,18 +2,24 @@ import React from 'react';
 import Sidebar from "@/components/dashboard/Sidebar";
 import ProfileForm from "./ProfileForm";
 import { createClient } from '@/utils/supabase/server';
+import prisma from '@/lib/prisma';
 import { getTranslations } from "next-intl/server";
 
+export const dynamic = 'force-dynamic';
+
 export default async function ProfilePage() {
+
     const t = await getTranslations('ProfileSettings');
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     let profile = null;
     if (user) {
-        const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-        profile = data;
+        profile = await prisma.profiles.findUnique({
+            where: { id: user.id }
+        });
     }
+
 
     // For sidebar name
     const profileName = profile?.full_name || user?.user_metadata?.full_name || (user?.id === '00000000-0000-0000-0000-000000000000' || !user ? 'Андрей Могилев' : 'Пользователь');
