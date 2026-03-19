@@ -186,7 +186,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                     {role === "client" ? (
                         <div className="flex items-center gap-3 py-4 border-t dark:border-white/5 border-brand-sage/20">
                             <div className={`w-11 h-11 rounded-full flex-shrink-0 overflow-hidden relative border-2 border-brand-leaf/20 shadow-md ${avatarUrl ? 'bg-transparent' : 'bg-slate-800'}`}>
-                                <Image src={avatarUrl || "/andrei-avatar.png"} alt={profileName || "User"} width={44} height={44} className="object-cover w-full h-full rounded-full" />
+                                <img src={avatarUrl || "/andrei-avatar.png"} alt={profileName || "User"} width={44} height={44} className="object-cover w-full h-full rounded-full" />
                             </div>
                             <div className="overflow-hidden">
                                 <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{fetchedName || profileName || "Пользователь"}</p>
@@ -196,7 +196,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                     ) : (
                         <div className="flex items-center gap-3 py-4 border-t dark:border-white/5 border-brand-sage/20">
                             <div className={`w-11 h-11 rounded-full flex-shrink-0 overflow-hidden relative border-2 border-teal-500/20 shadow-md ${avatarUrl ? 'bg-transparent' : 'bg-brand-sage/50'}`}>
-                                <Image src={avatarUrl || "/hero-specialist.png"} alt="Dr. Valentina" width={44} height={44} className="object-cover w-full h-full rounded-full" />
+                                <img src={avatarUrl || "/hero-specialist.png"} alt="Dr. Valentina" width={44} height={44} className="object-cover w-full h-full rounded-full" />
                             </div>
                             <div className="overflow-hidden">
                                 <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{fetchedName || profileName || "Специалист"}</p>
@@ -204,6 +204,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                             </div>
                         </div>
                     )}
+
 
 
                     <button
