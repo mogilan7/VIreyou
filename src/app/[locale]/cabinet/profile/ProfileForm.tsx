@@ -141,59 +141,6 @@ export default function ProfileForm({ initialProfile }: { initialProfile: any })
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                        <label className="block text-sm font-semibold text-brand-text mb-2">Курение</label>
-                        <select name="smoking" defaultValue={initialProfile?.welcome_data?.smoking || 'no'} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                            <option value="no">Нет</option>
-                            <option value="rarely">Редко</option>
-                            <option value="yes">Да</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-brand-text mb-2">Алкоголь</label>
-                        <select name="alcohol" defaultValue={initialProfile?.welcome_data?.alcohol || 'rarely'} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                            <option value="no">Нет</option>
-                            <option value="rarely">Редко</option>
-                            <option value="yes">Да</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                        <label className="block text-sm font-semibold text-brand-text mb-2">Активность</label>
-                        <select name="activity" defaultValue={initialProfile?.welcome_data?.activity || 'medium'} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                            <option value="low">Низкая</option>
-                            <option value="medium">Средняя</option>
-                            <option value="high">Высокая</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-brand-text mb-2">Диета</label>
-                        <select name="diet" defaultValue={initialProfile?.welcome_data?.diet || 'omnivore'} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                            <option value="omnivore">Смешанная</option>
-                            <option value="vegetarian">Вегетаarian</option>
-                            <option value="vegan">Веган</option>
-                            <option value="keto">Кето</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-semibold text-brand-text mb-2">Хронические Заболевания</label>
-                        <textarea name="chronic" defaultValue={initialProfile?.welcome_data?.chronic || ''} rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 resize-none" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-brand-text mb-2">Регулярный прием препаратов</label>
-                        <textarea name="meds" defaultValue={initialProfile?.welcome_data?.meds || ''} rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 resize-none" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-brand-text mb-2">Наследственность</label>
-                        <input type="text" name="heredity" defaultValue={initialProfile?.welcome_data?.heredity || ''} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3" />
-                    </div>
-                </div>
 
             </div>
 

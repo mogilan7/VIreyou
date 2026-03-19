@@ -88,28 +88,7 @@ export async function generateDiagnosticReport(formData: any, locale: string = '
 
     const content = response.choices[0]?.message?.content || (isEn ? "Failed to get response from AI." : "Не удалось получить ответ от ИИ.");
 
-    // Save to profile if logged in
-    try {
-        const { createClient } = require('@/utils/supabase/server');
-        const prismaModule = require('@/lib/prisma');
-        const prisma = prismaModule.default || prismaModule;
-        
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            await prisma.profiles.update({
-                where: { id: user.id },
-                data: { welcome_data: formData as any }
-            });
-        }
-    } catch (saveError) {
-        console.error("Failed to save welcome_data to profile:", saveError);
-    }
-
     return content;
-
-
-
   } catch (error: any) {
     console.error("Diagnostic Report Error:", error);
     throw new Error(error.message || (isEn ? "Error generating report" : "Ошибка при генерации отчета"));

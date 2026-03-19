@@ -17,10 +17,9 @@ import {
 } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { generateDiagnosticReport } from '@/app/actions/diagnostic-action';
-import { getSidebarProfile } from '@/actions/profile';
-
-
+import { getSidebarProfile, saveWelcomePage1Data } from '@/actions/profile';
 interface DiagnosticModalProps {
+
   isOpen: boolean;
   onClose: () => void;
 }
@@ -118,7 +117,17 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
     }
   };
 
-  const nextStep = () => setStep(prev => prev + 1);
+  const nextStep = () => {
+    if (step === 0) {
+      saveWelcomePage1Data({
+        weight: formData.weight,
+        waist: formData.waist,
+        hips: formData.hips
+      }).catch((err: any) => console.error("Auto-save Page 1 failed:", err));
+    }
+    setStep(prev => prev + 1);
+  };
+
   const prevStep = () => setStep(prev => prev - 1);
 
   const StepIndicator = () => (

@@ -133,3 +133,33 @@ export async function getSidebarProfile(): Promise<{ full_name: string | null; a
     }
 }
 
+export async function saveWelcomePage1Data(data: { weight?: string; waist?: string; hips?: string }): Promise<{ success: boolean; error?: string }> {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return { success: false, error: 'Unauthorized' };
+
+        const profile = await prisma.profiles.findUnique({ where: { id: user.id } });
+        const existingWelcome = (profile as any)?.welcome_data || {};
+
+        const welcome_data = {
+            ...existingWelcome,
+            weight: data.weight !== undefined && data.weight !== null ? data.weight : existingWelcome.weight,
+            waist: data.waist !== undefined && data.waist !== null ? data.waist : existingWelcome.waist,
+            hips: data.hips !== undefined && data.hips !== null ? data.hips : existingWelcome.hips
+        };
+
+        await prisma.profiles.update({
+            where: { id: user.id },
+            data: { welcome_data } as any
+        });
+
+
+        return { success: true };
+    } catch (e: any) {
+        console.error("Error in saveWelcomePage1Data:", e);
+        return { success: false, error: e.message };
+    }
+}
+
+
