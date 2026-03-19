@@ -106,10 +106,11 @@ export default function ProfileForm({ initialProfile }: { initialProfile: any })
                         <input
                             type="date"
                             name="dob"
-                            defaultValue={initialProfile?.date_of_birth || ''}
+                            defaultValue={initialProfile?.date_of_birth ? initialProfile.date_of_birth.split('T')[0] : ''}
                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-leaf/50 transition-shadow"
                         />
                     </div>
+
 
                     {/* Height (Main Column) */}
                     <div>
