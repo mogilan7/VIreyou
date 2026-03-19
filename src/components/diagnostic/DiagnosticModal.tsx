@@ -32,23 +32,7 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (isOpen) {
-      const loadProfileData = async () => {
-        const profile = await getSidebarProfile();
-        if (profile?.welcome_data) {
-          setFormData(prev => ({
-            ...prev,
-            ...profile.welcome_data
-          }));
-        }
-      };
-      loadProfileData();
-    }
-  }, [isOpen]);
-
   const [formData, setFormData] = useState({
-
     name: '',
     age: '',
     sex: 'male',
@@ -68,6 +52,26 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
   });
 
   const [regData, setRegData] = useState({ email: '', phone: '' });
+
+  React.useEffect(() => {
+    if (isOpen) {
+      const loadProfileData = async () => {
+        const profile = await getSidebarProfile();
+        if (profile) {
+          setFormData(prev => ({
+            ...prev,
+            name: profile.full_name || prev.name,
+            height: (profile as any).height || prev.height,
+            weight: profile.welcome_data?.weight || prev.weight,
+            waist: profile.welcome_data?.waist || prev.waist,
+            hips: profile.welcome_data?.hips || prev.hips
+          }));
+        }
+      };
+      loadProfileData();
+    }
+  }, [isOpen]);
+
 
   if (!isOpen) return null;
 
