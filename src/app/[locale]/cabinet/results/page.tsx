@@ -72,9 +72,7 @@ export default async function MyResultsPage() {
         .single();
 
     let profileName = sbProfile?.full_name || user?.user_metadata?.full_name || 'Пользователь';
-    if (user?.id === '00000000-0000-0000-0000-000000000000' || !user) {
-        profileName = 'Андрей Могилев';
-    }
+
 
     return (
         <div className="min-h-screen flex transition-colors duration-300">

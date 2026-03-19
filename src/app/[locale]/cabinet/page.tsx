@@ -53,7 +53,8 @@ export default async function ClientDashboardPage() {
         const resolvedName = sbProfile?.full_name ||
             user?.user_metadata?.full_name ||
             dbUser?.full_name ||
-            'Андрей Могилев';
+            'Пользователь';
+
 
         let profile = {
             full_name: resolvedName,

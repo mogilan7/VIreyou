@@ -50,7 +50,8 @@ export default async function ArchivePage() {
         .eq('id', userId)
         .single();
 
-    const profileName = profile?.full_name || "Андрей Могилев";
+    const profileName = profile?.full_name || "Пользователь";
+
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex transition-colors duration-300">

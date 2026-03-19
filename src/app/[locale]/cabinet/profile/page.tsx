@@ -21,8 +21,8 @@ export default async function ProfilePage() {
     }
 
 
-    // For sidebar name
-    const profileName = profile?.full_name || user?.user_metadata?.full_name || (user?.id === '00000000-0000-0000-0000-000000000000' || !user ? 'Андрей Могилев' : 'Пользователь');
+    const profileName = profile?.full_name || user?.user_metadata?.full_name || (user?.id === '00000000-0000-0000-0000-000000000000' || !user ? 'Пользователь' : 'Пользователь');
+
 
     return (
         <div className="min-h-screen bg-[#fcfdfc] flex">
