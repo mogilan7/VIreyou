@@ -155,37 +155,52 @@ export default function BioAgeCalculatorPage() {
     };
 
     // Компонент ползунка для переиспользования
-    const SliderInput = ({ label, icon: Icon, value, setValue, min, max, unit }: any) => (
-        <div className="mb-6">
-            <div className="flex justify-between items-center mb-2">
-                <label className="flex items-center text-sm font-medium text-gray-700">
-                    <Icon className="w-4 h-4 mr-2 text-indigo-500" />
-                    {label}
-                </label>
-                <div className="text-right">
-                    <input
-                        type="number"
-                        value={value}
-                        onChange={(e) => setValue(Number(e.target.value) || min)}
-                        className="w-16 p-1 text-right border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                        min={min}
-                        max={max}
-                    />
-                    <span className="ml-1 text-gray-500 text-sm">{unit}</span>
+    const SliderInput = ({ label, icon: Icon, value, setValue, min, max, unit }: any) => {
+        const [localValue, setLocalValue] = useState(value);
+
+        useEffect(() => {
+            if (value !== localValue) {
+                setLocalValue(value);
+            }
+        }, [value]);
+
+        const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            const val = Number(e.target.value);
+            setLocalValue(val);
+            setValue(val);
+        };
+
+        return (
+            <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                    <label className="flex items-center text-sm font-medium text-gray-700">
+                        <Icon className="w-4 h-4 mr-2 text-indigo-500" />
+                        {label}
+                    </label>
+                    <div className="text-right">
+                        <input
+                            type="number"
+                            value={localValue}
+                            onChange={(e) => handleChange(e as any)}
+                            className="w-16 p-1 text-right border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                            min={min}
+                            max={max}
+                        />
+                        <span className="ml-1 text-gray-500 text-sm">{unit}</span>
+                    </div>
                 </div>
+                <input
+                    type="range"
+                    min={min}
+                    max={max}
+                    value={localValue}
+                    onChange={handleChange}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 touch-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-600 [&::-webkit-slider-thumb]:shadow-md"
+                />
             </div>
-            <input
-                type="range"
-                min={min}
-                max={max}
-                value={value}
-                onChange={(e) => setValue(Number(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 touch-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-600 [&::-webkit-slider-thumb]:shadow-md"
-            />
+        );
+    };
 
-
-        </div>
-    );
 
     return (
         <div className="min-h-screen bg-gray-50 py-8 px-4 pt-32 sm:px-6 lg:px-8 font-sans text-gray-800">

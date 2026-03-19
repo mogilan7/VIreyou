@@ -6,6 +6,36 @@ import { Link } from "@/i18n/routing";
 import { saveTestResult } from '@/actions/save-test';
 import { createClient } from '@/utils/supabase/client';
 
+const SliderInput = ({ label, value, setValue, min, max, step = "1", unit }: any) => {
+    const [localValue, setLocalValue] = useState(value);
+
+    useEffect(() => {
+        if (value !== localValue) {
+            setLocalValue(value);
+        }
+    }, [value]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(e.target.value);
+        setLocalValue(val);
+        setValue(val);
+    };
+
+    return (
+        <div className="space-y-3">
+            <div className="flex justify-between items-center">
+                <label className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{label}</label>
+                <span className="text-lg font-bold text-blue-600">{localValue} {unit}</span>
+            </div>
+            <input
+                type="range" min={min} max={max} step={step}
+                value={localValue} onChange={handleChange}
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 touch-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:shadow-md"
+            />
+        </div>
+    );
+};
+
 const ScoreCalculatorPage = () => {
     const t = useTranslations('ScoreCalculator');
     const tCommon = useTranslations('Common');
@@ -171,51 +201,21 @@ const ScoreCalculatorPage = () => {
                                     >
                                         {t('smoker')}
                                     </button>
-                                </div>
-                            </div>
+                                                            {/* Age Slider */}
+                             <SliderInput label={t('age')} value={age} setValue={setAge} min="40" max="65" unit={t('unitYears')} />
 
-                            {/* Age Slider */}
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{t('age')}</label>
-                                    <span className="text-lg font-bold text-blue-600">{age} {t('unitYears')}</span>
-                                </div>
-                                <input
-                                    type="range" min="40" max="65" step="1"
-                                    value={age} onChange={(e) => setAge(parseInt(e.target.value))}
-                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 touch-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:shadow-md"
-                                />
-                            </div>
+                             {/* Systolic BP Slider */}
+                             <SliderInput label={t('systolicBP')} value={systolicBP} setValue={setSystolicBP} min="100" max="180" step="5" unit={t('unitMmHg')} />
 
-                            {/* Systolic BP Slider */}
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{t('systolicBP')}</label>
-                                    <span className="text-lg font-bold text-blue-600">{systolicBP} {t('unitMmHg')}</span>
-                                </div>
-                                <input
-                                    type="range" min="100" max="180" step="5"
-                                    value={systolicBP} onChange={(e) => setSystolicBP(parseInt(e.target.value))}
-                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 touch-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:shadow-md"
-                                />
-                            </div>
-
-                            {/* Cholesterol Slider */}
-                            <div className="space-y-3 md:col-span-2">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{t('cholesterol')}</label>
-                                    <span className="text-lg font-bold text-blue-600">{cholesterol} {t('unitMmolL')}</span>
-                                </div>
-                                <input
-                                    type="range" min="3" max="8" step="0.1"
-                                    value={cholesterol} onChange={(e) => setCholesterol(parseFloat(e.target.value))}
-                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 touch-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:shadow-md"
-                                />
+                             {/* Cholesterol Slider */}
+                             <div className="md:col-span-2 space-y-3">
+                                <SliderInput label={t('cholesterol')} value={cholesterol} setValue={setCholesterol} min="3" max="8" step="0.1" unit={t('unitMmolL')} />
                                 <div className="flex justify-between text-[10px] text-slate-400 font-medium px-1">
                                     <span>3.0 ({t('labelLow')})</span>
                                     <span>5.0 ({t('labelNorm')})</span>
                                     <span>8.0 ({t('labelHigh')})</span>
                                 </div>
+                             </div>   </div>
                             </div>
                         </div>
 
