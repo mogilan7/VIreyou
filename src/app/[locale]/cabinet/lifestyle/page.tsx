@@ -71,12 +71,12 @@ export default async function LifestylePage() {
                                     <div>
                                         <p className="text-xs text-gray-400">🛌 Сон</p>
                                         <h3 className="text-2xl font-bold dark:text-slate-100">
-                                            {lastSleep ? `${Math.floor(lastSleep.duration_minutes / 60)}ч ${lastSleep.duration_minutes % 60}м` : "Нет данных"}
+                                            {lastSleep && lastSleep.duration_hrs ? `${Math.floor(lastSleep.duration_hrs)}ч ${Math.round((lastSleep.duration_hrs % 1) * 60)}м` : "Нет данных"}
                                         </h3>
                                     </div>
                                 </div>
-                                {lastSleep?.deep_sleep_minutes && (
-                                    <p className="text-xs text-gray-500">Глубокий: {Math.floor(lastSleep.deep_sleep_minutes / 60)}ч {lastSleep.deep_sleep_minutes % 60}м</p>
+                                {lastSleep?.deep_hrs && (
+                                    <p className="text-xs text-gray-500">Глубокий: {Math.floor(lastSleep.deep_hrs)}ч {Math.round((lastSleep.deep_hrs % 1) * 60)}м</p>
                                 )}
                             </div>
 
@@ -93,9 +93,9 @@ export default async function LifestylePage() {
                                         </h3>
                                     </div>
                                 </div>
-                                {lastActivity?.calories && (
+                                {lastActivity?.calories_burned && (
                                     <div className="flex items-center gap-1 text-xs text-orange-500">
-                                        <Flame size={14} /> <span>{lastActivity.calories} ккал сожжено</span>
+                                        <Flame size={14} /> <span>{lastActivity.calories_burned} ккал сожжено</span>
                                     </div>
                                 )}
                             </div>
