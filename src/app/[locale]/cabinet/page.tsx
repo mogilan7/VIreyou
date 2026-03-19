@@ -4,6 +4,9 @@ import DashboardViews from "@/components/dashboard/aeterna/DashboardViews";
 import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
+
 export default async function ClientDashboardPage() {
     try {
         const supabase = await createClient();

@@ -10,6 +10,9 @@ import {
 } from "lucide-react";
 import ResultsGrid from "@/components/dashboard/ResultsGrid";
 
+export const dynamic = 'force-dynamic';
+
+
 export default async function MyResultsPage() {
     const t = await getTranslations('Dashboard.Results');
 

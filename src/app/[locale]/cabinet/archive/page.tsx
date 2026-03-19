@@ -15,6 +15,9 @@ export const metadata: Metadata = {
     description: 'Хранение и анализ медицинских документов',
 };
 
+export const dynamic = 'force-dynamic';
+
+
 async function getDocuments(userId: string) {
     try {
         // @ts-ignore
