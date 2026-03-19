@@ -18,10 +18,14 @@ export default async function ClientDashboardPage() {
         const isDemo = userId === '00000000-0000-0000-0000-000000000000';
 
         // 1. Fetch Supabase Profile & Results
-        const [{ data: sbProfile }, { data: sbResults }] = await Promise.all([
-            supabase.from('profiles').select('full_name').eq('id', userId).single(),
+        const [{ data: sbProfile, error: profileErr }, { data: sbResults, error: resultsErr }] = await Promise.all([
+            supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
             supabase.from('test_results').select('*').eq('user_id', userId).order('created_at', { ascending: false })
         ]);
+
+        if (profileErr) console.warn('Profile fetch warning:', profileErr);
+        if (resultsErr) console.warn('Results fetch warning:', resultsErr);
+
 
         // 3. Fetch from Prisma
         let dbUser = null;
