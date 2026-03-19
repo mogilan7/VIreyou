@@ -232,7 +232,36 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
                                     <span className="text-brand-gray">{t('pLocation')}</span>
                                     <span className="font-bold flex items-center gap-1"><MapPin size={14} className="text-brand-gray" /> Remote</span>
                                 </div>
+
+                                {activeClient?.welcome_data && (
+                                    <details className="w-full mt-4 border-t border-brand-sage/30 pt-3 text-left">
+                                        <summary className="text-xs font-bold text-brand-leaf cursor-pointer hover:underline list-none flex items-center gap-1">📋 Анкета Здоровья <span className="text-[9px] text-brand-gray opacity-50">(Открыть)</span></summary>
+                                        <div className="mt-2 space-y-1.5 text-[11px] text-brand-gray bg-slate-50 p-3 rounded-xl max-h-48 overflow-y-auto">
+                                            {(() => {
+                                                const welcome = activeClient.welcome_data as any;
+                                                const fieldNames: Record<string, string> = {
+                                                    weight: "Вес (кг)", waist: "Талия (см)", hips: "Бедра (см)",
+                                                    smoking: "Курение", alcohol: "Алкоголь", activity: "Активность",
+                                                    diet: "Диета", region: "Регион", chronic: "Хронические",
+                                                    meds: "Препараты", heredity: "Наследственность"
+                                                };
+                                                return Object.entries(welcome).map(([key, value]) => {
+                                                    if (!value || (typeof value === 'object' && Array.isArray(value) && value.length === 0)) return null;
+                                                    const label = fieldNames[key] || key;
+                                                    const displayVal = Array.isArray(value) ? value.join(', ') : String(value);
+                                                    return (
+                                                        <div key={key} className="flex justify-between border-b border-dashed border-slate-200 pb-1 last:border-0">
+                                                            <span className="font-medium">{label}:</span>
+                                                            <span className="font-bold text-brand-text text-right max-w-[120px] truncate" title={displayVal}>{displayVal}</span>
+                                                        </div>
+                                                    );
+                                                });
+                                            })()}
+                                        </div>
+                                    </details>
+                                )}
                             </div>
+
                         </div>
 
                         {/* Medical Archives List */}

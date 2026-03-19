@@ -79,7 +79,7 @@ export async function updateProfile(formData: FormData): Promise<{ success: bool
     }
 }
 
-export async function getSidebarProfile(): Promise<{ full_name: string | null; avatar_url: string | null } | null> {
+export async function getSidebarProfile(): Promise<{ full_name: string | null; avatar_url: string | null; welcome_data?: any } | null> {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -93,10 +93,13 @@ export async function getSidebarProfile(): Promise<{ full_name: string | null; a
 
         return {
             full_name: profile.full_name,
-            avatar_url: profile.avatar_url
+            avatar_url: profile.avatar_url,
+            welcome_data: (profile as any).welcome_data
         };
+
     } catch (e) {
         console.error("Error in getSidebarProfile:", e);
         return null;
     }
 }
+

@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { generateDiagnosticReport } from '@/app/actions/diagnostic-action';
+import { getSidebarProfile } from '@/actions/profile';
+
 
 interface DiagnosticModalProps {
   isOpen: boolean;
@@ -31,7 +33,23 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (isOpen) {
+      const loadProfileData = async () => {
+        const profile = await getSidebarProfile();
+        if (profile?.welcome_data) {
+          setFormData(prev => ({
+            ...prev,
+            ...profile.welcome_data
+          }));
+        }
+      };
+      loadProfileData();
+    }
+  }, [isOpen]);
+
   const [formData, setFormData] = useState({
+
     name: '',
     age: '',
     sex: 'male',
