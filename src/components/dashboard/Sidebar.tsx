@@ -189,7 +189,8 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                                 <img src={avatarUrl || "/andrei-avatar.png"} alt={profileName || "User"} width={44} height={44} className="object-cover w-full h-full rounded-full" />
                             </div>
                             <div className="overflow-hidden">
-                                <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{fetchedName || profileName || "Пользователь"}</p>
+                                <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{profileName || fetchedName || "Пользователь"}</p>
+
                                 <p className="text-[10px] text-brand-gray tracking-widest uppercase mt-1 opacity-60 font-medium">{t('cPlan')}</p>
                             </div>
                         </div>
@@ -199,7 +200,8 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                                 <img src={avatarUrl || "/hero-specialist.png"} alt="Dr. Valentina" width={44} height={44} className="object-cover w-full h-full rounded-full" />
                             </div>
                             <div className="overflow-hidden">
-                                <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{fetchedName || profileName || "Специалист"}</p>
+                                <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{profileName || fetchedName || "Специалист"}</p>
+
                                 <p className="text-[10px] text-brand-gray tracking-widest uppercase mt-1 opacity-60 font-medium">{t('sRole')}</p>
                             </div>
                         </div>
