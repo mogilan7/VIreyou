@@ -164,10 +164,15 @@ export default function BioAgeCalculatorPage() {
             }
         }, [value]);
 
+        useEffect(() => {
+            const timer = setTimeout(() => {
+                setValue(localValue);
+            }, 60); 
+            return () => clearTimeout(timer);
+        }, [localValue]);
+
         const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-            const val = Number(e.target.value);
-            setLocalValue(val);
-            setValue(val);
+            setLocalValue(Number(e.target.value));
         };
 
         return (
@@ -181,7 +186,7 @@ export default function BioAgeCalculatorPage() {
                         <input
                             type="number"
                             value={localValue}
-                            onChange={(e) => handleChange(e as any)}
+                            onChange={(e) => setLocalValue(Number(e.target.value))}
                             className="w-16 p-1 text-right border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                             min={min}
                             max={max}
@@ -189,6 +194,7 @@ export default function BioAgeCalculatorPage() {
                         <span className="ml-1 text-gray-500 text-sm">{unit}</span>
                     </div>
                 </div>
+
                 <input
                     type="range"
                     min={min}

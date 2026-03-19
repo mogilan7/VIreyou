@@ -15,11 +15,17 @@ const SliderInput = ({ label, value, setValue, min, max, step = "1", unit }: any
         }
     }, [value]);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setValue(localValue);
+        }, 60); 
+        return () => clearTimeout(timer);
+    }, [localValue]);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseFloat(e.target.value);
-        setLocalValue(val);
-        setValue(val);
+        setLocalValue(parseFloat(e.target.value));
     };
+
 
     return (
         <div className="space-y-3">
