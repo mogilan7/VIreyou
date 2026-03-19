@@ -17,8 +17,9 @@ export async function GET() {
             dbHost: host,
             authUsersCount: authUsers.length,
             profilesCount: publicProfiles.length,
-            profiles: publicProfiles.map((p: any) => ({ id: p.id, full_name: p.full_name, role: p.role }))
+            profiles: publicProfiles // Return everything to check avatar_url
         });
+
     } catch (error: any) {
         return NextResponse.json({
             success: false,
