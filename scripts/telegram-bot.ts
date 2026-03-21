@@ -458,7 +458,7 @@ const NUTRITION_NORMS: any = {
 
 const NUTRIENT_NAMES: any = {
     protein: 'Белки', fat: 'Жиры', carbs: 'Углеводы', fiber: 'Клетчатка',
-    sugar_fast: 'Быстрый сахар', trans_fat: 'Трансжиры', cholesterol: 'Холестерин',
+    sugar_fast: 'Простые углеводы', trans_fat: 'Трансжиры', cholesterol: 'Холестерин',
     added_sugar: 'Добавленный сахар', omega_3: 'Омега-3', omega_6: 'Омега-6',
     vitamin_A: 'Витамин A', vitamin_D: 'Витамин D', vitamin_E: 'Витамин E', vitamin_K: 'Витамин K',
     vitamin_B1: 'Витамин B1', vitamin_B2: 'Витамин B2', vitamin_B3: 'Витамин B3',
