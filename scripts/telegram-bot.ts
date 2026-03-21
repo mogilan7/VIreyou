@@ -533,12 +533,28 @@ bot.action('menu_checklist', async (ctx: any) => {
         text += "4. 💧 **Вода**: Пишите объем (например, `250мл`).\n\n";
         text += "_Данные помогут ИИ подготовить этап 'Анализ'!_";
 
-        await ctx.reply(text, { parse_mode: 'Markdown', disable_web_page_preview: true });
+        await ctx.reply(text, { 
+            parse_mode: 'Markdown', 
+            disable_web_page_preview: true,
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: "🖥 Личный кабинет", url: "https://vireyou.com/ru/cabinet" }],
+                    [{ text: "⬅️ Назад", callback_data: "main_menu" }]
+                ]
+            }
+        });
 
     } catch (e) {
         console.error("Checklist Error:", e);
         await ctx.reply("❌ Ошибка при загрузке рекомендаций.");
     }
+});
+
+bot.action('main_menu', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return ctx.reply("❌ Пользователь не привязан.");
+    await sendWelcomeMenu(ctx, user);
 });
 
 // Утреннее напоминание (Cron в 09:00 ежедневно по Москве)
