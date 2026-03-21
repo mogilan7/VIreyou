@@ -72,6 +72,9 @@ export async function talkToAssistant(messages: any[], formData: any) {
 Первые шаги: ...
 Рекомендация: Использовать Telegram-бот (@SayAndSaveBot) в течение следующих 7 дней для детального анализа образа жизни (питание, водный режим, сон, физическая активность).
 Повторный визит: Предлагаю запланировать повторный визит через 8 дней, подготовив заполненные дневники в боте.
+
+===RECOMMENDED_TEST_IDS===
+(Выведи через запятую ID тестов, которые ты рекомендуешь из списка: systemic-bio-age, insomnia, circadian, energy, nicotine, alcohol, sarc-f, greene-scale, ipss, mief-5, score)
 `;
 
   // Insert form data as context if it's the start of the conversation

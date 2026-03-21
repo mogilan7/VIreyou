@@ -148,6 +148,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
               caption: caption,
               parse_mode: 'Markdown',
               ...Markup.inlineKeyboard([
+                  [Markup.button.callback('📋 Мои рекомендации', 'menu_checklist')],
                   [Markup.button.callback('🍎 Анализ питания', 'menu_nutrition')],
                   [Markup.button.callback('🏃‍♂️ Физическая активность', 'menu_activity')],
                   [Markup.button.callback('🛌 Анализ сна', 'menu_sleep')],
@@ -161,6 +162,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
            await ctx.reply(caption, {
               parse_mode: 'Markdown',
               ...Markup.inlineKeyboard([
+                  [Markup.button.callback('📋 Мои рекомендации', 'menu_checklist')],
                   [Markup.button.callback('🍎 Анализ питания', 'menu_nutrition')],
                   [Markup.button.callback('🏃‍♂️ Физическая активность', 'menu_activity')],
                   [Markup.button.callback('🛌 Анализ сна', 'menu_sleep')],
@@ -457,6 +459,97 @@ bot.action('edit_log_prompt', async (ctx: any) => {
     
     userStates[user.id] = 'LOG_EDIT';
     await ctx.reply("✏️ Напишите текстом, что именно нужно изменить (например, 'увеличь вес курицы до 200г' или 'я лег на час раньше'). Я сделаю пересчет.");
+});
+
+// ----------------------------------------------------
+// Чек-лист Рекомендаций и Утреннее напоминание
+// ----------------------------------------------------
+
+const TEST_NAMES: Record<string, string> = {
+    'systemic-bio-age': 'Системный Биовозраст', 'insomnia': 'Индекс бессонницы', 'circadian': 'Циркадные ритмы',
+    'energy': 'Калькулятор TDEE', 'nicotine': 'Тест Фагерстрема', 'alcohol': 'RUS-AUDIT',
+    'sarc-f': 'SARC-F', 'greene-scale': 'Шкала Грина', 'ipss': 'IPSS', 'mief-5': 'МИЭФ-5', 'score': 'SCORE'
+};
+
+bot.action('menu_checklist', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return ctx.reply("❌ Пользователь не привязан.");
+
+    try {
+        const results = await prisma.test_results.findMany({
+            where: { user_id: user.id },
+            orderBy: { created_at: 'desc' }
+        });
+
+        const aiRecs = results.filter((r: any) => r.test_type === 'ai-recommendation');
+        const latestAiRec = aiRecs.length > 0 ? aiRecs[0] : null;
+
+        if (!latestAiRec) {
+            return ctx.reply("📋 **Рекомендации**\n\nУ вас пока нет активных рекомендаций от ИИ-Ассистента.");
+        }
+
+        const recommendedTests = (latestAiRec.raw_data as any)?.recommendedTests || [];
+        if (recommendedTests.length === 0) {
+             return ctx.reply("📋 **Рекомендации**\n\nВ последней консультации нет конкретных тестов.");
+        }
+
+        let text = "📋 **Ваши рекомендации (Чек-лист)**:\n\n";
+        recommendedTests.forEach((tid: string) => {
+             const isCompleted = results.some((r: any) => r.test_type === tid);
+             const name = TEST_NAMES[tid] || tid;
+             const link = `https://vireyou.com/ru/tests/${tid}`;
+             text += `${isCompleted ? '✅' : '🔴'} **${name}**\n   └ [Пройти тест](${link})\n\n`;
+        });
+
+        text += "\n📅 **Инструкция по 7-дневному мониторингу**:\n";
+        text += "1. 🍎 **Питание**: Отправляйте фото или описание еды.\n";
+        text += "2. 🛌 **Сон**: Присылайте показатели сна утром.\n";
+        text += "3. 🏃‍♂️ **Активность**: Присылайте шаги/нагрузки вечером.\n";
+        text += "4. 💧 **Вода**: Пишите объем (например, `250мл`).\n\n";
+        text += "_Данные помогут ИИ подготовить этап 'Анализ'!_";
+
+        await ctx.reply(text, { parse_mode: 'Markdown', disable_web_page_preview: true });
+
+    } catch (e) {
+        console.error("Checklist Error:", e);
+        await ctx.reply("❌ Ошибка при загрузке рекомендаций.");
+    }
+});
+
+// Утреннее напоминание (Cron в 09:00 ежедневно по Москве)
+cron.schedule('0 9 * * *', async () => {
+    console.log("[CRON] Запуск утреннего напоминания...");
+    try {
+        const users = await prisma.user.findMany({
+            where: { telegram_id: { not: null } }
+        });
+
+        for (const user of users) {
+             const results = await prisma.test_results.findMany({
+                 where: { user_id: user.id },
+                 orderBy: { created_at: 'desc' }
+             });
+
+             const aiRecs = results.filter((r: any) => r.test_type === 'ai-recommendation');
+             if (aiRecs.length === 0) continue;
+
+             const recommendedTests = (aiRecs[0].raw_data as any)?.recommendedTests || [];
+             if (recommendedTests.length === 0) continue;
+
+             const incompleteTests = recommendedTests.filter((tid: string) => !results.some((r: any) => r.test_type === tid));
+             if (incompleteTests.length > 0) {
+                  const items = incompleteTests.map((t: string) => `• ${TEST_NAMES[t] || t}`).join('\n');
+                  await bot.telegram.sendMessage(
+                      user.telegram_id!,
+                      `☀️ **Доброе утро, ${user.full_name || 'клиент'}!**\n\nВы еще не прошли следующие тесты из списка рекомендаций:\n${items}\n\nНажмите кнопу **📋 Мои рекомендации** в меню бота, чтобы увидеть детали и ссылки на прохождение!`,
+                      { parse_mode: 'Markdown' }
+                  );
+             }
+        }
+    } catch (error) {
+        console.error("[CRON] Ошибка утреннего напоминания:", error);
+    }
 });
 
 // ----------------------------------------------------

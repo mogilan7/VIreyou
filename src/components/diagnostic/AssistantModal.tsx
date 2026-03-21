@@ -189,11 +189,20 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
       try {
           const reportContent = messages.length > 0 ? messages[messages.length - 1].content : '';
           
+          // Извлекаем ID рекомендованных тестов
+          const idsMatch = reportContent.match(/===RECOMMENDED_TEST_IDS===\s*([\s\S]*?)(\n|$)/);
+          const recommendedTests = idsMatch 
+              ? idsMatch[1].replace(/[\[\]\s\(\)]/g, '').split(',').filter(Boolean) 
+              : [];
+
           const response = await saveTestResult({
               testType: 'ai-recommendation',
               score: 0,
               interpretation: 'ИИ-рекомендации по итогам диалога',
-              rawData: { report: reportContent }
+              rawData: { 
+                  report: reportContent.split('===RECOMMENDED_TEST_IDS===')[0].trim(), 
+                  recommendedTests 
+              }
           });
 
           if (response.success) {
