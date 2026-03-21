@@ -148,12 +148,12 @@ async function sendWelcomeMenu(ctx: any, user: any) {
               caption: caption,
               parse_mode: 'Markdown',
               ...Markup.inlineKeyboard([
-                  [Markup.button.webApp('📊 Образ жизни (Дашборд)', 'https://vireyou.com/ru/cabinet/lifestyle')],
                   [Markup.button.callback('🍎 Анализ питания', 'menu_nutrition')],
                   [Markup.button.callback('🏃‍♂️ Физическая активность', 'menu_activity')],
                   [Markup.button.callback('🛌 Анализ сна', 'menu_sleep')],
                   [Markup.button.callback('💧 Вода', 'menu_water')],
                   [Markup.button.callback('🚭 Вредные привычки', 'menu_habits')],
+                  [Markup.button.webApp('📊 Образ жизни (Дашборд)', 'https://vireyou.com/ru/cabinet/lifestyle')],
                   [Markup.button.callback('⚙️ Настройки', 'menu_settings')]
               ])
           });
@@ -161,12 +161,12 @@ async function sendWelcomeMenu(ctx: any, user: any) {
            await ctx.reply(caption, {
               parse_mode: 'Markdown',
               ...Markup.inlineKeyboard([
-                  [Markup.button.webApp('📊 Образ жизни (Дашборд)', 'https://vireyou.com/ru/cabinet/lifestyle')],
                   [Markup.button.callback('🍎 Анализ питания', 'menu_nutrition')],
                   [Markup.button.callback('🏃‍♂️ Физическая активность', 'menu_activity')],
                   [Markup.button.callback('🛌 Анализ сна', 'menu_sleep')],
                   [Markup.button.callback('💧 Вода', 'menu_water')],
                   [Markup.button.callback('🚭 Вредные привычки', 'menu_habits')],
+                  [Markup.button.webApp('📊 Образ жизни (Дашборд)', 'https://vireyou.com/ru/cabinet/lifestyle')],
                   [Markup.button.callback('⚙️ Настройки', 'menu_settings')]
               ])
           });
@@ -606,11 +606,7 @@ async function generateDailyReport(userId: string) {
 
 bot.action('menu_nutrition', async (ctx: any) => {
     ctx.answerCbQuery();
-    await ctx.reply("🍎 **Анализ питания**\n\nОтправьте мне **фото блюда**, текстовое или голосовое описание.\n\nЯ рассчитаю калории, БЖУ, клетчатку и микроэлементы!", 
-        Markup.inlineKeyboard([
-            [Markup.button.callback('📊 Отчет за сегодня', 'get_nutrition_report')]
-        ])
-    );
+    await ctx.reply("🍎 **Анализ питания**\n\nОтправьте мне **фото блюда**, текстовое или голосовое описание.\n\nЯ рассчитаю калории, БЖУ, клетчатку и микроэлементы!");
 });
 
 bot.action('get_nutrition_report', async (ctx: any) => {
