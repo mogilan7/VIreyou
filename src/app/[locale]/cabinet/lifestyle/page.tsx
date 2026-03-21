@@ -3,7 +3,8 @@ import React from 'react';
 import Sidebar from "@/components/dashboard/Sidebar";
 import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
-import { Apple, Activity, Bed, GlassWater, Cigarette, Flame, ChevronDown } from 'lucide-react';
+import { Apple, Activity, Bed, GlassWater, Cigarette, Flame, ChevronDown, Trash2 } from 'lucide-react';
+import { deleteNutritionLog } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -261,7 +262,15 @@ export default async function LifestylePage({ searchParams }: { searchParams: Pr
                                                         <p className="text-sm font-semibold dark:text-slate-300">{n.dish || "Без названия"}</p>
                                                         {n.grams && <p className="text-[10px] text-gray-400">{n.grams} г</p>}
                                                     </div>
-                                                    <span className="text-xs text-gray-400">{new Date(n.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs text-gray-400">{new Date(n.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                                        <form action={deleteNutritionLog} method="POST">
+                                                            <input type="hidden" name="id" value={n.id} />
+                                                            <button type="submit" className="text-red-400 hover:text-red-500 transition-colors">
+                                                                <Trash2 size={12} />
+                                                            </button>
+                                                        </form>
+                                                    </div>
                                                 </div>
                                                 <p className="text-xs text-gray-500 mb-2 truncate">{n.description}</p>
                                                 <div className="flex gap-4 text-[10px] text-gray-500">
