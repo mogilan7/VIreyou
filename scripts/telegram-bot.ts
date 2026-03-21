@@ -123,7 +123,20 @@ bot.command('start', async (ctx: any) => {
 // Вспомогательная функция для отображения меню
 async function sendWelcomeMenu(ctx: any, user: any) {
   const imagePath = path.join(__dirname, '../public/bot_assistant_avatar.png');
-  const caption = `🧬 **Главное меню**\n\nРад Вас видеть, ${user.full_name || 'клиент'}!\nЯ помогу Вам контролировать образ жизни для достижения максимального долголетия.\n\n Выберите раздел:`;
+
+  let name = 'клиент';
+  try {
+      const profile = await prisma.profiles.findUnique({ where: { id: user.id } });
+      if (profile?.full_name) {
+          name = profile.full_name;
+      } else if (user.full_name) {
+          name = user.full_name;
+      }
+  } catch (e) {
+      console.log("Profile fetch failed:", e);
+  }
+
+  const caption = `🧬 **Главное меню**\n\nРад Вас видеть, ${name}!\nЯ помогу Вам контролировать образ жизни для достижения максимального долголетия.\n\n Выберите раздел:`;
 
   try {
       if (fs.existsSync(imagePath)) {
@@ -155,6 +168,25 @@ async function sendWelcomeMenu(ctx: any, user: any) {
   } catch (err) {
       console.error("Send Menu error:", err);
   }
+}
+
+/**
+ * Сохраняет расширенные данные о питании в базу данных.
+ */
+async function saveFoodLog(userId: string, foodData: any) {
+  const validKeys = [
+    'calories', 'protein', 'carbs', 'fat', 'fiber', 'description',
+    'dish', 'grams', 'sugar_fast', 'trans_fat', 'cholesterol', 'added_sugar', 'omega_3', 'omega_6', 'water',
+    'vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K', 'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B5', 'vitamin_B6', 'vitamin_B7', 'vitamin_B9', 'vitamin_B12', 'vitamin_C',
+    'calcium', 'iron', 'magnesium', 'phosphorus', 'potassium', 'sodium', 'zinc', 'copper', 'manganese', 'selenium', 'iodine'
+  ];
+  const data: any = { user_id: userId };
+  for (const key of validKeys) {
+    if (foodData[key] !== undefined) {
+      data[key] = foodData[key];
+    }
+  }
+  return prisma.nutritionLog.create({ data });
 }
 
 
@@ -207,20 +239,9 @@ bot.on('photo', async (ctx: any) => {
 
         if (foodData.status === "SUCCESS") {
             const user = ctx.state.user;
-            await prisma.nutritionLog.create({
-                data: {
-                    user_id: user.id,
-                    calories: foodData.calories,
-                    protein: foodData.protein,
-                    carbs: foodData.carbs,
-                    fat: foodData.fat,
-                    fiber: foodData.fiber,
-                    vitamins_minerals: foodData.vitamins_minerals,
-                    description: foodData.description,
-                }
-            });
+            await saveFoodLog(user.id, foodData);
 
-            ctx.reply(`🍎 Проанализировал ваше блюдо:\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}\n\n✅ Данные сохранены!`);
+            ctx.reply(`🍎 Проанализировал блюдо: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}\n\n✅ Данные сохранены!`);
         } else {
             ctx.reply("🤔 Извините, я не уверен, что это еда или скриншот фитнес-приложений. Пожалуйста, опишите текстом или голосом.");
         }
@@ -252,20 +273,9 @@ bot.on('voice', async (ctx: any) => {
 
     if (foodData.status === "SUCCESS") {
         const user = ctx.state.user;
-        await prisma.nutritionLog.create({
-            data: {
-                user_id: user.id,
-                calories: foodData.calories,
-                protein: foodData.protein,
-                carbs: foodData.carbs,
-                fat: foodData.fat,
-                fiber: foodData.fiber,
-                vitamins_minerals: foodData.vitamins_minerals,
-                description: foodData.description,
-            }
-        });
+        await saveFoodLog(user.id, foodData);
 
-        ctx.reply(`🍎 Распознал описание:\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}\n\n✅ Сохранено!`);
+        ctx.reply(`🍎 Распознал описание для: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}\n\n✅ Сохранено!`);
     } else {
         ctx.reply("🤔 Не удалось распознать еду из голосового сообщения. Попробуйте сформулировать иначе.");
     }
@@ -305,20 +315,9 @@ bot.on('text', async (ctx: any) => {
 
     if (foodData.status === "SUCCESS") {
         const user = ctx.state.user;
-        await prisma.nutritionLog.create({
-            data: {
-                user_id: user.id,
-                calories: foodData.calories,
-                protein: foodData.protein,
-                carbs: foodData.carbs,
-                fat: foodData.fat,
-                fiber: foodData.fiber,
-                vitamins_minerals: foodData.vitamins_minerals,
-                description: foodData.description,
-            }
-        });
+        await saveFoodLog(user.id, foodData);
 
-        ctx.reply(`🍎 Распознал описание:\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}\n\n✅ Сохранено!`);
+        ctx.reply(`🍎 Распознал описание для: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}\n\n✅ Сохранено!`);
     } else {
         ctx.reply("🤔 Не уверен, что это описание еды. Пожалуйста, отправьте фото или более подробное описание.");
     }
@@ -420,9 +419,122 @@ bot.action('habits_check', async (ctx: any) => {
     ctx.reply("🚭 Пожалуйста, напишите текстом или голосом, какие привычки вы хотите отметить (например, 'курил сегодня' или 'без алкоголя').");
 });
 
+const NUTRITION_NORMS: any = {
+    vitamin_A: { norm: 900, unit: 'мкг' },
+    vitamin_D: { norm: 15, unit: 'мкг' },
+    vitamin_E: { norm: 15, unit: 'мг' },
+    vitamin_K: { norm: 120, unit: 'мкг' },
+    vitamin_B1: { norm: 1.2, unit: 'мг' },
+    vitamin_B2: { norm: 1.3, unit: 'мг' },
+    vitamin_B3: { norm: 16, unit: 'мг' },
+    vitamin_B5: { norm: 5, unit: 'мг' },
+    vitamin_B6: { norm: 1.3, unit: 'мг' },
+    vitamin_B7: { norm: 30, unit: 'мкг' },
+    vitamin_B9: { norm: 400, unit: 'мкг' },
+    vitamin_B12: { norm: 2.4, unit: 'мкг' },
+    vitamin_C: { norm: 90, unit: 'мг' },
+    calcium: { norm: 1000, unit: 'мг' },
+    iron: { norm: 12, unit: 'мг' },
+    magnesium: { norm: 400, unit: 'мг' },
+    phosphorus: { norm: 700, unit: 'мг' },
+    potassium: { norm: 4700, unit: 'мг' },
+    sodium: { norm: 1500, unit: 'мг' },
+    zinc: { norm: 11, unit: 'мг' },
+    copper: { norm: 0.9, unit: 'мг' },
+    manganese: { norm: 2.3, unit: 'мг' },
+    selenium: { norm: 55, unit: 'мкг' },
+    iodine: { norm: 150, unit: 'мкг' }
+};
+
+const NUTRIENT_NAMES: any = {
+    vitamin_A: 'Витамин A', vitamin_D: 'Витамин D', vitamin_E: 'Витамин E', vitamin_K: 'Витамин K',
+    vitamin_B1: 'Витамин B1', vitamin_B2: 'Витамин B2', vitamin_B3: 'Витамин B3',
+    vitamin_B5: 'Витамин B5', vitamin_B6: 'Витамин B6', vitamin_B7: 'Витамин B7',
+    vitamin_B9: 'Витамин B9', vitamin_B12: 'Витамин B12', vitamin_C: 'Витамин C',
+    calcium: 'Кальций', iron: 'Железо', magnesium: 'Магний', phosphorus: 'Фосфор',
+    potassium: 'Калий', sodium: 'Натрий', zinc: 'Цинк', copper: 'Медь',
+    manganese: 'Марганец', selenium: 'Селен', iodine: 'Йод'
+};
+
+async function generateDailyReport(userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const logs = await prisma.nutritionLog.findMany({
+        where: {
+            user_id: userId,
+            date: { gte: today, lt: tomorrow }
+        }
+    });
+
+    const sum: any = {};
+    for (const key of Object.keys(NUTRITION_NORMS)) {
+        sum[key] = 0;
+    }
+
+    logs.forEach(log => {
+        for (const key of Object.keys(sum)) {
+            if (log[key] !== null && log[key] !== undefined) {
+                sum[key] += Number(log[key]);
+            }
+        }
+    });
+
+    let report = `📊 **Отчет по нутриентам за ${today.toLocaleDateString('ru-RU')}**\n\n`;
+    let hasData = false;
+
+    // Считаем КБЖУ отдельно
+    const kbtu: any = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+    logs.forEach(log => {
+        kbtu.calories += Number(log.calories || 0);
+        kbtu.protein += Number(log.protein || 0);
+        kbtu.carbs += Number(log.carbs || 0);
+        kbtu.fat += Number(log.fat || 0);
+        kbtu.fiber += Number(log.fiber || 0);
+    });
+
+    if (logs.length > 0) hasData = true;
+
+    report += `🔥 **Калории**: ${kbtu.calories.toFixed(1)} ккал\n`;
+    report += `🥩 **Белки**: ${kbtu.protein.toFixed(1)} г\n`;
+    report += `🍞 **Углеводы**: ${kbtu.carbs.toFixed(1)} г\n`;
+    report += `🥑 **Жиры**: ${kbtu.fat.toFixed(1)} г\n`;
+    report += `🥬 **Клетчатка**: ${kbtu.fiber.toFixed(1)} г\n\n`;
+
+    for (const [key, config] of Object.entries(NUTRITION_NORMS) as any) {
+        const pct = (sum[key] / config.norm) * 100;
+        let emoji = '🔴';
+        if (pct >= 80) emoji = '🟢';
+        else if (pct >= 50) emoji = '🟡';
+        
+        report += `${emoji} **${NUTRIENT_NAMES[key]}**: ${sum[key].toFixed(1)} / ${config.norm} ${config.unit} (${pct.toFixed(0)}%)\n`;
+    }
+
+    if (!hasData) {
+        report += "Пока нет данных за сегодня. Отправьте фото еды или описание!";
+    }
+
+    return report;
+}
+
 bot.action('menu_nutrition', async (ctx: any) => {
     ctx.answerCbQuery();
-    ctx.reply("🍎 **Анализ питания**\n\nОтправьте мне **фото блюда**, текстовое или голосовое описание.\n\nЯ рассчитаю калории, БЖУ, клетчатку и микроэлементы!");
+    await ctx.reply("🍎 **Анализ питания**\n\nОтправьте мне **фото блюда**, текстовое или голосовое описание.\n\nЯ рассчитаю калории, БЖУ, клетчатку и микроэлементы!", 
+        Markup.inlineKeyboard([
+            [Markup.button.callback('📊 Отчет за сегодня', 'get_nutrition_report')]
+        ])
+    );
+});
+
+bot.action('get_nutrition_report', async (ctx: any) => {
+    const user = await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
+    if (!user) return ctx.answerCbQuery("Пользователь не найден.");
+    
+    ctx.answerCbQuery();
+    const report = await generateDailyReport(user.id);
+    ctx.reply(report, { parse_mode: 'Markdown' });
 });
 
 bot.action('menu_activity', async (ctx: any) => {

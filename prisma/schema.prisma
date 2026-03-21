@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  // directUrl = env("DIRECT_URL")
   schemas   = ["auth", "public"]
 }
 
@@ -689,6 +689,43 @@ model NutritionLog {
   carbs             Float?
   fat               Float?
   fiber             Float?
+  
+  dish              String?
+  grams             Float?
+  sugar_fast        Float?
+  trans_fat         Float?
+  cholesterol       Float?
+  added_sugar       Float?
+  omega_3           Float?
+  omega_6           Float?
+  water             Float?
+
+  vitamin_A         Float?
+  vitamin_D         Float?
+  vitamin_E         Float?
+  vitamin_K         Float?
+  vitamin_B1        Float?
+  vitamin_B2        Float?
+  vitamin_B3        Float?
+  vitamin_B5        Float?
+  vitamin_B6        Float?
+  vitamin_B7        Float?
+  vitamin_B9        Float?
+  vitamin_B12       Float?
+  vitamin_C         Float?
+
+  calcium           Float?
+  iron              Float?
+  magnesium         Float?
+  phosphorus         Float?
+  potassium         Float?
+  sodium            Float?
+  zinc              Float?
+  copper            Float?
+  manganese         Float?
+  selenium          Float?
+  iodine            Float?
+
   vitamins_minerals Json?
   image_url         String?
   description       String?  @db.Text

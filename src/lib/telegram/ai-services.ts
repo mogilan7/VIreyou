@@ -17,23 +17,55 @@ export async function analyzeFoodWithAI(imageBase64?: string, description?: stri
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
 
   const prompt = `Ты — эксперт-нутрициолог и ИИ-аналитик питания.
-Проанализируй предоставленные данные (фото и/или текст) и верни подробный отчет о КБЖУ, клетчатке и витаминах/микроэлементах.
+Проанализируй предоставленные данные (фото и/или текст) и верни подробный отчет о КБЖУ, клетчатке, витаминах и минералах.
 
 **Требования к ответу:**
 Верни СТРОГО JSON-объект следующего формата:
 {
+  "status": "SUCCESS",
+  "description": "Краткое описание блюда, его состава и пользы.",
+  "dish": "Название блюда",
+  "grams": 250,
   "calories": 350.0,
   "protein": 15.5,
   "carbs": 42.0,
   "fat": 12.0,
   "fiber": 4.5,
-  "vitamins_minerals": {
-    "Витамин C": "25 мг",
-    "Калий": "400 мг",
-    "Магний": "50 мг"
-  },
-  "description": "Краткое описание блюда, его состава и пользы.",
-  "status": "SUCCESS"
+  "sugar_fast": 5.0,
+  "trans_fat": 0.0,
+  "cholesterol": 15.0,
+  "added_sugar": 0.0,
+  "omega_3": 1.2,
+  "omega_6": 3.4,
+  "water": 100,
+
+  // Витамины (число в мкг у Vit A,D,K,B7,B9,B12, остальные в мг. СТРОГО ЧИСЛА). Включай ВСЕ поля, даже если значение равно 0.
+  "vitamin_A": 900,
+  "vitamin_D": 15,
+  "vitamin_E": 15,
+  "vitamin_K": 120,
+  "vitamin_B1": 1.2,
+  "vitamin_B2": 1.3,
+  "vitamin_B3": 16,
+  "vitamin_B5": 5,
+  "vitamin_B6": 1.3,
+  "vitamin_B7": 30,
+  "vitamin_B9": 400,
+  "vitamin_B12": 2.4,
+  "vitamin_C": 90,
+
+  // Минералы (число в мг, селен в мкг, йод в мкг. СТРОГО ЧИСЛА). Включай ВСЕ поля, даже если значение равно 0.
+  "calcium": 1000,
+  "iron": 12,
+  "magnesium": 400,
+  "phosphorus": 700,
+  "potassium": 4700,
+  "sodium": 1500,
+  "zinc": 11,
+  "copper": 0.9,
+  "manganese": 2.3,
+  "selenium": 55,
+  "iodine": 150
 }
 
 Если данных недостаточно для распознавания, верни "status": "FAILED" и в "description" напиши, что пошло не так.
