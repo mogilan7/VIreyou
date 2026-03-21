@@ -161,3 +161,47 @@ export async function transcribeVoiceWithAI(file_path: string): Promise<string> 
 
   return transcription.text;
 }
+
+/**
+ * Анализирует текст пользователя для определения категории здоровья (Питание, Сон, Активность, Привычки).
+ */
+export async function analyzeTextWithAI(text: string) {
+  if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
+
+  const prompt = `Ты — ИИ-аналитик здоровья и нутрициолог.
+Определи тип данных из текста пользователя. СТРОГО один из типов:
+1. "NUTRITION" - Питание или напитки (КБЖУ).
+2. "SLEEP" - Показатели сна.
+3. "ACTIVITY" - Шаги, спорт, тренировки.
+4. "HABIT" - Вредные привычки (Алкоголь, курение, сахар).
+
+Верни СТРОГО JSON-объект формата:
+{
+  "status": "SUCCESS",
+  "type": "NUTRITION" | "SLEEP" | "ACTIVITY" | "HABIT",
+  "description": "Краткое описание (что обнаружено, какие показатели).",
+  "date_offset_days": 0, // Число. -1 для вчера, 0 для сегодня и т.д.
+  "data": {
+    // ДЛЯ NUTRITION заполни объект полностью (как для анализа еды):
+    // { dish, grams, calories, protein, carbs, fat, fiber, water, sugar_fast, vitamin_A, vitamin_D, vitamin_E, vitamin_K, vitamin_B1... vitamin_C, calcium, iron, magnesium, phosphorus... }
+    // ДЛЯ SLEEP: { duration_hrs, deep_hrs, rem_hrs }
+    // ДЛЯ ACTIVITY: { steps, active_minutes, calories_burned }
+    // ДЛЯ HABIT: { habit_key: "Краткое название категории для журнала (например: 'Алкоголь', 'Курение')" }
+  }
+}
+
+Правило Оценки Граммовки (для NUTRITION): если указана "порция" или "кусок", сделай адекватное среднее предположение (не сдавайся на FAILED).`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      { role: "system", content: prompt },
+      { role: "user", content: `Текст пользователя: "${text}"` }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.2,
+  });
+
+  const content = response.choices[0]?.message?.content || "{}";
+  return JSON.parse(content);
+}

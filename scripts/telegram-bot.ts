@@ -7,7 +7,7 @@ import fs from "fs";
 import path from "path";
 import cron from "node-cron";
 import prisma from "../src/lib/prisma";
-import { analyzeFoodWithAI, analyzeScreenshotWithAI, transcribeVoiceWithAI } from "../src/lib/telegram/ai-services";
+import { analyzeFoodWithAI, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI } from "../src/lib/telegram/ai-services";
 
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -45,8 +45,8 @@ function fileToBase64(filePath: string): string {
   return buffer.toString("base64");
 }
 
-// Временное хранилище для подтверждения питания
-const tempFoodLog: Record<string, any> = {};
+// Временное хранилище для подтверждения (Питание, Сон, Активность)
+const tempLog: Record<string, any> = {};
 const userStates: Record<string, string> = {};
 
 // ----------------------------------------------------
@@ -218,6 +218,46 @@ async function saveFoodLog(userId: string, foodData: any) {
   return log;
 }
 
+/**
+ * Отправляет сообщение с кнопками подтверждения на основе распознанного типа.
+ */
+async function sendConfirmationMessage(ctx: any, parsedData: any) {
+    const user = ctx.state.user;
+    if (!user) return;
+
+    tempLog[user.id] = { 
+        type: parsedData.type, 
+        data: parsedData.data, 
+        description: parsedData.description,
+        date_offset_days: parsedData.date_offset_days 
+    };
+
+    let text = "";
+    if (parsedData.type === "NUTRITION") {
+        const d = parsedData.data;
+        text = `🍎 **Питание**: **${d.dish || 'Без названия'}** (${d.grams || '?'}г):\n\n🔥 Калории: ${d.calories} ккал\n🥩 Белки: ${d.protein}г\n🍞 Углеводы: ${d.carbs}г\n🥑 Жиры: ${d.fat}г\n\n📝 ${parsedData.description}`;
+    } else if (parsedData.type === "SLEEP") {
+        const d = parsedData.data;
+        text = `📊 **Показатели сна**:\n\n💤 Длительность: ${d.duration_hrs || 0}ч\n🔴 Глубокий: ${d.deep_hrs || 0}ч\n🔵 REM: ${d.rem_hrs || 0}ч\n\n📝 ${parsedData.description}`;
+    } else if (parsedData.type === "ACTIVITY") {
+        const d = parsedData.data;
+        text = `🏃‍♂️ **Активность**:\n\n👣 Шаги: ${d.steps || 0}\n🔥 Калории: ${d.calories_burned || 0}\n⏱ Время: ${d.active_minutes || 0} мин\n\n📝 ${parsedData.description}`;
+    } else if (parsedData.type === "HABIT") {
+        const d = parsedData.data;
+        text = `🚭 **Вредная привычка**: **${d.habit_key}**\n\n📝 ${parsedData.description}`;
+    }
+
+    const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
+    if (dateOffset !== 0) {
+        text += `\n\n📅 _Дата записи: ${dateOffset < 0 ? 'Вчера' : 'Завтра'}_`;
+    }
+
+    return ctx.reply(text, Markup.inlineKeyboard([
+        [Markup.button.callback('✅ Сохранить', 'save_log_confirm')],
+        [Markup.button.callback('✏️ Внести правки', 'edit_log_prompt')]
+    ]));
+}
+
 
 // ----------------------------------------------------
 // Обработка ФОТО (Еда или Скриншоты)
@@ -236,53 +276,29 @@ bot.on('photo', async (ctx: any) => {
     const screenshotData = await analyzeScreenshotWithAI(base64);
 
     if (screenshotData.status === "SUCCESS" && screenshotData.type !== "UNKNOWN") {
-      // Это скриншот показателей
-      const user = ctx.state.user;
-      
-      if (screenshotData.type === "SLEEP") {
-          await prisma.sleepLog.create({
-              data: {
-                  user_id: user.id,
-                  duration_hrs: screenshotData.metrics.duration_hrs,
-                  deep_hrs: screenshotData.metrics.deep_hrs,
-                  rem_hrs: screenshotData.metrics.rem_hrs,
-                  notes: screenshotData.description,
-              }
-          });
-          ctx.reply(`📊 Обнаружен скриншот сна!\n\n💤 Длительность: ${screenshotData.metrics.duration_hrs || 0}ч\n🔴 Глубокий: ${screenshotData.metrics.deep_hrs || 0}ч\n🔵 REM: ${screenshotData.metrics.rem_hrs || 0}ч\n\n📝 ${screenshotData.description}\n✅ Сохранено в журнал.`);
-      } else if (screenshotData.type === "ACTIVITY") {
-          await prisma.activityLog.create({
-              data: {
-                  user_id: user.id,
-                  steps: screenshotData.metrics.steps,
-                  active_minutes: screenshotData.metrics.active_minutes,
-                  calories_burned: screenshotData.metrics.calories_burned,
-                  notes: screenshotData.description,
-              }
-          });
-          ctx.reply(`🏃‍♂️ Обнаружен скриншот активности!\n\n👣 Шаги: ${screenshotData.metrics.steps || 0}\n🔥 Калории: ${screenshotData.metrics.calories_burned || 0}\n⏱ Активные минуты: ${screenshotData.metrics.active_minutes || 0}\n\n📝 ${screenshotData.description}\n✅ Сохранено в журнал.`);
-      }
+        await sendConfirmationMessage(ctx, {
+            type: screenshotData.type,
+            data: screenshotData.metrics,
+            description: screenshotData.description
+        });
     } else {
         // Пробуем распознать как еду
         const foodData = await analyzeFoodWithAI(base64, ctx.message.caption);
 
         if (foodData.status === "SUCCESS") {
-            const user = ctx.state.user;
-            tempFoodLog[user.id] = foodData;
-
-            ctx.reply(`🍎 Состав блюда: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}`, 
-                Markup.inlineKeyboard([
-                    [Markup.button.callback('✅ Сохранить', 'save_nutrition_confirm')],
-                    [Markup.button.callback('✏️ Внести правки', 'edit_nutrition_prompt')]
-                ])
-            );
+            await sendConfirmationMessage(ctx, {
+                type: "NUTRITION",
+                data: foodData,
+                description: foodData.description,
+                date_offset_days: foodData.date_offset_days
+            });
         } else {
-            ctx.reply("🤔 Извините, я не уверен, что это еда или скриншот фитнес-приложений. Пожалуйста, опишите текстом или голосом.");
+            await ctx.reply("🤔 Извините, я не уверен, что это еда или скриншот фитнес-приложений. Пожалуйста, опишите текстом или голосом.");
         }
     }
   } catch (error) {
     console.error("Photo Error:", error);
-    ctx.reply("❌ Ошибка при обработке фото ИИ. Попробуйте еще раз.");
+    await ctx.reply("❌ Ошибка при обработке фото ИИ. Попробуйте еще раз.");
   } finally {
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
   }
@@ -300,28 +316,18 @@ bot.on('voice', async (ctx: any) => {
   try {
     await downloadTelegramFile(voice.file_id, tempPath);
     const text = await transcribeVoiceWithAI(tempPath);
+    await ctx.reply(`📝 Расшифровка: "${text}"\n\n⏳ Анализирую показатели...`);
 
-    await ctx.reply(`📝 Расшифровка: "${text}"\n\n⏳ Анализирую состав...`);
+    const parsedData = await analyzeTextWithAI(text);
 
-    const foodData = await analyzeFoodWithAI(undefined, text);
-
-    if (foodData.status === "SUCCESS") {
-        const user = ctx.state.user;
-        tempFoodLog[user.id] = foodData;
-
-        ctx.reply(`🍎 Состав блюда: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}`, 
-            Markup.inlineKeyboard([
-                [Markup.button.callback('✅ Сохранить', 'save_nutrition_confirm')],
-                [Markup.button.callback('✏️ Внести правки', 'edit_nutrition_prompt')]
-            ])
-        );
+    if (parsedData.status === "SUCCESS") {
+        await sendConfirmationMessage(ctx, parsedData);
     } else {
-        ctx.reply("🤔 Не удалось распознать еду из голосового сообщения. Попробуйте сформулировать иначе.");
+        await ctx.reply("🤔 Не удалось распознать показатели из голосового сообщения. Попробуйте сформулировать иначе.");
     }
-
   } catch (error) {
     console.error("Voice Error:", error);
-    ctx.reply("❌ Ошибка при обработке голоса.");
+    await ctx.reply("❌ Ошибка при обработке голоса.");
   } finally {
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
   }
@@ -350,52 +356,37 @@ bot.on('text', async (ctx: any) => {
 
   if (!user) return ctx.reply("❌ Пользователь не привязан.");
 
-  // Обработка правок питания
-  if (userStates[user.id] === 'FOOD_EDIT' && tempFoodLog[user.id]) {
-      await ctx.reply("⏳ Пересчитываю состав блюда с учетом правок...");
+  // Обработка правок (LOG_EDIT)
+  if (userStates[user.id] === 'LOG_EDIT' && tempLog[user.id]) {
+      await ctx.reply("⏳ Пересчитываю показатели с учетом правок...");
       try {
-          const previousData = JSON.stringify(tempFoodLog[user.id]);
-          const foodData = await analyzeFoodWithAI(undefined, `Корректировка состава. Предыдущий состав: ${previousData}. Правки пользователя: "${text}". Пересчитай все показатели заново и верни JSON.`);
+          const previousData = JSON.stringify(tempLog[user.id].data);
+          const parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON.`);
 
-          if (foodData.status === "SUCCESS") {
-              tempFoodLog[user.id] = foodData;
-              userStates[user.id] = ''; // Сбрасываем статус
-
-              return ctx.reply(`🍎 Пересчитал состав: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}`, 
-                  Markup.inlineKeyboard([
-                      [Markup.button.callback('✅ Сохранить', 'save_nutrition_confirm')],
-                      [Markup.button.callback('✏️ Внести правки', 'edit_nutrition_prompt')]
-                  ])
-              );
+          if (parsedData.status === "SUCCESS") {
+              userStates[user.id] = ''; // Сброс статуса
+              await sendConfirmationMessage(ctx, parsedData);
           } else {
-              return ctx.reply("🤔 Не удалось пересчитать. Попробуйте сформулировать правку иначе.");
+              await ctx.reply("🤔 Не удалось пересчитать. Попробуйте сформулировать правку иначе.");
           }
       } catch (err) {
-          return ctx.reply("❌ Ошибка пересчета ИИ. Попробуйте еще раз.");
+          await ctx.reply("❌ Ошибка пересчета ИИ. Попробуйте еще раз.");
       }
+      return;
   }
 
-  // Обычный анализ еды
-  await ctx.reply("⏳ Анализирую состав блюда...");
-
+  // Обычный анализ
+  await ctx.reply("⏳ Анализирую показатели...");
   try {
-    const foodData = await analyzeFoodWithAI(undefined, text);
-
-    if (foodData.status === "SUCCESS") {
-        tempFoodLog[user.id] = foodData;
-
-        ctx.reply(`🍎 Состав блюда: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}`, 
-            Markup.inlineKeyboard([
-                [Markup.button.callback('✅ Сохранить', 'save_nutrition_confirm')],
-                [Markup.button.callback('✏️ Внести правки', 'edit_nutrition_prompt')]
-            ])
-        );
-    } else {
-        ctx.reply("🤔 Не уверен, что это описание еды. Пожалуйста, отправьте фото или более подробное описание.");
-    }
-  } catch (error) {
-    console.error("Text Error:", error);
-    ctx.reply("❌ Ошибка при обработке текста.");
+      const parsedData = await analyzeTextWithAI(text);
+      if (parsedData.status === "SUCCESS") {
+          await sendConfirmationMessage(ctx, parsedData);
+      } else {
+          await ctx.reply("🤔 Не уверен, что это показатели здоровья. Пожалуйста, опишите текстом или отправьте фото.");
+      }
+  } catch (err) {
+      console.error("Text Error:", err);
+      await ctx.reply("❌ Ошибка при обработке текста.");
   }
 });
 
@@ -403,27 +394,69 @@ bot.on('text', async (ctx: any) => {
 // Обработка Callback Кнопок для Сохранения/Правки Питания
 // ----------------------------------------------------
 
-bot.action('save_nutrition_confirm', async (ctx: any) => {
+bot.action('save_log_confirm', async (ctx: any) => {
     ctx.answerCbQuery();
     const user = ctx.state.user;
-    if (!user || !tempFoodLog[user.id]) return ctx.reply("❌ Нет данных для сохранения.");
+    if (!user || !tempLog[user.id]) return ctx.reply("❌ Нет данных для сохранения.");
 
+    const cached = tempLog[user.id];
     try {
-        await saveFoodLog(user.id, tempFoodLog[user.id]);
-        delete tempFoodLog[user.id];
-        ctx.reply("✅ Данные о питании успешно сохранены!");
+        let date = new Date();
+        if (cached.date_offset_days) {
+            date.setDate(date.getDate() + Number(cached.date_offset_days));
+        }
+
+        if (cached.type === "NUTRITION") {
+            await saveFoodLog(user.id, cached.data);
+        } else if (cached.type === "SLEEP") {
+            await prisma.sleepLog.create({
+                data: {
+                    user_id: user.id,
+                    duration_hrs: cached.data.duration_hrs ? Number(cached.data.duration_hrs) : 0,
+                    deep_hrs: cached.data.deep_hrs ? Number(cached.data.deep_hrs) : 0,
+                    rem_hrs: cached.data.rem_hrs ? Number(cached.data.rem_hrs) : 0,
+                    notes: cached.description,
+                    created_at: date
+                }
+            });
+        } else if (cached.type === "ACTIVITY") {
+            await prisma.activityLog.create({
+                data: {
+                    user_id: user.id,
+                    steps: cached.data.steps ? Number(cached.data.steps) : 0,
+                    active_minutes: cached.data.active_minutes ? Number(cached.data.active_minutes) : 0,
+                    calories_burned: cached.data.calories_burned ? Number(cached.data.calories_burned) : 0,
+                    notes: cached.description,
+                    created_at: date
+                }
+            });
+        } else if (cached.type === "HABIT") {
+            await prisma.habitLog.create({
+                data: {
+                    user_id: user.id,
+                    habit_key: cached.data.habit_key || 'Привычка',
+                    completed: true,
+                    created_at: date,
+                    date: date
+                }
+            });
+        }
+
+        delete tempLog[user.id];
+        await ctx.reply("✅ Показатели успешно записаны в ваш журнал!");
     } catch (e) {
-        ctx.reply("❌ Ошибка сохранения данных.");
+        console.error("Save Log Error:", e);
+        await ctx.reply("❌ Ошибка сохранения данных.");
     }
 });
 
-bot.action('edit_nutrition_prompt', async (ctx: any) => {
+bot.action('edit_log_prompt', async (ctx: any) => {
     ctx.answerCbQuery();
     const user = ctx.state.user;
     if (!user) return;
     
-    userStates[user.id] = 'FOOD_EDIT';
-    ctx.reply("✏️ Напишите текстом, что именно нужно изменить (например, 'увеличь вес курицы до 200г'). Я пересчитаю показатели.");
+    userStates[user.id] = 'LOG_EDIT';
+    await ctx.reply("✏️ Напишите текстом, что именно нужно изменить (например, 'увеличь вес курицы до 200г' или 'я лег на час раньше'). Я сделаю пересчет.");
 });
 
 // ----------------------------------------------------
