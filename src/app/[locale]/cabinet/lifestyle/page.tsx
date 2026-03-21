@@ -104,7 +104,7 @@ export default async function LifestylePage({ searchParams }: { searchParams: Pr
                             </div>
 
                             {/* Фильтр Периода */}
-                            <form action="" method="GET" className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3 rounded-xl shadow-sm">
+                            <form action="" method="GET" className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3 rounded-xl shadow-sm">
                                 <div className="flex items-center gap-1">
                                     <input type="date" name="from" defaultValue={fromStr || fromDate.toISOString().split('T')[0]} className="bg-slate-50 dark:bg-slate-800 border-0 rounded-lg p-1.5 text-xs dark:text-slate-200" />
                                 </div>
