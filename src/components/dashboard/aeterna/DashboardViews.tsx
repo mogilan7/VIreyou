@@ -656,7 +656,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="flex flex-col gap-6">
                             {/* Этап 01 - Диалог */}
                             {(() => {
                                 const aiRecs = testResults.filter(r => r.test_type === 'ai-recommendation');
@@ -664,62 +664,70 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                 const report = latestAiRec?.rawData?.report || latestAiRec?.interpretation || '';
 
                                 return (
-                                    <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md min-h-[250px] flex flex-col lg:col-span-2">
-                                        <div className="text-4xl font-serif text-brand-sage/50 dark:text-teal-400/30 mb-4 font-bold">01</div>
-                                        <h4 className="text-lg font-bold mb-3 dark:text-slate-100 text-brand-text">Диалог</h4>
-                                        <p className="text-xs opacity-60 mb-4">Первичный запрос и обсуждение ваших ожиданий от программы.</p>
-                                        
-                                        <div className="flex-1 mt-2">
-                                            {latestAiRec ? (
-                                                <div className="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border dark:border-white/5 border-brand-sage/10 shadow-sm overflow-y-auto max-h-[300px]">
-                                                    <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 mb-2">Последняя консультация ИИ</p>
-                                                    <div className="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 space-y-1.5 text-xs">
-                                                        {report.split('\n').map((line: string, i: number) => {
-                                                            if (line.startsWith('###')) return <h4 key={i} className="text-xs font-bold mt-2 mb-1 text-slate-800 dark:text-slate-200">{line.replace('###', '').trim()}</h4>;
-                                                            if (line.startsWith('##')) return <h3 key={i} className="text-sm font-bold mt-3 mb-1 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-700 pb-0.5">{line.replace('##', '').trim()}</h3>;
-                                                            if (line.startsWith('-') || line.startsWith('*')) return <li key={i} className="ml-3 mb-0.5 text-xs">{renderTextWithLinks(line.replace(/^[*-]\s*/, '').trim())}</li>;
-                                                            if (line.trim() === '') return <div key={i} className="h-0.5" />;
-                                                            return <p key={i} className="text-xs leading-relaxed">{renderTextWithLinks(line)}</p>;
-                                                        })}
+                                    <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md flex flex-col md:flex-row gap-6 items-start transition-all hover:shadow-lg">
+                                        <div className="text-5xl font-serif text-brand-sage/40 dark:text-teal-400/20 font-bold md:w-20 pt-1">01</div>
+                                        <div className="flex-1 w-full">
+                                            <h4 className="text-lg font-bold mb-1 dark:text-slate-100 text-brand-text">Диалог</h4>
+                                            <p className="text-xs opacity-60 mb-4">Первичный запрос и обсуждение ваших ожиданий от программы.</p>
+                                            
+                                            <div className="mt-2">
+                                                {latestAiRec ? (
+                                                    <div className="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border dark:border-white/5 border-brand-sage/10 shadow-sm overflow-y-auto max-h-[300px]">
+                                                        <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 mb-2">Последняя консультация ИИ</p>
+                                                        <div className="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 space-y-1.5 text-xs">
+                                                            {report.split('\n').map((line: string, i: number) => {
+                                                                if (line.startsWith('###')) return <h4 key={i} className="text-xs font-bold mt-2 mb-1 text-slate-800 dark:text-slate-200">{line.replace('###', '').trim()}</h4>;
+                                                                if (line.startsWith('##')) return <h3 key={i} className="text-sm font-bold mt-3 mb-1 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-700 pb-0.5">{line.replace('##', '').trim()}</h3>;
+                                                                if (line.startsWith('-') || line.startsWith('*')) return <li key={i} className="ml-3 mb-0.5 text-xs">{renderTextWithLinks(line.replace(/^[*-]\s*/, '').trim())}</li>;
+                                                                if (line.trim() === '') return <div key={i} className="h-0.5" />;
+                                                                return <p key={i} className="text-xs leading-relaxed">{renderTextWithLinks(line)}</p>;
+                                                            })}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ) : (
-                                                <div className="flex flex-col items-center justify-center p-6 border border-dashed rounded-xl border-slate-200 dark:border-slate-700 h-full">
-                                                    <p className="text-xs opacity-50 italic text-center">Консультаций не найдено. Пройдите диалог.</p>
-                                                </div>
-                                            )}
+                                                ) : (
+                                                    <div className="flex flex-col items-center justify-center p-6 border border-dashed rounded-xl border-slate-200 dark:border-slate-700">
+                                                        <p className="text-xs opacity-50 italic text-center">Консультаций не найдено. Пройдите диалог.</p>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 );
                             })()}
 
                             {/* Этап 02 - Анализ */}
-                            <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md min-h-[250px] flex flex-col">
-                                <div className="text-4xl font-serif text-brand-sage/30 dark:text-slate-700 mb-4 font-bold">02</div>
-                                <h4 className="text-lg font-bold mb-3 dark:text-slate-100 text-brand-text">Анализ</h4>
-                                <p className="text-xs opacity-60">Глубокое изучение образа жизни, привычек и состояния тела.</p>
-                                <div className="flex-1 flex items-center justify-center mt-4">
-                                    <span className="text-[10px] uppercase tracking-wider text-amber-500 font-medium bg-amber-500/10 px-2 py-1 rounded">Настроим позже</span>
+                            <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md flex flex-col md:flex-row gap-6 items-start transition-all hover:shadow-lg">
+                                <div className="text-5xl font-serif text-brand-sage/30 dark:text-slate-700/40 font-bold md:w-20 pt-1">02</div>
+                                <div className="flex-1 w-full">
+                                    <h4 className="text-lg font-bold mb-1 dark:text-slate-100 text-brand-text">Анализ</h4>
+                                    <p className="text-xs opacity-60 mb-2">Глубокое изучение образа жизни, привычек и состояния тела.</p>
+                                    <div className="mt-3 flex">
+                                        <span className="text-[10px] uppercase tracking-wider text-amber-500 font-medium bg-amber-500/10 px-2 py-1 rounded">Настроим позже</span>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Этап 03 - Ориентиры */}
-                            <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md min-h-[250px] flex flex-col">
-                                <div className="text-4xl font-serif text-brand-sage/30 dark:text-slate-700 mb-4 font-bold">03</div>
-                                <h4 className="text-lg font-bold mb-3 dark:text-slate-100 text-brand-text">Ориентиры</h4>
-                                <p className="text-xs opacity-60">Выбор конкретных точек воздействия для достижения целей.</p>
-                                <div className="flex-1 flex items-center justify-center mt-4">
-                                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-medium bg-slate-500/10 px-2 py-1 rounded">В разработке</span>
+                            <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md flex flex-col md:flex-row gap-6 items-start transition-all hover:shadow-lg">
+                                <div className="text-5xl font-serif text-brand-sage/30 dark:text-slate-700/40 font-bold md:w-20 pt-1">03</div>
+                                <div className="flex-1 w-full">
+                                    <h4 className="text-lg font-bold mb-1 dark:text-slate-100 text-brand-text">Ориентиры</h4>
+                                    <p className="text-xs opacity-60 mb-2">Выбор конкретных точек воздействия для достижения целей.</p>
+                                    <div className="mt-3 flex">
+                                        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-medium bg-slate-500/10 px-2 py-1 rounded">В разработке</span>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Этап 04 - Система */}
-                            <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md min-h-[250px] flex flex-col lg:col-span-1">
-                                <div className="text-4xl font-serif text-brand-sage/30 dark:text-slate-700 mb-4 font-bold">04</div>
-                                <h4 className="text-lg font-bold mb-3 dark:text-slate-100 text-brand-text">Система</h4>
-                                <p className="text-xs opacity-60">Рекомендации, процедуры и поддержка на пути к результату.</p>
-                                <div className="flex-1 flex items-center justify-center mt-4">
-                                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-medium bg-slate-500/10 px-2 py-1 rounded">В разработке</span>
+                            <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md flex flex-col md:flex-row gap-6 items-start transition-all hover:shadow-lg">
+                                <div className="text-5xl font-serif text-brand-sage/30 dark:text-slate-700/40 font-bold md:w-20 pt-1">04</div>
+                                <div className="flex-1 w-full">
+                                    <h4 className="text-lg font-bold mb-1 dark:text-slate-100 text-brand-text">Система</h4>
+                                    <p className="text-xs opacity-60 mb-2">Рекомендации, процедуры и поддержка на пути к результату.</p>
+                                    <div className="mt-3 flex">
+                                        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-medium bg-slate-500/10 px-2 py-1 rounded">В разработке</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
