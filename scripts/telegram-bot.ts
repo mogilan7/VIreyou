@@ -148,6 +148,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
               caption: caption,
               parse_mode: 'Markdown',
               ...Markup.inlineKeyboard([
+                  [Markup.button.webApp('📊 Образ жизни (Дашборд)', 'https://vireyou.com/ru/cabinet/lifestyle')],
                   [Markup.button.callback('🍎 Анализ питания', 'menu_nutrition')],
                   [Markup.button.callback('🏃‍♂️ Физическая активность', 'menu_activity')],
                   [Markup.button.callback('🛌 Анализ сна', 'menu_sleep')],
@@ -160,6 +161,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
            await ctx.reply(caption, {
               parse_mode: 'Markdown',
               ...Markup.inlineKeyboard([
+                  [Markup.button.webApp('📊 Образ жизни (Дашборд)', 'https://vireyou.com/ru/cabinet/lifestyle')],
                   [Markup.button.callback('🍎 Анализ питания', 'menu_nutrition')],
                   [Markup.button.callback('🏃‍♂️ Физическая активность', 'menu_activity')],
                   [Markup.button.callback('🛌 Анализ сна', 'menu_sleep')],
