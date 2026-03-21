@@ -273,7 +273,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
         };
 
         return (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-500">
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-500 w-full max-w-full overflow-x-hidden">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b dark:border-slate-800 border-brand-sage/40 pb-6">
                     <div>
                         <h2 className="text-xl font-bold dark:text-slate-100 text-brand-text mb-1">План терапии и Назначения</h2>
