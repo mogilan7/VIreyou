@@ -3,7 +3,7 @@ import React from 'react';
 import Sidebar from "@/components/dashboard/Sidebar";
 import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
-import { Apple, Activity, Bed, GlassWater, Cigarette, Flame, ChevronDown, Trash2 } from 'lucide-react';
+import { Apple, Activity, Bed, GlassWater, Cigarette, Flame, ChevronDown, Trash2, Wine } from 'lucide-react';
 import { deleteNutritionLog } from './actions';
 import DeleteLogButton from '@/components/dashboard/DeleteLogButton';
 
@@ -287,7 +287,11 @@ export default async function LifestylePage({ searchParams }: { searchParams: Pr
                                     {habitsToday.length === 0 ? <p className="text-gray-400 text-sm">Привычки не зафиксированы за период</p> :
                                         habitsToday.map((h: any) => (
                                             <div key={h.id} className="flex gap-3 items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/30">
-                                                <Cigarette size={18} className="text-amber-500 flex-shrink-0" />
+                                                    {h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво') ? (
+                                                        <Wine size={18} className="text-purple-400 flex-shrink-0" />
+                                                    ) : (
+                                                        <Cigarette size={18} className="text-amber-500 flex-shrink-0" />
+                                                    )}
                                                 <div className="flex-1">
                                                     <p className="text-sm dark:text-slate-300">{h.habit_key}</p>
                                                     <p className="text-[10px] text-gray-400">{new Date(h.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
