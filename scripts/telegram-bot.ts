@@ -427,7 +427,6 @@ const NUTRITION_NORMS: any = {
     sugar_fast: { norm: 50, unit: 'г' },
     trans_fat: { norm: 2, unit: 'г' },
     cholesterol: { norm: 300, unit: 'мг' },
-    added_sugar: { norm: 50, unit: 'г' },
     omega_3: { norm: 1.6, unit: 'г' },
     omega_6: { norm: 17, unit: 'г' },
     vitamin_A: { norm: 900, unit: 'мкг' },
@@ -459,7 +458,7 @@ const NUTRITION_NORMS: any = {
 const NUTRIENT_NAMES: any = {
     protein: 'Белки', fat: 'Жиры', carbs: 'Углеводы', fiber: 'Клетчатка',
     sugar_fast: 'Простые углеводы', trans_fat: 'Трансжиры', cholesterol: 'Холестерин',
-    added_sugar: 'Добавленный сахар', omega_3: 'Омега-3', omega_6: 'Омега-6',
+    omega_3: 'Омега-3', omega_6: 'Омега-6',
     vitamin_A: 'Витамин A', vitamin_D: 'Витамин D', vitamin_E: 'Витамин E', vitamin_K: 'Витамин K',
     vitamin_B1: 'Витамин B1', vitamin_B2: 'Витамин B2', vitamin_B3: 'Витамин B3',
     vitamin_B5: 'Витамин B5', vitamin_B6: 'Витамин B6', vitamin_B7: 'Витамин B7',
