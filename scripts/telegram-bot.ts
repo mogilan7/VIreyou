@@ -192,7 +192,30 @@ async function saveFoodLog(userId: string, foodData: any) {
       data[key] = foodData[key];
     }
   }
-  return prisma.nutritionLog.create({ data });
+  // Обработка оффсета даты (например, "Вчера")
+  if (foodData.date_offset_days !== undefined && foodData.date_offset_days !== 0) {
+      const date = new Date();
+      date.setDate(date.getDate() + Number(foodData.date_offset_days));
+      data.created_at = date;
+  }
+
+  const log = await prisma.nutritionLog.create({ data });
+
+  // Если есть вредная привычка
+  if (foodData.habit_key) {
+      const logDate = data.created_at || new Date();
+      await prisma.habitLog.create({
+          data: {
+              user_id: userId,
+              habit_key: foodData.habit_key,
+              completed: true,
+              created_at: logDate,
+              date: logDate
+          }
+      });
+  }
+
+  return log;
 }
 
 
