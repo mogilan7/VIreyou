@@ -438,12 +438,12 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
                               <p className="text-xs text-white/80 max-w-xs">Запустите мониторинг питания, сна и активности прямо сейчас.</p>
                           </div>
                           <a 
-                            href="https://t.me/vi_reyou_bot" 
+                            href="https://t.me/SayAndSaveBot" 
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="w-full px-6 py-4 bg-white text-brand-forest rounded-2xl font-bold shadow-lg hover:bg-slate-50 transition-all flex items-center justify-center gap-2 transform hover:scale-[1.02] active:scale-95"
                           >
-                            Запустить @vi_reyou_bot <ChevronRight className="w-4 h-4" />
+                            Запустить @SayAndSaveBot <ChevronRight className="w-4 h-4" />
                           </a>
                       </div>
                   </div>
