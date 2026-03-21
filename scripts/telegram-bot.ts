@@ -477,6 +477,22 @@ const TEST_ALIASES: Record<string, string[]> = {
     'bio-age': ['systemic-bio-age', 'bio-age']
 };
 
+const TEST_PATHS: Record<string, string> = {
+    'systemic-bio-age': '/ru/diagnostics/systemic-bio-age',
+    'bio-age': '/ru/diagnostics/bio-age',
+    'alcohol': '/ru/diagnostics/alcohol',
+    'RU-AUDIT': '/ru/diagnostics/alcohol',
+    'insomnia': '/ru/diagnostics/insomnia',
+    'circadian': '/ru/diagnostics/circadian',
+    'energy': '/ru/diagnostics/energy',
+    'nicotine': '/ru/diagnostics/nicotine',
+    'sarc-f': '/ru/diagnostics/sarc-f',
+    'greene-scale': '/ru/diagnostics/greene-scale',
+    'ipss': '/ru/diagnostics/ipss',
+    'mief-5': '/ru/diagnostics/mief-5',
+    'score': '/ru/diagnostics/score'
+};
+
 bot.action('menu_checklist', async (ctx: any) => {
     ctx.answerCbQuery();
     const user = ctx.state.user;
@@ -505,7 +521,8 @@ bot.action('menu_checklist', async (ctx: any) => {
              const aliases = TEST_ALIASES[tid] || [tid];
              const isCompleted = results.some((r: any) => aliases.includes(r.test_type));
              const name = TEST_NAMES[tid] || tid;
-             const link = `https://vireyou.com/ru/tests/${tid}`;
+             const path = TEST_PATHS[tid] || `/ru/diagnostics/${tid}`;
+             const link = `https://vireyou.com${path}`;
              text += `${isCompleted ? '✅' : '🔴'} **${name}**\n   └ [Пройти тест](${link})\n\n`;
         });
 
