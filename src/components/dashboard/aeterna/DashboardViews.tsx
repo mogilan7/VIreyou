@@ -273,7 +273,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
         };
 
         return (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-500 w-full max-w-full overflow-x-hidden">
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-500">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b dark:border-slate-800 border-brand-sage/40 pb-6">
                     <div>
                         <h2 className="text-xl font-bold dark:text-slate-100 text-brand-text mb-1">План терапии и Назначения</h2>
@@ -304,7 +304,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                             <p className="text-[10px] opacity-60">Заполняйте данные ежедневно для перехода к этапу «Анализ»</p>
                         </div>
                         
-                        <div className="flex justify-start items-center gap-2 overflow-x-auto pb-2 w-full max-w-full">
+                        <div className="flex justify-between items-center gap-2 overflow-x-auto pb-2">
                             {Array.from({ length: 7 }).map((_, i) => {
                                 const dayDate = new Date(new Date(latestAiRec.created_at).getTime() + i * 24 * 60 * 60 * 1000);
                                 const formattedDate = dayDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
@@ -328,7 +328,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                 const isFuture = dayDate > new Date();
                                 
                                 return (
-                                    <div key={i} className={`flex flex-col items-center gap-1 flex-shrink-0 min-w-[50px] ${isFuture ? 'opacity-30' : ''}`}>
+                                    <div key={i} className={`flex flex-col items-center gap-1 flex-1 min-w-[50px] ${isFuture ? 'opacity-30' : ''}`}>
                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${bgColor} shadow-sm border dark:border-white/5`}>
                                             Д{i+1}
                                         </div>
@@ -448,7 +448,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                     </button>
                 </nav>
 
-                <div className="flex flex-col sm:flex-row gap-4 sm:gap-12 mt-4 md:mt-0">
+                <div className="flex gap-12">
                     <div className="text-center md:text-left">
                         <p className="text-[10px] uppercase opacity-50 mb-1">Биологический возраст</p>
                         <p className="text-3xl font-light tracking-tight"><span className={`font-bold ${accentColor}`}>{healthData?.biological_age_calc || 40}</span> <span className="text-sm opacity-40">/ {healthData?.biological_age_actual || 44}</span></p>
