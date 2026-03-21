@@ -304,7 +304,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                             <p className="text-[10px] opacity-60">Заполняйте данные ежедневно для перехода к этапу «Анализ»</p>
                         </div>
                         
-                        <div className="flex justify-between items-center gap-2 overflow-x-auto pb-2">
+                        <div className="flex justify-start items-center gap-2 overflow-x-auto pb-2 w-full max-w-full">
                             {Array.from({ length: 7 }).map((_, i) => {
                                 const dayDate = new Date(new Date(latestAiRec.created_at).getTime() + i * 24 * 60 * 60 * 1000);
                                 const formattedDate = dayDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
@@ -328,7 +328,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                 const isFuture = dayDate > new Date();
                                 
                                 return (
-                                    <div key={i} className={`flex flex-col items-center gap-1 flex-1 min-w-[50px] ${isFuture ? 'opacity-30' : ''}`}>
+                                    <div key={i} className={`flex flex-col items-center gap-1 flex-shrink-0 min-w-[50px] ${isFuture ? 'opacity-30' : ''}`}>
                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${bgColor} shadow-sm border dark:border-white/5`}>
                                             Д{i+1}
                                         </div>
