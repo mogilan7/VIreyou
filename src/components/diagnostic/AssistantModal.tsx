@@ -361,16 +361,7 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Bot Promo Link */}
-              <div className="mt-2 p-3 bg-brand-mint/10 border border-brand-mint/20 rounded-xl mb-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                       <div className="w-2 h-2 bg-brand-mint rounded-full animate-ping" />
-                       <span className="text-xs font-semibold text-brand-forest">Совет: Использование ТГ-бота ускорит анализ!</span>
-                  </div>
-                  <a href="https://t.me/vi_reyou_bot" target="_blank" rel="noopener noreferrer" className="text-xs text-brand-forest font-bold flex items-center gap-1 hover:underline">
-                      Открыть бот <ArrowRight className="w-3 h-3" />
-                  </a>
-              </div>
+              {/* Кнопка ТГ-бота перенесена в финальный отчет */}
 
               {/* Action Buttons & Input */}
               <div className="border-t border-slate-100 pt-4 space-y-3">
@@ -390,8 +381,8 @@ export default function AssistantModal({ isOpen, onClose }: AssistantModalProps)
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     placeholder="Напишите сообщение..."
-                    className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:border-brand-forest/30 focus:ring-2 focus:ring-brand-forest/10 focus:bg-white outline-none resize-none text-sm transition-all h-[52px] leading-tight"
-                    rows={1}
+                    className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:border-brand-forest/30 focus:ring-2 focus:ring-brand-forest/10 focus:bg-white outline-none resize-none text-sm transition-all h-24 leading-tight"
+                    rows={3}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();

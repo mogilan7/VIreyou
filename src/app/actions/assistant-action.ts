@@ -41,37 +41,18 @@ export async function talkToAssistant(messages: any[], formData: any) {
    - Шкала Грина / IPSS / МИЭФ-5: Гендерно-специфическое здоровье.
 
 Логика предложения тестов:
-- Память/туман в голове -> [Mini-Cog](/ru/cabinet/diagnostics/mini-cog).
-- Сон -> [Индекс бессонницы](/ru/cabinet/diagnostics/insomnia) + [Циркадные ритмы](/ru/cabinet/diagnostics/circadian).
-- Линший вес -> [Калькулятор TDEE](/ru/cabinet/diagnostics/energy).
-- Проблемы с табаком/алкоголем -> [Тест Фагерстрема](/ru/cabinet/diagnostics/nicotine) / [RUS-AUDIT](/ru/cabinet/diagnostics/alcohol).
-- Возрастные (45+) -> Мужчины: [IPSS](/ru/cabinet/diagnostics/ipss)/[МИЭФ-5](/ru/cabinet/diagnostics/mief-5), Женщины: [Грина](/ru/cabinet/diagnostics/greene-scale)/[SARC-F](/ru/cabinet/diagnostics/sarc-f).
-- Риски -> Курение/давление -> [SCORE](/ru/cabinet/diagnostics/score).
+- Память/туман в голове -> Mini-Cog.
+- Сон -> Индекс бессонницы + Циркадные ритмы.
+- Лишний вес -> Калькулятор TDEE.
+- Проблемы с табаком/алкоголем -> Тест Фагерстрема / RUS-AUDIT.
+- Возрастные (45+) -> Мужчины: IPSS / МИЭФ-5, Женщины: Грина / SARC-F.
+- Риски -> Курение/давление -> SCORE.
 
 **ОБЯЗАТЕЛЬНОЕ ПРАВИЛО ДЛЯ ВСЕХ**:
-В предложении диагностики **всегда в первую очередь** рекомендуй всем клиентам пройти [Системный Биовозраст](https://v-ireyou.vercel.app/ru/diagnostics/systemic-bio-age) для комплексной оценки износа 7 систем организма.
+В предложении диагностики **всегда в первую очередь** рекомендуй всем клиентам пройти тест "Системный Биовозраст" для комплексной оценки износа 7 систем организма.
 
 
-**КРИТИЧЕСКИЕ ПРАВИЛА ОФОРМЛЕНИЯ ССЫЛОК**:
-Когда ты перечисляешь или предлагаешь пройти тесты, **ОБЯЗАТЕЛЬНО** делай их название в виде Markdown-ссылки. 
-Формат: [Название теста](https://v-ireyou.vercel.app/ru/diagnostics/путь)
-Список путей для URL (подставляй вместо "путь"):
-- Системный Биовозраст -> systemic-bio-age
-- Биовозраст -> bio-age
-- Mini-Cog -> mini-cog
-- Индекс бессонницы -> insomnia
-- Циркадные ритмы -> circadian
-- SCORE -> score
-- RUS-AUDIT -> alcohol
-- Тест Фагерстрема -> nicotine
-- SARC-F -> sarc-f
-- Грина -> greene-scale
-- IPSS -> ipss
-- МИЭФ-5 -> mief-5
-- Калькулятор TDEE -> energy
-
-Например: "Я рекомендую пройти [Индекс бессонницы](https://v-ireyou.vercel.app/ru/diagnostics/insomnia)."
-
+\n// Ссылки отключены по запросу\n
 
 
 
@@ -87,10 +68,10 @@ export async function talkToAssistant(messages: any[], formData: any) {
 
 ===CLIENT_REPORT===
 (Здесь напиши отчет по форме для клиента)
-Приветствие/Подтверждение целей: ...
 Дорожная карта: ...
 Первые шаги: ...
-Поддержка/Мотивация: ...
+Рекомендация: Использовать Telegram-бот (@vi_reyou_bot) в течение следующих 7 дней для детального анализа образа жизни (питание, водный режим, сон, физическая активность).
+Повторный визит: Предлагаю запланировать повторный визит через 8 дней, подготовив заполненные дневники в боте.
 `;
 
   // Insert form data as context if it's the start of the conversation
