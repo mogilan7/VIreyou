@@ -475,9 +475,10 @@ async function generateDailyReport(userId: string) {
     }
 
     logs.forEach(log => {
+        const anyLog = log as any;
         for (const key of Object.keys(sum)) {
-            if (log[key] !== null && log[key] !== undefined) {
-                sum[key] += Number(log[key]);
+            if (anyLog[key] !== null && anyLog[key] !== undefined) {
+                sum[key] += Number(anyLog[key]);
             }
         }
     });
@@ -487,7 +488,7 @@ async function generateDailyReport(userId: string) {
 
     // Считаем КБЖУ отдельно
     const kbtu: any = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
-    logs.forEach(log => {
+    logs.forEach((log: any) => {
         kbtu.calories += Number(log.calories || 0);
         kbtu.protein += Number(log.protein || 0);
         kbtu.carbs += Number(log.carbs || 0);
