@@ -420,6 +420,16 @@ bot.action('habits_check', async (ctx: any) => {
 });
 
 const NUTRITION_NORMS: any = {
+    protein: { norm: 80, unit: 'г' },
+    fat: { norm: 70, unit: 'г' },
+    carbs: { norm: 250, unit: 'г' },
+    fiber: { norm: 30, unit: 'г' },
+    sugar_fast: { norm: 50, unit: 'г' },
+    trans_fat: { norm: 2, unit: 'г' },
+    cholesterol: { norm: 300, unit: 'мг' },
+    added_sugar: { norm: 50, unit: 'г' },
+    omega_3: { norm: 1.6, unit: 'г' },
+    omega_6: { norm: 17, unit: 'г' },
     vitamin_A: { norm: 900, unit: 'мкг' },
     vitamin_D: { norm: 15, unit: 'мкг' },
     vitamin_E: { norm: 15, unit: 'мг' },
@@ -447,6 +457,9 @@ const NUTRITION_NORMS: any = {
 };
 
 const NUTRIENT_NAMES: any = {
+    protein: 'Белки', fat: 'Жиры', carbs: 'Углеводы', fiber: 'Клетчатка',
+    sugar_fast: 'Быстрый сахар', trans_fat: 'Трансжиры', cholesterol: 'Холестерин',
+    added_sugar: 'Добавленный сахар', omega_3: 'Омега-3', omega_6: 'Омега-6',
     vitamin_A: 'Витамин A', vitamin_D: 'Витамин D', vitamin_E: 'Витамин E', vitamin_K: 'Витамин K',
     vitamin_B1: 'Витамин B1', vitamin_B2: 'Витамин B2', vitamin_B3: 'Витамин B3',
     vitamin_B5: 'Витамин B5', vitamin_B6: 'Витамин B6', vitamin_B7: 'Витамин B7',
@@ -498,11 +511,7 @@ async function generateDailyReport(userId: string) {
 
     if (logs.length > 0) hasData = true;
 
-    report += `🔥 **Калории**: ${kbtu.calories.toFixed(1)} ккал\n`;
-    report += `🥩 **Белки**: ${kbtu.protein.toFixed(1)} г\n`;
-    report += `🍞 **Углеводы**: ${kbtu.carbs.toFixed(1)} г\n`;
-    report += `🥑 **Жиры**: ${kbtu.fat.toFixed(1)} г\n`;
-    report += `🥬 **Клетчатка**: ${kbtu.fiber.toFixed(1)} г\n\n`;
+    report += `🔥 **Калории**: ${kbtu.calories.toFixed(1)} ккал\n\n`;
 
     for (const [key, config] of Object.entries(NUTRITION_NORMS) as any) {
         const pct = (sum[key] / config.norm) * 100;
