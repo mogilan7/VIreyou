@@ -448,7 +448,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                     </button>
                 </nav>
 
-                <div className="flex gap-12">
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-12 mt-4 md:mt-0">
                     <div className="text-center md:text-left">
                         <p className="text-[10px] uppercase opacity-50 mb-1">Биологический возраст</p>
                         <p className="text-3xl font-light tracking-tight"><span className={`font-bold ${accentColor}`}>{healthData?.biological_age_calc || 40}</span> <span className="text-sm opacity-40">/ {healthData?.biological_age_actual || 44}</span></p>
