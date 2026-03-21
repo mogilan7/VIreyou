@@ -45,6 +45,10 @@ function fileToBase64(filePath: string): string {
   return buffer.toString("base64");
 }
 
+// Временное хранилище для подтверждения питания
+const tempFoodLog: Record<string, any> = {};
+const userStates: Record<string, string> = {};
+
 // ----------------------------------------------------
 // Middleware: Проверка авторизации
 // ----------------------------------------------------
@@ -239,9 +243,14 @@ bot.on('photo', async (ctx: any) => {
 
         if (foodData.status === "SUCCESS") {
             const user = ctx.state.user;
-            await saveFoodLog(user.id, foodData);
+            tempFoodLog[user.id] = foodData;
 
-            ctx.reply(`🍎 Проанализировал блюдо: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}\n\n✅ Данные сохранены!`);
+            ctx.reply(`🍎 Состав блюда: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}`, 
+                Markup.inlineKeyboard([
+                    [Markup.button.callback('✅ Сохранить', 'save_nutrition_confirm')],
+                    [Markup.button.callback('✏️ Внести правки', 'edit_nutrition_prompt')]
+                ])
+            );
         } else {
             ctx.reply("🤔 Извините, я не уверен, что это еда или скриншот фитнес-приложений. Пожалуйста, опишите текстом или голосом.");
         }
@@ -273,9 +282,14 @@ bot.on('voice', async (ctx: any) => {
 
     if (foodData.status === "SUCCESS") {
         const user = ctx.state.user;
-        await saveFoodLog(user.id, foodData);
+        tempFoodLog[user.id] = foodData;
 
-        ctx.reply(`🍎 Распознал описание для: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}\n\n✅ Сохранено!`);
+        ctx.reply(`🍎 Состав блюда: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}`, 
+            Markup.inlineKeyboard([
+                [Markup.button.callback('✅ Сохранить', 'save_nutrition_confirm')],
+                [Markup.button.callback('✏️ Внести правки', 'edit_nutrition_prompt')]
+            ])
+        );
     } else {
         ctx.reply("🤔 Не удалось распознать еду из голосового сообщения. Попробуйте сформулировать иначе.");
     }
@@ -307,17 +321,50 @@ bot.hears(/^(\d+)\s*(мл|ml|миллилитров)$/i, async (ctx: any) => {
 
 bot.on('text', async (ctx: any) => {
   const text = ctx.message.text;
+  const user = ctx.state.user;
 
+  if (!user) return ctx.reply("❌ Пользователь не привязан.");
+
+  // Обработка правок питания
+  if (userStates[user.id] === 'FOOD_EDIT' && tempFoodLog[user.id]) {
+      await ctx.reply("⏳ Пересчитываю состав блюда с учетом правок...");
+      try {
+          const previousData = JSON.stringify(tempFoodLog[user.id]);
+          const foodData = await analyzeFoodWithAI(undefined, `Корректировка состава. Предыдущий состав: ${previousData}. Правки пользователя: "${text}". Пересчитай все показатели заново и верни JSON.`);
+
+          if (foodData.status === "SUCCESS") {
+              tempFoodLog[user.id] = foodData;
+              userStates[user.id] = ''; // Сбрасываем статус
+
+              return ctx.reply(`🍎 Пересчитал состав: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}`, 
+                  Markup.inlineKeyboard([
+                      [Markup.button.callback('✅ Сохранить', 'save_nutrition_confirm')],
+                      [Markup.button.callback('✏️ Внести правки', 'edit_nutrition_prompt')]
+                  ])
+              );
+          } else {
+              return ctx.reply("🤔 Не удалось пересчитать. Попробуйте сформулировать правку иначе.");
+          }
+      } catch (err) {
+          return ctx.reply("❌ Ошибка пересчета ИИ. Попробуйте еще раз.");
+      }
+  }
+
+  // Обычный анализ еды
   await ctx.reply("⏳ Анализирую состав блюда...");
 
   try {
     const foodData = await analyzeFoodWithAI(undefined, text);
 
     if (foodData.status === "SUCCESS") {
-        const user = ctx.state.user;
-        await saveFoodLog(user.id, foodData);
+        tempFoodLog[user.id] = foodData;
 
-        ctx.reply(`🍎 Распознал описание для: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}\n\n✅ Сохранено!`);
+        ctx.reply(`🍎 Состав блюда: **${foodData.dish || 'Без названия'}** (${foodData.grams || '?'}г):\n\n🔥 Калории: ${foodData.calories} ккал\n🥩 Белки: ${foodData.protein}г\n🍞 Углеводы: ${foodData.carbs}г\n🥑 Жиры: ${foodData.fat}г\n🥬 Клетчатка: ${foodData.fiber || 0}г\n\n📝 ${foodData.description}`, 
+            Markup.inlineKeyboard([
+                [Markup.button.callback('✅ Сохранить', 'save_nutrition_confirm')],
+                [Markup.button.callback('✏️ Внести правки', 'edit_nutrition_prompt')]
+            ])
+        );
     } else {
         ctx.reply("🤔 Не уверен, что это описание еды. Пожалуйста, отправьте фото или более подробное описание.");
     }
@@ -325,6 +372,33 @@ bot.on('text', async (ctx: any) => {
     console.error("Text Error:", error);
     ctx.reply("❌ Ошибка при обработке текста.");
   }
+});
+
+// ----------------------------------------------------
+// Обработка Callback Кнопок для Сохранения/Правки Питания
+// ----------------------------------------------------
+
+bot.action('save_nutrition_confirm', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user || !tempFoodLog[user.id]) return ctx.reply("❌ Нет данных для сохранения.");
+
+    try {
+        await saveFoodLog(user.id, tempFoodLog[user.id]);
+        delete tempFoodLog[user.id];
+        ctx.reply("✅ Данные о питании успешно сохранены!");
+    } catch (e) {
+        ctx.reply("❌ Ошибка сохранения данных.");
+    }
+});
+
+bot.action('edit_nutrition_prompt', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    
+    userStates[user.id] = 'FOOD_EDIT';
+    ctx.reply("✏️ Напишите текстом, что именно нужно изменить (например, 'увеличь вес курицы до 200г'). Я пересчитаю показатели.");
 });
 
 // ----------------------------------------------------
