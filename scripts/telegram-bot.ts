@@ -410,6 +410,18 @@ bot.action('save_log_confirm', async (ctx: any) => {
 
         if (cached.type === "NUTRITION") {
             await saveFoodLog(user.id, cached.data);
+            
+            if (cached.habit_key) {
+                await prisma.habitLog.create({
+                    data: {
+                        user_id: user.id,
+                        habit_key: cached.habit_key,
+                        completed: true,
+                        created_at: date,
+                        date: date
+                    }
+                });
+            }
         } else if (cached.type === "SLEEP") {
             await prisma.sleepLog.create({
                 data: {

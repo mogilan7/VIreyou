@@ -179,14 +179,15 @@ export async function analyzeTextWithAI(text: string) {
 {
   "status": "SUCCESS",
   "type": "NUTRITION" | "SLEEP" | "ACTIVITY" | "HABIT",
-  "description": "Краткое описание (что обнаружено, какие показатели).",
-  "date_offset_days": 0, // Число. -1 для вчера, 0 для сегодня и т.д.
+  "description": "Краткое описание (что обнаружено).",
+  "date_offset_days": 0,
+  "habit_key": "Алкоголь" | "Курение" | "Сахар" | null, // Если это алкогольный напиток или табак, укажи категорию здесь, ДАЖЕ ЕСЛИ ТИП — NUTRITION!
   "data": {
     // ДЛЯ NUTRITION заполни объект полностью (как для анализа еды):
-    // { dish, grams, calories, protein, carbs, fat, fiber, water, sugar_fast, vitamin_A, vitamin_D, vitamin_E, vitamin_K, vitamin_B1... vitamin_C, calcium, iron, magnesium, phosphorus... }
+    // { dish, grams, calories, protein, carbs, fat, fiber, water... }
     // ДЛЯ SLEEP: { duration_hrs, deep_hrs, rem_hrs }
     // ДЛЯ ACTIVITY: { steps, active_minutes, calories_burned }
-    // ДЛЯ HABIT: { habit_key: "Краткое название категории для журнала (например: 'Алкоголь', 'Курение')" }
+    // ДЛЯ HABIT: { habit_key: "Краткое название" }
   }
 }
 
