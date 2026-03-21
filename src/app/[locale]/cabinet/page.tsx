@@ -44,7 +44,12 @@ export default async function ClientDashboardPage() {
                         include: {
                             test: true
                         }
-                    }
+                    },
+                    nutritionLogs: true,
+                    sleepLogs: true,
+                    activityLogs: true,
+                    habitLogs: true,
+                    hydrationLogs: true
                 }
             });
         } catch (prismaErr) {
@@ -110,7 +115,8 @@ export default async function ClientDashboardPage() {
                 test_type: r.test_type,
                 score: r.score,
                 interpretation: r.interpretation,
-                rawData: r.raw_data || r.rawData
+                rawData: r.raw_data || r.rawData,
+                created_at: r.created_at
             }));
 
             if (dbUser && (dbUser as any).accessPermissions.length > 0) {
@@ -151,6 +157,11 @@ export default async function ClientDashboardPage() {
                         testResults={testResults}
                         healthData={healthData}
                         biomarkerResults={biomarkerResults}
+                        nutritionLogs={(dbUser as any)?.nutritionLogs || []}
+                        sleepLogs={(dbUser as any)?.sleepLogs || []}
+                        activityLogs={(dbUser as any)?.activityLogs || []}
+                        habitLogs={(dbUser as any)?.habitLogs || []}
+                        hydrationLogs={(dbUser as any)?.hydrationLogs || []}
                     />
                 </main>
             </div>

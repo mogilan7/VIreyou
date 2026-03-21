@@ -30,6 +30,11 @@ interface DashboardViewsProps {
     testResults: any[];
     healthData: any;
     biomarkerResults?: any[];
+    nutritionLogs?: any[];
+    sleepLogs?: any[];
+    activityLogs?: any[];
+    habitLogs?: any[];
+    hydrationLogs?: any[];
 }
 
 const renderTextWithLinks = (text: string) => {
@@ -55,7 +60,7 @@ const renderTextWithLinks = (text: string) => {
     return parts.length > 0 ? parts : text;
 };
 
-export default function DashboardViews({ profile, testResults, healthData, biomarkerResults = [] }: DashboardViewsProps) {
+export default function DashboardViews({ profile, testResults, healthData, biomarkerResults = [], nutritionLogs = [], sleepLogs = [], activityLogs = [], habitLogs = [], hydrationLogs = [] }: DashboardViewsProps) {
     const router = useRouter();
     const { theme } = useDashboardTheme();
   const [activeView, setActiveView] = useState<'overview' | 'diagnostics' | 'recommendations'>('overview');
@@ -274,7 +279,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                 <span>{completedCount}/{totalCount} ({pct}%)</span>
                             </div>
                             <div className="w-48 h-2 bg-slate-100 dark:bg-slate-700/50 rounded-full overflow-hidden border dark:border-white/5 border-slate-200">
-                                <div className="h-full bg-brand-mint transition-all duration-500" style={{ width: `${pct}%` }} />
+                                <div className={`h-full ${accentBg} transition-all duration-500`} style={{ width: `${pct}%` }} />
                             </div>
                             <p className="text-[10px] text-slate-500 mt-1">
                                 Следующий этап Анализ: <span className="text-brand-forest dark:text-teal-400 font-bold">{nextDate}</span>
@@ -282,6 +287,56 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                         </div>
                     )}
                 </div>
+
+                {/* Шкала Дневника Мониторинга (7 дней) */}
+                {latestAiRec && (
+                    <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md space-y-4 transition-all">
+                        <div>
+                            <h4 className="text-sm font-bold dark:text-slate-100 text-brand-text mb-1">Дневник мониторинга в ТГ-боте (7 дней)</h4>
+                            <p className="text-[10px] opacity-60">Заполняйте данные ежедневно для перехода к этапу «Анализ»</p>
+                        </div>
+                        
+                        <div className="flex justify-between items-center gap-2 overflow-x-auto pb-2">
+                            {Array.from({ length: 7 }).map((_, i) => {
+                                const dayDate = new Date(new Date(latestAiRec.created_at).getTime() + i * 24 * 60 * 60 * 1000);
+                                const formattedDate = dayDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+                                
+                                const isSameDay = (logDate: any) => {
+                                    const d = new Date(logDate);
+                                    return d.getDate() === dayDate.getDate() && d.getMonth() === dayDate.getMonth() && d.getFullYear() === dayDate.getFullYear();
+                                };
+                                
+                                const hasNutrition = (nutritionLogs || []).some(isSameDay);
+                                const hasSleep = (sleepLogs || []).some(isSameDay);
+                                const hasActivity = (activityLogs || []).some(isSameDay);
+                                const hasHabits = (habitLogs || []).some(isSameDay) || (hydrationLogs || []).some(isSameDay);
+                                
+                                const count = [hasNutrition, hasSleep, hasActivity, hasHabits].filter(Boolean).length;
+                                
+                                let bgColor = "bg-slate-100 dark:bg-slate-700/40 text-slate-400";
+                                if (count === 4 || count === 3) bgColor = "bg-green-500 text-white";
+                                else if (count >= 1) bgColor = "bg-amber-400 text-white";
+                                
+                                const isFuture = dayDate > new Date();
+                                
+                                return (
+                                    <div key={i} className={`flex flex-col items-center gap-1 flex-1 min-w-[50px] ${isFuture ? 'opacity-30' : ''}`}>
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${bgColor} shadow-sm border dark:border-white/5`}>
+                                            Д{i+1}
+                                        </div>
+                                        <span className="text-[8px] opacity-50">{formattedDate}</span>
+                                        <div className="flex gap-0.5 mt-0.5">
+                                            <span className={`w-1 h-1 rounded-full ${hasNutrition ? 'bg-green-400' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                                            <span className={`w-1 h-1 rounded-full ${hasSleep ? 'bg-green-400' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                                            <span className={`w-1 h-1 rounded-full ${hasActivity ? 'bg-green-400' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                                            <span className={`w-1 h-1 rounded-full ${hasHabits ? 'bg-green-400' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 <div className="flex flex-col gap-6">
                     {/* Этап 01 - Диалог */}
