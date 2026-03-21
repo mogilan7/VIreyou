@@ -471,6 +471,12 @@ const TEST_NAMES: Record<string, string> = {
     'sarc-f': 'SARC-F', 'greene-scale': 'Шкала Грина', 'ipss': 'IPSS', 'mief-5': 'МИЭФ-5', 'score': 'SCORE'
 };
 
+const TEST_ALIASES: Record<string, string[]> = {
+    'alcohol': ['RU-AUDIT', 'alcohol'],
+    'systemic-bio-age': ['bio-age', 'systemic-bio-age'],
+    'bio-age': ['systemic-bio-age', 'bio-age']
+};
+
 bot.action('menu_checklist', async (ctx: any) => {
     ctx.answerCbQuery();
     const user = ctx.state.user;
@@ -496,7 +502,8 @@ bot.action('menu_checklist', async (ctx: any) => {
 
         let text = "📋 **Ваши рекомендации (Чек-лист)**:\n\n";
         recommendedTests.forEach((tid: string) => {
-             const isCompleted = results.some((r: any) => r.test_type === tid);
+             const aliases = TEST_ALIASES[tid] || [tid];
+             const isCompleted = results.some((r: any) => aliases.includes(r.test_type));
              const name = TEST_NAMES[tid] || tid;
              const link = `https://vireyou.com/ru/tests/${tid}`;
              text += `${isCompleted ? '✅' : '🔴'} **${name}**\n   └ [Пройти тест](${link})\n\n`;
@@ -537,7 +544,10 @@ cron.schedule('0 9 * * *', async () => {
              const recommendedTests = (aiRecs[0].raw_data as any)?.recommendedTests || [];
              if (recommendedTests.length === 0) continue;
 
-             const incompleteTests = recommendedTests.filter((tid: string) => !results.some((r: any) => r.test_type === tid));
+             const incompleteTests = recommendedTests.filter((tid: string) => {
+                  const aliases = TEST_ALIASES[tid] || [tid];
+                  return !results.some((r: any) => aliases.includes(r.test_type));
+             });
              if (incompleteTests.length > 0) {
                   const items = incompleteTests.map((t: string) => `• ${TEST_NAMES[t] || t}`).join('\n');
                   await bot.telegram.sendMessage(

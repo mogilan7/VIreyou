@@ -244,7 +244,15 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
         const aiRecs = testResults.filter((r: any) => r.test_type === 'ai-recommendation');
         const latestAiRec = aiRecs.length > 0 ? aiRecs[0] : null;
         const recommendedTests = latestAiRec?.rawData?.recommendedTests || [];
-        const completedCount = recommendedTests.filter((tid: string) => testResults.some((r: any) => r.test_type === tid)).length;
+        const TEST_ALIASES: Record<string, string[]> = {
+            'alcohol': ['RU-AUDIT', 'alcohol'],
+            'systemic-bio-age': ['bio-age', 'systemic-bio-age'],
+            'bio-age': ['systemic-bio-age', 'bio-age']
+        };
+        const completedCount = recommendedTests.filter((tid: string) => {
+            const aliases = TEST_ALIASES[tid] || [tid];
+            return testResults.some((r: any) => aliases.includes(r.test_type));
+        }).length;
         const totalCount = recommendedTests.length;
         const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
         const nextDate = latestAiRec?.created_at ? new Date(new Date(latestAiRec.created_at).getTime() + 8 * 24 * 60 * 60 * 1000).toLocaleDateString('ru-RU') : 'Не определена';
