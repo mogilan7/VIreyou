@@ -309,8 +309,8 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                 const dayDate = new Date(new Date(latestAiRec.created_at).getTime() + i * 24 * 60 * 60 * 1000);
                                 const formattedDate = dayDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
                                 
-                                const isSameDay = (logDate: any) => {
-                                    const d = new Date(logDate);
+                                const isSameDay = (log: any) => {
+                                    const d = new Date(log.date || log.created_at || log);
                                     return d.getDate() === dayDate.getDate() && d.getMonth() === dayDate.getMonth() && d.getFullYear() === dayDate.getFullYear();
                                 };
                                 
