@@ -9,7 +9,7 @@ import HabitHeatmap from './HabitHeatmap';
 import SleepPhasesChart from './SleepPhasesChart';
 import { useRouter } from 'next/navigation';
 import { useDashboardTheme } from '../ThemeContext';
-import { ChevronDown, ChevronUp, Edit2, Trash2, Check, X as CloseIcon, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Edit2, Trash2, Check, X as CloseIcon, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 const biomarkersConfig: Record<string, { name: string; unit: string; opt: string; min?: number; max?: number }> = {
     glucose: { name: 'Глюкоза', unit: 'ммоль/л', opt: '4.2–5.1', min: 4.2, max: 5.1 },
@@ -63,11 +63,47 @@ const renderTextWithLinks = (text: string) => {
 export default function DashboardViews({ profile, testResults, healthData, biomarkerResults = [], nutritionLogs = [], sleepLogs = [], activityLogs = [], habitLogs = [], hydrationLogs = [] }: DashboardViewsProps) {
     const router = useRouter();
     const { theme } = useDashboardTheme();
-  const [activeView, setActiveView] = useState<'overview' | 'diagnostics' | 'recommendations'>('overview');
+    const [activeView, setActiveView] = useState<'overview' | 'diagnostics' | 'recommendations'>('overview');
     const [showAllMarkers, setShowAllMarkers] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [selectedMarkers, setSelectedMarkers] = useState<string[]>([]);
     const [isDeleting, setIsDeleting] = useState(false);
+    const diaryScrollRef = React.useRef<HTMLDivElement>(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(true);
+    const [scrollRatio, setScrollRatio] = useState(0);
+
+    const handleScroll = () => {
+        if (!diaryScrollRef.current) return;
+        const { scrollLeft, scrollWidth, clientWidth } = diaryScrollRef.current;
+        setCanScrollLeft(scrollLeft > 10);
+        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+        setScrollRatio(scrollLeft / (scrollWidth - clientWidth || 1));
+    };
+
+    React.useEffect(() => {
+        const container = diaryScrollRef.current;
+        if (container) {
+            container.addEventListener('scroll', handleScroll);
+            handleScroll(); // Initial check
+            window.addEventListener('resize', handleScroll);
+            return () => {
+                container.removeEventListener('scroll', handleScroll);
+                window.removeEventListener('resize', handleScroll);
+            };
+        }
+    }, []);
+
+    const scrollDiary = (direction: 'left' | 'right') => {
+        if (!diaryScrollRef.current) return;
+        const container = diaryScrollRef.current;
+        const scrollAmount = container.clientWidth * 0.8; // scroll 80% of width
+        container.scrollBy({
+            left: direction === 'left' ? -scrollAmount : scrollAmount,
+            behavior: 'smooth'
+        });
+    };
+
 
     const getMarkerStatus = (key: string, value: number) => {
         const config = biomarkersConfig[key];
@@ -296,16 +332,34 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                     )}
                 </div>
 
-                {/* Шкала Дневника Мониторинга (7 дней) */}
+                {/* Шкала Дневника Мониторинга (30 дней) */}
                 {latestAiRec && (
                     <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md space-y-4 transition-all">
-                        <div>
-                            <h4 className="text-sm font-bold dark:text-slate-100 text-brand-text mb-1">Дневник мониторинга в ТГ-боте (7 дней)</h4>
-                            <p className="text-[10px] opacity-60">Заполняйте данные ежедневно для перехода к этапу «Анализ»</p>
+                        <div className="flex items-center justify-between gap-2 border-b dark:border-white/5 border-brand-sage/20 pb-2 mb-2">
+                            <div>
+                                <h4 className="text-sm font-bold dark:text-slate-100 text-brand-text mb-1">Дневник мониторинга в ТГ-боте (30 дней)</h4>
+                                <p className="text-[10px] opacity-60">Заполняйте данные ежедневно для перехода к этапу «Анализ»</p>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <button 
+                                    onClick={() => scrollDiary('left')}
+                                    disabled={!canScrollLeft}
+                                    className={`p-1.5 rounded-full dark:bg-slate-700 bg-slate-100 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors cursor-pointer ${!canScrollLeft ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
+                                <button 
+                                    onClick={() => scrollDiary('right')}
+                                    disabled={!canScrollRight}
+                                    className={`p-1.5 rounded-full dark:bg-slate-700 bg-slate-100 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors cursor-pointer ${!canScrollRight ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                >
+                                    <ChevronRight size={16} />
+                                </button>
+                            </div>
                         </div>
                         
-                        <div className="flex justify-between items-center gap-2 overflow-x-auto pb-2">
-                            {Array.from({ length: 7 }).map((_, i) => {
+                        <div ref={diaryScrollRef} className="flex justify-between items-center gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory">
+                            {Array.from({ length: 30 }).map((_, i) => {
                                 const dayDate = new Date(new Date(latestAiRec.created_at).getTime() + i * 24 * 60 * 60 * 1000);
                                 const formattedDate = dayDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
                                 
@@ -328,8 +382,8 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                 const isFuture = dayDate > new Date();
                                 
                                 return (
-                                    <div key={i} className={`flex flex-col items-center gap-1 flex-1 min-w-[50px] ${isFuture ? 'opacity-30' : ''}`}>
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${bgColor} shadow-sm border dark:border-white/5`}>
+                                    <div key={i} className={`flex flex-col items-center gap-1 flex-1 min-w-[55px] snap-start ${isFuture ? 'opacity-30' : ''}`}>
+                                        <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-xs ${bgColor} shadow-sm border dark:border-white/5`}>
                                             Д{i+1}
                                         </div>
                                         <span className="text-[8px] opacity-50">{formattedDate}</span>
@@ -342,6 +396,16 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                     </div>
                                 );
                             })}
+                        </div>
+
+                        {/* Прогресс-бар навигации */}
+                        <div className="w-full px-1 mt-2">
+                            <div className="w-full h-[3px] bg-slate-100 dark:bg-slate-700/30 rounded-full overflow-hidden">
+                                <div 
+                                    className={`h-full ${accentBg} transition-all duration-150`} 
+                                    style={{ width: `${(scrollRatio || 0) * 100}%` }} 
+                                />
+                            </div>
                         </div>
                     </div>
                 )}

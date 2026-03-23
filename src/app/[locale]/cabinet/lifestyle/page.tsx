@@ -53,7 +53,8 @@ export default async function LifestylePage({ searchParams }: { searchParams: Pr
             return <div className="p-8 text-center text-red-500">Авторизация не удалась.</div>;
         }
 
-        const userId = user.id;
+        const publicUser = await prisma.user.findUnique({ where: { email: user.email! } });
+        const userId = publicUser ? publicUser.id : user.id;
 
         // Фиксация дат для фильтрации
         let fromDate = new Date();

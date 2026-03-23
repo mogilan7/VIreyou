@@ -22,7 +22,10 @@ const bot = new Telegraf(botToken);
  * Скачивает файл по его TG file_id.
  */
 async function downloadTelegramFile(fileId: string, destPath: string) {
+  console.log(`[DOWNLOAD] Getting file link for ${fileId}`);
   const fileLink = await bot.telegram.getFileLink(fileId);
+  console.log(`[DOWNLOAD] URL: ${fileLink.href}`);
+
   const response = await axios({
     url: fileLink.href,
     method: 'GET',
@@ -31,9 +34,23 @@ async function downloadTelegramFile(fileId: string, destPath: string) {
 
   return new Promise<void>((resolve, reject) => {
     const writer = fs.createWriteStream(destPath);
+    console.log(`[DOWNLOAD] Starting pipe to ${destPath}`);
     response.data.pipe(writer);
-    writer.on('finish', resolve);
-    writer.on('error', reject);
+    
+    response.data.on('error', (err: any) => {
+      console.error(`[DOWNLOAD] Read stream error:`, err);
+      reject(err);
+    });
+
+    writer.on('finish', () => {
+      console.log(`[DOWNLOAD] Finish writing file ${destPath}`);
+      resolve();
+    });
+    
+    writer.on('error', (err: any) => {
+      console.error(`[DOWNLOAD] Write stream error:`, err);
+      reject(err);
+    });
   });
 }
 
@@ -130,7 +147,14 @@ async function sendWelcomeMenu(ctx: any, user: any) {
 
   let name = 'клиент';
   try {
-      const profile = await prisma.profiles.findUnique({ where: { id: user.id } });
+      let profile = null;
+      const authUser = await prisma.users.findFirst({ 
+          where: { email: { equals: user.email, mode: 'insensitive' } } 
+      });
+      if (authUser) {
+          profile = await prisma.profiles.findUnique({ where: { id: authUser.id } });
+      }
+
       if (profile?.full_name) {
           name = profile.full_name;
       } else if (user.full_name) {
@@ -314,13 +338,18 @@ bot.on('voice', async (ctx: any) => {
   const tempPath = path.join('/tmp', `voice_${voice.file_id}.ogg`);
 
   await ctx.reply("🎙️ Запись скачивается, расшифровываю...");
+  console.log(`[VOICE] Starting voice process, file_id: ${voice.file_id}`);
 
   try {
     await downloadTelegramFile(voice.file_id, tempPath);
+    console.log(`[VOICE] File saved to ${tempPath}`);
+    
     const text = await transcribeVoiceWithAI(tempPath);
+    console.log(`[VOICE] Transcription text: ${text}`);
     await ctx.reply(`📝 Расшифровка: "${text}"\n\n⏳ Анализирую показатели...`);
 
     const parsedData = await analyzeTextWithAI(text);
+    console.log(`[VOICE] AI Analysis status: ${parsedData.status}`);
 
     if (parsedData.status === "SUCCESS") {
         await sendConfirmationMessage(ctx, parsedData);
@@ -332,6 +361,7 @@ bot.on('voice', async (ctx: any) => {
     await ctx.reply("❌ Ошибка при обработке голоса.");
   } finally {
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    console.log(`[VOICE] Finished process for ${voice.file_id}`);
   }
 });
 

@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 dotenv.config({ path: ".env.local", override: true });
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import fs from "fs";
 import path from "path";
 
@@ -147,19 +147,40 @@ export async function analyzeScreenshotWithAI(imageBase64: string) {
   return JSON.parse(content);
 }
 
-/**
- * Переводит голосовое сообщение в текст.
- * @param file_path Локальный путь к аудиофайлу (.ogg).
- */
+import { execSync } from "child_process";
+
 export async function transcribeVoiceWithAI(file_path: string): Promise<string> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
 
-  const transcription = await openai.audio.transcriptions.create({
-    file: fs.createReadStream(file_path),
-    model: "whisper-1",
-  });
+  const wavPath = file_path.replace(/\.[^/.]+$/, "") + ".wav";
+  console.log(`[VOICE] Converting ${file_path} to ${wavPath} via ffmpeg...`);
+  
+  try {
+    execSync(`ffmpeg -i "${file_path}" "${wavPath}" -y -loglevel error`);
+    console.log(`[VOICE] Conversion successful`);
+  } catch (err) {
+    console.error(`[VOICE] ffmpeg conversion failed:`, err);
+    throw err;
+  }
 
-  return transcription.text;
+  try {
+    console.log(`[VOICE] Preparing file with toFile for Whisper...`);
+    const file = await toFile(fs.readFileSync(wavPath), "voice.wav");
+    console.log(`[VOICE] Submitting to Whisper API...`);
+    
+    const transcription = await openai.audio.transcriptions.create({
+      file: file,
+      model: "whisper-1",
+    });
+
+    console.log(`[VOICE] Whisper API responded successfully`);
+    return transcription.text;
+  } finally {
+    if (fs.existsSync(wavPath)) {
+      fs.unlinkSync(wavPath);
+      console.log(`[VOICE] Cleaned up temporary WAV file: ${wavPath}`);
+    }
+  }
 }
 
 /**
