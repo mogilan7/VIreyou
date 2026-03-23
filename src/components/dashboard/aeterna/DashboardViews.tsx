@@ -358,7 +358,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                             </div>
                         </div>
                         
-                        <div ref={diaryScrollRef} className="grid grid-flow-col items-center gap-2 md:gap-3 auto-cols-[calc((100%-32px)/5)] md:auto-cols-[calc((100%-72px)/7)] overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory">
+                        <div ref={diaryScrollRef} className="grid grid-flow-col items-center gap-2 md:gap-3 auto-cols-[calc((100%-32px)/5)] md:auto-cols-[calc((100%-72px)/7)] overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory w-full">
                             {Array.from({ length: 30 }).map((_, i) => {
                                 const dayDate = new Date(new Date(latestAiRec.created_at).getTime() + i * 24 * 60 * 60 * 1000);
                                 const formattedDate = dayDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
@@ -382,7 +382,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                 const isFuture = dayDate > new Date();
                                 
                                 return (
-                                    <div key={i} className={`flex flex-col items-center gap-1 snap-start ${isFuture ? 'opacity-30' : ''}`}>
+                                    <div key={i} className={`flex flex-col items-center gap-1 min-w-0 snap-start ${isFuture ? 'opacity-30' : ''}`}>
                                         <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-xs ${bgColor} shadow-sm border dark:border-white/5`}>
                                             Д{i+1}
                                         </div>
