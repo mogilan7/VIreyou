@@ -97,7 +97,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
     const scrollDiary = (direction: 'left' | 'right') => {
         if (!diaryScrollRef.current) return;
         const container = diaryScrollRef.current;
-        const scrollAmount = container.clientWidth; // прокрутка целыми "страницами"
+        const scrollAmount = container.clientWidth * 0.8; // scroll 80% of width
         container.scrollBy({
             left: direction === 'left' ? -scrollAmount : scrollAmount,
             behavior: 'smooth'
@@ -358,7 +358,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                             </div>
                         </div>
                         
-                        <div ref={diaryScrollRef} className="flex items-center gap-2 md:gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory">
+                        <div ref={diaryScrollRef} className="flex justify-between items-center gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory">
                             {Array.from({ length: 30 }).map((_, i) => {
                                 const dayDate = new Date(new Date(latestAiRec.created_at).getTime() + i * 24 * 60 * 60 * 1000);
                                 const formattedDate = dayDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
@@ -382,7 +382,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                 const isFuture = dayDate > new Date();
                                 
                                 return (
-                                    <div key={i} className={`flex flex-col items-center gap-1 flex-shrink-0 w-[calc((100%-32px)/5)] md:w-[calc((100%-72px)/7)] snap-start ${isFuture ? 'opacity-30' : ''}`}>
+                                    <div key={i} className={`flex flex-col items-center gap-1 flex-1 min-w-[55px] snap-start ${isFuture ? 'opacity-30' : ''}`}>
                                         <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-xs ${bgColor} shadow-sm border dark:border-white/5`}>
                                             Д{i+1}
                                         </div>
