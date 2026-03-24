@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
-export default async function SpecialistDashboard(props: { params: Promise<{ locale: string }>, searchParams: Promise<{ id?: string, onlyActive?: string }> }) {
+export default async function SpecialistDashboard(props: { params: Promise<{ locale: string }>, searchParams: Promise<{ id?: string, onlyActive?: string, aiTips?: string }> }) {
     const searchParams = await props.searchParams;
     const params = await props.params;
     const clientId = searchParams.id;
@@ -63,10 +63,9 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                 .select('*')
                 .eq('user_id', activeClient.id)
                 .order('created_at', { ascending: false })
-                .limit(20); // slightly larger limit to ensure we fetch enough rows to deduplicate later
+                .limit(20);
 
             if (results) {
-                // Deduplicate to only keep the LATEST result for each test_type
                 const uniqueResults: any[] = [];
                 const seenTypes = new Set<string>();
                 for (const r of results) {
@@ -125,17 +124,10 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                 return { indicator: "Sarcopenia Screen (SARC-F)", reading: `${result.score}/10`, trend: "stable", change: "Current", assessment: result.score >= 4 ? "RISK" : "NORMAL", color: result.score >= 4 ? "red" : "green" };
             }
             if (result.test_type === 'ai-recommendation') {
-                return null; // hide generic test placeholder explicitly per user annoyances
+                return null;
             }
             return { indicator: result.test_type.toUpperCase(), reading: result.score, trend: "stable", change: "N/A", assessment: "REVIEW", color: "orange" };
         }).filter(Boolean);
-    } else {
-        biomarkerData = [
-            { indicator: "Vitamin D (25-OH)", reading: "28 ng/mL", trend: "up", change: "+12%", assessment: "SUB-OPTIMAL", color: "orange" },
-            { indicator: "CRP (Inflammation)", reading: "1.2 mg/L", trend: "down", change: "-5%", assessment: "HEALTHY", color: "green" },
-            { indicator: "Cortisol (Morning)", reading: "22 mcg/dL", trend: "stable", change: "Stable", assessment: "ELEVATED", color: "red" },
-            { indicator: "Omega-3 Index", reading: "6.8%", trend: "up", change: "+2.1%", assessment: "GOOD", color: "green" },
-        ];
     }
 
     return (
@@ -166,7 +158,6 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                             <h2 className="font-serif text-xl font-bold mb-2 z-10">{activeClient ? activeClient.full_name : 'Select Client'}</h2>
                             
                             <div className="w-full space-y-4 z-10 mt-2">
-                                {/* Anthropometrics Data Grid */}
                                 {activeClient?.welcome_data && (
                                     <div className="w-full border-t border-brand-sage/20 pt-3 text-left">
                                         <span className="text-[10px] font-bold text-brand-leaf uppercase flex items-center gap-1 mb-1.5">📋 Антропометрия / Анкета</span>
@@ -193,7 +184,6 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                                     </div>
                                 )}
 
-                                {/* Trigger Scores Tag Cloud (Deduplicated) */}
                                 {clientTestResults.length > 0 && (
                                     <div className="w-full border-t border-brand-sage/20 pt-3 text-left">
                                         <span className="text-[10px] font-bold text-brand-leaf uppercase">📊 Последние Баллы</span>
@@ -225,7 +215,7 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                             </table>
                         </div>
 
-                        {/* Periodic Report Settings & View */}
+                        {/* Periodic Report */}
                         {activeReport && (
                             <div className="bg-white rounded-[1.5rem] border border-brand-sage/40 shadow-sm p-6 flex flex-col gap-4">
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-brand-sage/20">
@@ -259,10 +249,33 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                                 </div>
                             </div>
                         )}
+
+                        {/* Recommendation Form (Restored) */}
+                        <div className="bg-white rounded-[1.5rem] border border-brand-sage/40 shadow-sm p-6 relative">
+                            <div className="flex items-center justify-between mb-6 border-b border-brand-sage/10 pb-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="bg-[#E8F1EB] p-1.5 rounded-full text-brand-leaf"><Edit3 size={14} /></div>
+                                    <h2 className="font-serif text-lg text-brand-text">Новая рекомендация</h2>
+                                </div>
+                                <a href={`/${locale}/specialist?id=${activeClient?.id}&onlyActive=${onlyActive}&aiTips=true`} className="text-[10px] font-bold text-brand-leaf border border-brand-leaf/30 px-2.5 py-1.5 rounded-xl flex items-center gap-1 hover:bg-brand-leaf/5 transition-colors cursor-pointer bg-brand-sage/5">
+                                    💡 {searchParams.aiTips === 'true' ? 'Обновить ИИ' : 'Включить ИИ-подсказки'}
+                                </a>
+                            </div>
+                            <div className="space-y-4">
+                                <div><label className="block text-[9px] font-bold text-brand-gray uppercase tracking-widest mb-1.5">Назначения специалистов</label><textarea className="w-full h-20 p-3 rounded-xl border border-brand-sage/30 text-xs bg-[#FAFAFA] resize-none" placeholder="Введите назначения..."></textarea></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div><label className="block text-[9px] font-bold text-brand-gray uppercase tracking-widest mb-1.5">Суплементарная поддержка</label><textarea className="w-full h-24 p-3 rounded-xl border border-brand-sage/30 text-xs bg-[#FAFAFA] resize-none" placeholder="Препараты и дозировки..."></textarea></div>
+                                    <div><label className="block text-[9px] font-bold text-brand-gray uppercase tracking-widest mb-1.5">Коррекция питания & Lifestyle</label><textarea className="w-full h-24 p-3 rounded-xl border border-brand-sage/30 text-xs bg-[#FAFAFA] resize-none" placeholder="Питание, сон, активность..."></textarea></div>
+                                </div>
+                                <div className="flex justify-end pt-3 border-t border-brand-sage/10">
+                                    <button className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-5 py-2 rounded-xl font-bold text-xs shadow-sm shadow-brand-leaf/10">Сохранить</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Right column sidebar AI Insights */}
-                    {activeClient && (
+                    {activeClient && searchParams.aiTips === 'true' && (
                          <div className="w-full xl:w-96 flex flex-col gap-6">
                               <ContextualSidebar clientId={activeClient.id} />
                          </div>
