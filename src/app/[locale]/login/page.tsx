@@ -21,6 +21,7 @@ export default function LoginPage() {
         setLoading(true);
         setErrorMsg(null);
         setSuccessMsg(null);
+        let isRedirecting = false;
 
         const formData = new FormData();
         formData.append('email', email);
@@ -49,10 +50,15 @@ export default function LoginPage() {
         } catch (err: unknown) {
             const error = err as any;
             // Next.js redirect throws an error with a specific digest, we should not catch it as a real error
-            if (error?.digest?.startsWith?.('NEXT_REDIRECT;')) throw err;
+            if (error?.digest?.startsWith?.('NEXT_REDIRECT;')) {
+                isRedirecting = true;
+                return;
+            }
             setErrorMsg(t('errorUnknown'));
         } finally {
-            setLoading(false);
+            if (!isRedirecting) {
+                setLoading(false);
+            }
         }
     };
 
