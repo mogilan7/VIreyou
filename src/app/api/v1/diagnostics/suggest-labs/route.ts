@@ -127,6 +127,13 @@ export async function POST(req: Request) {
             if (content.type === "text") {
                 let text = content.text.value;
                 text = text.replace(/^```json\s*|```$/g, "").trim();
+                
+                // Robust fallback for trailing quotes or citations outside JSON
+                const lastBraceIndex = text.lastIndexOf("}");
+                if (lastBraceIndex !== -1) {
+                    text = text.substring(0, lastBraceIndex + 1);
+                }
+
                 const parsed = JSON.parse(text);
                 
                 return NextResponse.json({
