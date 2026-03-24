@@ -63,10 +63,20 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                 .select('*')
                 .eq('user_id', activeClient.id)
                 .order('created_at', { ascending: false })
-                .limit(10);
+                .limit(20); // slightly larger limit to ensure we fetch enough rows to deduplicate later
 
             if (results) {
-                clientTestResults = results;
+                // Deduplicate to only keep the LATEST result for each test_type
+                const uniqueResults: any[] = [];
+                const seenTypes = new Set<string>();
+                for (const r of results) {
+                    const typeKey = r.test_type.toLowerCase();
+                    if (!seenTypes.has(typeKey)) {
+                        seenTypes.add(typeKey);
+                        uniqueResults.push(r);
+                    }
+                }
+                clientTestResults = uniqueResults;
             }
 
             var activeClientUser: any = null;
@@ -114,8 +124,11 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
             if (result.test_type === 'sarc-f') {
                 return { indicator: "Sarcopenia Screen (SARC-F)", reading: `${result.score}/10`, trend: "stable", change: "Current", assessment: result.score >= 4 ? "RISK" : "NORMAL", color: result.score >= 4 ? "red" : "green" };
             }
+            if (result.test_type === 'ai-recommendation') {
+                return null; // hide generic test placeholder explicitly per user annoyances
+            }
             return { indicator: result.test_type.toUpperCase(), reading: result.score, trend: "stable", change: "N/A", assessment: "REVIEW", color: "orange" };
-        });
+        }).filter(Boolean);
     } else {
         biomarkerData = [
             { indicator: "Vitamin D (25-OH)", reading: "28 ng/mL", trend: "up", change: "+12%", assessment: "SUB-OPTIMAL", color: "orange" },
@@ -141,7 +154,7 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                 </header>
 
                 <div className="flex flex-col xl:flex-row gap-8">
-                    {/* Left Column */}
+                    {/* Left Column Profile Card */}
                     <div className="w-full xl:w-80 flex flex-col gap-8">
                         <div className="bg-white p-6 rounded-[2rem] border border-brand-sage/40 shadow-sm flex flex-col items-center text-center relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-brand-sage/30 rounded-bl-[100px] -z-0"></div>
@@ -151,29 +164,46 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                                 </div>
                             </div>
                             <h2 className="font-serif text-xl font-bold mb-2 z-10">{activeClient ? activeClient.full_name : 'Select Client'}</h2>
+                            
                             <div className="w-full space-y-4 z-10 mt-2">
+                                {/* Anthropometrics Data Grid */}
                                 {activeClient?.welcome_data && (
-                                    <details className="w-full border-t border-brand-sage/20 pt-2 text-left">
-                                        <summary className="text-[11px] font-bold text-brand-leaf cursor-pointer list-none flex items-center gap-1">📋 Анкета Здоровья</summary>
-                                        <div className="mt-2 space-y-1 text-[10px] text-brand-gray bg-slate-50 p-2.5 rounded-xl max-h-40 overflow-y-auto">
+                                    <div className="w-full border-t border-brand-sage/20 pt-3 text-left">
+                                        <span className="text-[10px] font-bold text-brand-leaf uppercase flex items-center gap-1 mb-1.5">📋 Антропометрия / Анкета</span>
+                                        <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-brand-gray">
                                             {(() => {
                                                 const welcome = activeClient.welcome_data as any;
+                                                const fieldNames: Record<string, string> = { 
+                                                    weight: "Вес", height: "Рост", waist: "Талия", hips: "Бедра", 
+                                                    smoking: "Курение", alcohol: "Алкоголь", age: "Возраст" 
+                                                };
                                                 return Object.entries(welcome).map(([key, value]) => {
-                                                    if (!value) return null;
+                                                    if (!value || (typeof value === 'object' && Array.isArray(value) && value.length === 0)) return null;
+                                                    const label = fieldNames[key] || key;
                                                     const displayVal = Array.isArray(value) ? value.join(', ') : String(value);
-                                                    return <div key={key} className="flex justify-between pb-1"><span>{key}:</span><span className="font-bold text-brand-text">{displayVal}</span></div>
+                                                    return (
+                                                        <div key={key} className="flex justify-between border-b border-dashed border-slate-100 pb-0.5">
+                                                            <span className="font-medium text-slate-400">{label}:</span>
+                                                            <span className="font-bold text-brand-text truncate max-w-[65px]">{displayVal}</span>
+                                                        </div>
+                                                    );
                                                 });
                                             })()}
                                         </div>
-                                    </details>
+                                    </div>
                                 )}
 
+                                {/* Trigger Scores Tag Cloud (Deduplicated) */}
                                 {clientTestResults.length > 0 && (
-                                    <div className="w-full border-t border-brand-sage/20 pt-2 text-left">
-                                        <span className="text-[10px] font-bold text-brand-leaf uppercase">📊 Баллы Скринингов</span>
+                                    <div className="w-full border-t border-brand-sage/20 pt-3 text-left">
+                                        <span className="text-[10px] font-bold text-brand-leaf uppercase">📊 Последние Баллы</span>
                                         <div className="flex flex-wrap gap-1 mt-1.5 max-h-32 overflow-y-auto">
                                             {clientTestResults.map((r, i) => (
-                                                <div key={i} className="text-[9px] font-bold px-1.5 py-0.5 rounded border bg-brand-sage/10 text-brand-leaf border-brand-sage/20">{r.test_type.toUpperCase()}: {r.score}</div>
+                                                <div key={i} className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                                                    r.score >= (r.test_type==='sarc-f'?4 : r.test_type==='mini-cog'?2 : 0) ? 'bg-red-50 text-red-700 border-red-200/50' : 'bg-brand-sage/10 text-brand-leaf border-brand-sage/20'
+                                                }`}>
+                                                    {r.test_type.toUpperCase()}: {r.score}
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
@@ -184,18 +214,18 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
 
                     {/* Center Column */}
                     <div className="flex-1 flex flex-col gap-6">
-                        <div className="bg-white rounded-[1.5rem] border border-brand-sage/40 overflow-hidden flex flex-col p-6">
+                        <div className="bg-white rounded-[1.5rem] border border-brand-sage/40 overflow-hidden flex flex-col p-6 shadow-sm">
                             <table className="w-full text-left bordedr-collapse">
                                 <thead><tr><th className="text-[9px] font-bold text-brand-gray pb-4">Биомаркер</th><th className="text-[9px] font-bold text-brand-gray pb-4">Показатель</th><th className="text-[9px] font-bold text-brand-gray pb-4">Оценка</th></tr></thead>
                                 <tbody>
-                                    {biomarkerData.map((item, i) => (
+                                    {biomarkerData.map((item: any, i: number) => (
                                         <tr key={i} className="border-b border-brand-sage/10 last:border-0"><td className="py-4 font-bold text-xs">{item.indicator}</td><td className="py-4 text-xs">{item.reading}</td><td><span className="text-[8px] font-bold px-2 py-0.5 rounded bg-brand-sage/10 text-brand-leaf">{item.assessment}</span></td></tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
 
-                        {/* Periodic Report */}
+                        {/* Periodic Report Settings & View */}
                         {activeReport && (
                             <div className="bg-white rounded-[1.5rem] border border-brand-sage/40 shadow-sm p-6 flex flex-col gap-4">
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-brand-sage/20">
