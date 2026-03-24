@@ -47,9 +47,9 @@ export default function LoginPage() {
                 }
             }
         } catch (err: unknown) {
-            const error = err as Error;
-            // Next.js redirect throws an error, we should not catch it as a real error
-            if (error.message === 'NEXT_REDIRECT') throw error;
+            const error = err as any;
+            // Next.js redirect throws an error with a specific digest, we should not catch it as a real error
+            if (error?.digest?.startsWith?.('NEXT_REDIRECT;')) throw err;
             setErrorMsg(t('errorUnknown'));
         } finally {
             setLoading(false);
