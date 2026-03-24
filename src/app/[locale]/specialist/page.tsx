@@ -99,14 +99,20 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
             var activeReport: any = null;
             
             if (activeClient) {
-                const u = await prisma.user.findUnique({ where: { id: activeClient.id } });
-                if (u) {
-                    activeClientUser = u;
-                    const { generatePeriodicReport } = require('@/lib/reportGenerator');
-                    activeReport = await generatePeriodicReport(activeClient.id, (u as any).report_period_days || 7);
-                }
+                const authUser = await prisma.users.findUnique({ where: { id: activeClient.id } });
+                const email = authUser?.email;
 
+                if (email) {
+                    const u = await prisma.user.findUnique({ where: { email } });
+                    if (u) {
+                        activeClientUser = u;
+                        const { generatePeriodicReport } = require('@/lib/reportGenerator');
+                        // Use activeClient.full_name explicitly for correct header display
+                        activeReport = await generatePeriodicReport(u.id, (u as any).report_period_days || 7, activeClient.full_name);
+                    }
+                }
             }
+
 
         }
     } else {

@@ -33,7 +33,8 @@ export const NUTRIENT_NAMES: any = {
     calories: 'Калории'
 };
 
-export async function generatePeriodicReport(userId: string, days: number = 7) {
+export async function generatePeriodicReport(userId: string, days: number = 7, clientName?: string) {
+
     const endDate = new Date();
     endDate.setHours(23, 59, 59, 999);
     
@@ -95,7 +96,8 @@ export async function generatePeriodicReport(userId: string, days: number = 7) {
 
     // --- Format Markdown for Specialist ---
     let markdown = `# 📊 Отчет по образу жизни за ${days} дней\n`;
-    markdown += `**ФИО**: ${user.full_name || "Не указано"}\n`;
+    markdown += `**ФИО**: ${clientName || user.full_name || "Не указано"}\n`;
+
     markdown += `**Период**: ${startDate.toLocaleDateString('ru-RU')} — ${endDate.toLocaleDateString('ru-RU')}\n\n`;
 
     markdown += `## 📋 Выполнение рекомендаций (Привычки)\n`;
