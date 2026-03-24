@@ -18,14 +18,10 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
     const t = await getTranslations('Dashboard.Specialist');
     const supabase = await createClient();
 
-    // Get current specialist
     const { data: { user } } = await supabase.auth.getUser();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let assignedClients: any[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let activeClient: any = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let clientTestResults: any[] = [];
 
     let isAdmin = false;
@@ -47,7 +43,6 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
             return notFound();
         }
 
-        // Fetch clients list with Prisma
         let clients: any[] = [];
         try {
             const fetchedClients = await prisma.profiles.findMany({
@@ -76,7 +71,7 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
                 .select('*')
                 .eq('user_id', activeClient.id)
                 .order('created_at', { ascending: false })
-                .limit(5);
+                .limit(10); // increased limit to catch more tests
 
             if (results) {
                 clientTestResults = results;
@@ -122,9 +117,12 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
                 return { indicator: "Insomnia Severity", reading: `${result.score}/28`, trend: result.score > 14 ? "up" : "down", change: "Current", assessment: result.score <= 7 ? "NO INSOMNIA" : "CLINICAL", color: result.score <= 7 ? "green" : "red" };
             }
             if (result.test_type === 'mini-cog') {
-                return { indicator: "Cognitive Screening", reading: `${result.score}/5`, trend: "stable", change: "Stable", assessment: result.score >= 3 ? "NEGATIVE" : "POSITIVE", color: result.score >= 3 ? "green" : "red" };
+                return { indicator: "Cognitive Screening (Mini-Cog)", reading: `${result.score}/5`, trend: "stable", change: "Stable", assessment: result.score >= 3 ? "NEGATIVE" : "POSITIVE", color: result.score >= 3 ? "green" : "red" };
             }
-            return { indicator: "General Test", reading: result.score, trend: "stable", change: "N/A", assessment: "REVIEW", color: "orange" };
+            if (result.test_type === 'sarc-f') {
+                return { indicator: "Sarcopenia Screen (SARC-F)", reading: `${result.score}/10`, trend: "stable", change: "Current", assessment: result.score >= 4 ? "RISK" : "NORMAL", color: result.score >= 4 ? "red" : "green" };
+            }
+            return { indicator: result.test_type.toUpperCase(), reading: result.score, trend: "stable", change: "N/A", assessment: "REVIEW", color: "orange" };
         });
     } else {
         biomarkerData = [
@@ -152,27 +150,14 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
                             </span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4 w-full md:w-auto">
-                        <div className="relative flex-grow md:w-64">
-                            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-gray/60" />
-                            <input
-                                type="text"
-                                placeholder={t('searchPlaceholder')}
-                                className="w-full pl-10 pr-4 py-2.5 rounded-full border border-brand-sage/50 text-sm focus:outline-none focus:border-brand-leaf transition-colors bg-white shadow-sm placeholder:text-brand-gray/50"
-                            />
-                        </div>
-                        <button className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-5 py-2.5 rounded-full font-medium transition-colors text-sm flex items-center gap-2 shadow-sm whitespace-nowrap">
-                            <span className="text-lg leading-none">+</span> {t('newClient')}
-                        </button>
-                    </div>
                 </header>
 
                 <div className="flex flex-col xl:flex-row gap-8">
-                    {/* Left Column: Profile & Archives */}
+                    {/* Left Column: Profile Card */}
                     <div className="w-full xl:w-80 flex flex-col gap-8">
-                        <div className="bg-white p-8 rounded-[2rem] border border-brand-sage/40 shadow-sm flex flex-col items-center text-center relative overflow-hidden">
+                        <div className="bg-white p-6 rounded-[2rem] border border-brand-sage/40 shadow-sm flex flex-col items-center text-center relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-brand-sage/30 rounded-bl-[100px] -z-0"></div>
-                            <div className="w-24 h-24 rounded-3xl bg-[#F0EBE1] border-4 border-white shadow-sm overflow-hidden mb-5 relative z-10 p-1">
+                            <div className="w-24 h-24 rounded-3xl bg-[#F0EBE1] border-4 border-white shadow-sm overflow-hidden mb-4 relative z-10 p-1">
                                 <div className="w-full h-full rounded-2xl overflow-hidden bg-brand-sage/50 flex flex-col items-center justify-center font-serif text-2xl text-brand-gray">
                                     {activeClient?.avatar_url ? (
                                         <img src={activeClient.avatar_url} alt={activeClient.full_name || "Client"} className="w-full h-full object-cover" />
@@ -181,130 +166,107 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
                                     )}
                                 </div>
                             </div>
-                            <h2 className="font-serif text-2xl text-brand-text font-bold mb-3 z-10">
+                            
+                            <h2 className="font-serif text-xl text-brand-text font-bold mb-2 z-10">
                                 {activeClient ? activeClient.full_name : 'Select Client'}
                             </h2>
-                            <div className={`font-bold text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-full mb-8 z-10 ${activeClient ? 'bg-[#E8F1EB] text-brand-leaf' : 'bg-gray-100 text-gray-500'}`}>
+                            <div className={`font-bold text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-full mb-6 z-10 ${activeClient ? 'bg-[#E8F1EB] text-brand-leaf' : 'bg-gray-100 text-gray-500'}`}>
                                 {activeClient ? t('profileActive') : 'INACTIVE'}
                             </div>
 
-                            {isAdmin && activeClient && activeClient.role !== 'specialist' && (
-                                <form action={async () => {
-                                    'use server';
-                                    const { grantSpecialistAccess } = require('@/app/actions/grant-access');
-                                    await grantSpecialistAccess(activeClient.id);
-                                }}>
-                                    <button type="submit" className="w-full mb-6 bg-brand-forest hover:bg-brand-forest-dark text-white px-4 py-3 rounded-2xl font-bold text-sm transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 z-10">
-                                        <Users size={16} /> Назначить Доктором
-                                    </button>
-                                </form>
-                            )}
-
-                            <div className="w-full space-y-5 z-10">
-                                <div className="flex justify-between items-center text-sm border-b border-brand-sage/30 pb-3">
-                                    <span className="text-brand-gray">{t('pAge')}</span>
-                                    <span className="font-bold">--</span>
+                            <div className="w-full space-y-4 z-10">
+                                <div className="flex justify-between items-center text-xs border-b border-brand-sage/20 pb-2">
+                                    <span className="text-brand-gray">Статус</span>
+                                    <span className="font-bold flex items-center gap-1">Remote</span>
                                 </div>
-                                <div className="flex justify-between items-center text-sm border-b border-brand-sage/30 pb-3">
-                                    <span className="text-brand-gray">{t('pSession')}</span>
-                                    <span className="font-bold">
-                                        {clientTestResults.length > 0
-                                            ? new Date(clientTestResults[0].created_at).toLocaleDateString()
-                                            : '--'}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm border-b border-brand-sage/30 pb-3">
-                                    <span className="text-brand-gray">{t('pRisk')}</span>
-                                    <span className="font-bold text-brand-leaf bg-brand-sage/20 px-2 py-0.5 rounded text-xs text-right leading-tight">
-                                        Pending Review
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm pt-2">
-                                    <span className="text-brand-gray">{t('pLocation')}</span>
-                                    <span className="font-bold flex items-center gap-1"><MapPin size={14} className="text-brand-gray" /> Remote</span>
-                                </div>
+                                
                                 {activeClient?.welcome_data && (
-                                    <details className="w-full mt-4 border-t border-brand-sage/30 pt-3 text-left">
-                                        <summary className="text-xs font-bold text-brand-leaf cursor-pointer hover:underline list-none flex items-center gap-1">📋 Анкета Здоровья <span className="text-[9px] text-brand-gray opacity-50">(Открыть)</span></summary>
-                                        <div className="mt-2 space-y-1.5 text-[11px] text-brand-gray bg-slate-50 p-3 rounded-xl max-h-48 overflow-y-auto">
+                                    <details className="w-full mt-2 border-t border-brand-sage/20 pt-2 text-left">
+                                        <summary className="text-[11px] font-bold text-brand-leaf cursor-pointer hover:underline list-none flex items-center gap-1">📋 Анкета Здоровья <span className="text-[9px] text-brand-gray opacity-50">(Открыть)</span></summary>
+                                        <div className="mt-2 space-y-1 text-[10px] text-brand-gray bg-slate-50 p-2.5 rounded-xl max-h-40 overflow-y-auto">
                                             {(() => {
                                                 const welcome = activeClient.welcome_data as any;
-                                                const fieldNames: Record<string, string> = {
-                                                    weight: "Вес (кг)", waist: "Талия (см)", hips: "Бедра (см)",
-                                                    smoking: "Курение", alcohol: "Алкоголь", activity: "Активность",
-                                                    diet: "Диета", region: "Регион", chronic: "Хронические",
-                                                    meds: "Препараты", heredity: "Наследственность"
-                                                };
+                                                const fieldNames: Record<string, string> = { weight: "Вес", waist: "Талия", hips: "Бедра", smoking: "Курение", alcohol: "Алкоголь", chronic: "Хронические", meds: "Препараты" };
                                                 return Object.entries(welcome).map(([key, value]) => {
                                                     if (!value || (typeof value === 'object' && Array.isArray(value) && value.length === 0)) return null;
                                                     const label = fieldNames[key] || key;
                                                     const displayVal = Array.isArray(value) ? value.join(', ') : String(value);
                                                     return (
-                                                        <div key={key} className="flex justify-between border-b border-dashed border-slate-200 pb-1 last:border-0">
-                                                            <span className="font-medium">{label}:</span>
-                                                            <span className="font-bold text-brand-text text-right max-w-[120px] truncate" title={displayVal}>{displayVal}</span>
-                                                        </div>
+                                                        <div key={key} className="flex justify-between border-b border-dashed border-slate-200 pb-1 last:border-0"><span className="font-medium">{label}:</span><span className="font-bold text-brand-text max-w-[100px] truncate">{displayVal}</span></div>
                                                     );
                                                 });
                                             })()}
                                         </div>
                                     </details>
                                 )}
+
+                                {/* Trigger Scores Tag Cloud */}
+                                {clientTestResults.length > 0 && (
+                                    <div className="w-full mt-3 border-t border-brand-sage/20 pt-3 text-left">
+                                        <span className="text-[10px] font-bold text-brand-leaf uppercase tracking-widest flex items-center gap-1 mb-1.5">📊 Опросники &amp; Баллы</span>
+                                        <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
+                                            {clientTestResults.map((r, index) => {
+                                                const isHigh = r.test_type === 'sarc-f' && r.score >= 4 || r.test_type === 'mini-cog' && r.score <= 2 || r.test_type === 'insomnia' && r.score >= 15;
+                                                return (
+                                                    <div key={`${r.id}-${index}`} className={`text-[9px] font-bold px-1.5 py-0.5 rounded cursor-default border ${
+                                                        isHigh ? 'bg-red-50 text-red-700 border-red-200/50' : 'bg-brand-sage/10 text-brand-leaf border-brand-sage/20'
+                                                    }`} title={`Дата: ${new Date(r.created_at).toLocaleDateString()}`}>
+                                                        {r.test_type.toUpperCase()}: {r.score}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
                         {/* Medical Archives */}
-                        <div className="bg-white p-6 rounded-3xl border border-brand-sage/40 shadow-sm">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-bold text-brand-text font-serif">{t('maTitle')}</h3>
-                                <button className="text-[10px] font-bold text-brand-leaf uppercase tracking-widest flex items-center gap-1 hover:text-brand-forest">{t('maUpload')}</button>
-                            </div>
-                            <div className="space-y-3">
-                                <div className="bg-[#FAFAFA] border border-brand-sage/40 p-3.5 rounded-2xl flex items-center justify-between group hover:border-brand-leaf/40 transition-colors cursor-pointer">
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-white p-2 rounded-xl shadow-sm"><FileText size={16} className="text-brand-leaf" /></div>
-                                        <div><p className="text-xs font-bold text-brand-text">Blood_Work_Oct.pdf</p><p className="text-[10px] text-brand-gray">3 days ago &bull; 1.2MB</p></div>
-                                    </div>
-                                    <Download size={14} className="text-brand-gray/40 group-hover:text-brand-leaf" />
+                        <div className="bg-white p-5 rounded-3xl border border-brand-sage/40 shadow-sm">
+                            <h3 className="font-bold text-brand-text font-serif text-sm mb-4">Архив документов</h3>
+                            <div className="bg-[#FAFAFA] border border-brand-sage/40 p-3 rounded-2xl flex items-center justify-between group hover:border-brand-leaf/40 transition-colors cursor-pointer">
+                                <div className="flex items-center gap-2">
+                                    <FileText size={14} className="text-brand-leaf" />
+                                    <div className="text-[11px] font-bold text-brand-text">Blood_Work_Oct.pdf</div>
                                 </div>
+                                <Download size={12} className="text-brand-gray/40 group-hover:text-brand-leaf" />
                             </div>
                         </div>
                     </div>
 
                     {/* Right Column: Main Data & Forms */}
-                    <div className="flex-1 flex flex-col gap-8">
+                    <div className="flex-1 flex flex-col gap-6">
                         {/* Tabs & Table */}
-                        <div className="bg-white rounded-[2rem] border border-brand-sage/40 shadow-sm overflow-hidden flex flex-col">
-                            <div className="flex px-8 pt-6 border-b border-brand-sage/40 gap-8">
-                                <button className="text-sm font-bold text-brand-leaf border-b-2 border-brand-leaf pb-4 px-2">{t('tab1')}</button>
-                                <button className="text-sm font-semibold text-brand-gray hover:text-brand-text pb-4 px-2">{t('tab2')}</button>
+                        <div className="bg-white rounded-[1.5rem] border border-brand-sage/40 shadow-sm overflow-hidden flex flex-col">
+                            <div className="flex px-6 pt-5 border-b border-brand-sage/40 gap-6">
+                                <button className="text-xs font-bold text-brand-leaf border-b-2 border-brand-leaf pb-3 px-1">История анализов</button>
                             </div>
 
-                            <div className="p-8 overflow-x-auto">
-                                <table className="w-full text-left border-collapse min-w-[600px]">
+                            <div className="p-6 overflow-x-auto">
+                                <table className="w-full text-left border-collapse min-w-[500px]">
                                     <thead>
                                         <tr>
-                                            <th className="text-[10px] font-bold text-brand-gray uppercase tracking-widest pb-6 border-b border-brand-sage/20">{t('th1')}</th>
-                                            <th className="text-[10px] font-bold text-brand-gray uppercase tracking-widest pb-6 border-b border-brand-sage/20">{t('th2')}</th>
-                                            <th className="text-[10px] font-bold text-brand-gray uppercase tracking-widest pb-6 border-b border-brand-sage/20">{t('th3')}</th>
-                                            <th className="text-[10px] font-bold text-brand-gray uppercase tracking-widest pb-6 border-b border-brand-sage/20">{t('th4')}</th>
+                                            <th className="text-[9px] font-bold text-brand-gray uppercase tracking-widest pb-4 border-b border-brand-sage/20">Биомаркер</th>
+                                            <th className="text-[9px] font-bold text-brand-gray uppercase tracking-widest pb-4 border-b border-brand-sage/20">Показатель</th>
+                                            <th className="text-[9px] font-bold text-brand-gray uppercase tracking-widest pb-4 border-b border-brand-sage/20">Тренд</th>
+                                            <th className="text-[9px] font-bold text-brand-gray uppercase tracking-widest pb-4 border-b border-brand-sage/20">Оценка</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {biomarkerData.map((item, i) => (
-                                            <tr key={i} className="group hover:bg-brand-bg/50 transition-colors">
-                                                <td className="py-5 border-b border-brand-sage/20 font-bold text-sm text-brand-text">{item.indicator}</td>
-                                                <td className="py-5 border-b border-brand-sage/20 text-sm text-brand-text">{item.reading}</td>
-                                                <td className="py-5 border-b border-brand-sage/20">
-                                                    <div className={`flex items-center gap-1.5 text-xs font-bold ${item.trend === 'up' ? 'text-brand-leaf' : item.trend === 'down' ? 'text-red-500' : 'text-brand-gray/50'}`}>
-                                                        {item.trend === 'up' && <TrendingUp size={14} />}
-                                                        {item.trend === 'down' && <TrendingDown size={14} />}
-                                                        {item.trend === 'stable' && <Minus size={14} />}
+                                            <tr key={i} className="group hover:bg-brand-bg/30 transition-colors border-b border-brand-sage/10 last:border-0">
+                                                <td className="py-4 font-bold text-xs text-brand-text">{item.indicator}</td>
+                                                <td className="py-4 text-xs text-brand-text">{item.reading}</td>
+                                                <td className="py-4">
+                                                    <div className={`flex items-center gap-1 text-[11px] font-bold ${item.trend === 'up' ? 'text-brand-leaf' : item.trend === 'down' ? 'text-red-500' : 'text-brand-gray/50'}`}>
+                                                        {item.trend === 'up' && <TrendingUp size={12} />}
+                                                        {item.trend === 'down' && <TrendingDown size={12} />}
+                                                        {item.trend === 'stable' && <Minus size={12} />}
                                                         {item.change}
                                                     </div>
                                                 </td>
-                                                <td className="py-5 border-b border-brand-sage/20">
-                                                    <span className={`text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded ${item.color === 'orange' ? 'bg-orange-100 text-orange-700' : item.color === 'green' ? 'bg-[#E8F1EB] text-brand-leaf' : 'bg-red-100 text-red-600'}`}>
+                                                <td className="py-4">
+                                                    <span className={`text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${item.color === 'orange' ? 'bg-orange-50 text-orange-700 border border-orange-200/40' : item.color === 'green' ? 'bg-[#E8F1EB] text-brand-leaf border border-brand-sage/30' : 'bg-red-50 text-red-600 border border-red-200/40'}`}>
                                                         {item.assessment}
                                                     </span>
                                                 </td>
@@ -315,35 +277,30 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
                             </div>
                         </div>
 
-                        {/* Report */}
+                        {/* Report Panel */}
                         {activeReport && (
-                            <div className="bg-white rounded-[2rem] border border-brand-sage/40 shadow-sm p-8">
-                                <h2 className="font-serif text-2xl text-brand-text mb-4">📊 Периодический отчет</h2>
-                                <div className="max-h-[500px] overflow-y-auto pr-2 bg-[#FAFAFA]/50 p-6 rounded-2xl border border-dashed border-brand-sage/30">
+                            <div className="bg-white rounded-[1.5rem] border border-brand-sage/40 shadow-sm p-6">
+                                <h2 className="font-serif text-lg text-brand-text mb-4">📊 Периодический отчет</h2>
+                                <div className="max-h-[400px] overflow-y-auto pr-2 bg-[#FAFAFA]/50 p-5 rounded-xl border border-dashed border-brand-sage/30">
                                     <ReportViewer markdown={activeReport.markdown} />
                                 </div>
                             </div>
                         )}
 
                         {/* Recommendation Form */}
-                        <div className="bg-white rounded-[2rem] border border-brand-sage/40 shadow-sm p-8 relative">
-                            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 flex flex-col gap-2">
-                                <button className="w-12 h-12 bg-white rounded-full shadow-[0_4px_20px_rgb(0,0,0,0.08)] flex items-center justify-center text-brand-gray hover:text-brand-leaf hover:scale-110 border border-brand-sage/20"><MessageSquare size={18} /></button>
-                                <button className="w-12 h-12 bg-white rounded-full shadow-[0_4px_20px_rgb(0,0,0,0.08)] flex items-center justify-center text-brand-gray hover:text-brand-leaf hover:scale-110 border border-brand-sage/20"><Printer size={18} /></button>
+                        <div className="bg-white rounded-[1.5rem] border border-brand-sage/40 shadow-sm p-6 relative">
+                            <div className="flex items-center gap-2 mb-6">
+                                <div className="bg-[#E8F1EB] p-1.5 rounded-full text-brand-leaf"><Edit3 size={14} /></div>
+                                <h2 className="font-serif text-lg text-brand-text">Новая рекомендация</h2>
                             </div>
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="bg-[#E8F1EB] p-2 rounded-full text-brand-leaf"><Edit3 size={18} /></div>
-                                <h2 className="font-serif text-2xl text-brand-text">{t('recTitle')}</h2>
-                            </div>
-                            <div className="space-y-8 pr-8">
-                                <div><label className="block text-[10px] font-bold text-brand-gray uppercase tracking-widest mb-3">{t('rec1')}</label><textarea className="w-full h-24 p-4 rounded-xl border border-brand-sage/50 text-sm focus:outline-none focus:border-brand-leaf bg-[#FAFAFA]" placeholder={t('rec1P')}></textarea></div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div><label className="block text-[10px] font-bold text-brand-gray uppercase tracking-widest mb-3">{t('rec2')}</label><textarea className="w-full h-32 p-4 rounded-xl border border-brand-sage/50 text-sm bg-[#FAFAFA]" placeholder={t('rec2P')}></textarea></div>
-                                    <div><label className="block text-[10px] font-bold text-brand-gray uppercase tracking-widest mb-3">{t('rec3')}</label><textarea className="w-full h-32 p-4 rounded-xl border border-brand-sage/50 text-sm bg-[#FAFAFA]" placeholder={t('rec3P')}></textarea></div>
+                            <div className="space-y-6">
+                                <div><label className="block text-[9px] font-bold text-brand-gray uppercase tracking-widest mb-2">Назначения специалистов</label><textarea className="w-full h-20 p-3 rounded-xl border border-brand-sage/40 text-xs bg-[#FAFAFA] resize-none" placeholder="Введите назначения..."></textarea></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div><label className="block text-[9px] font-bold text-brand-gray uppercase tracking-widest mb-2">Суплементарная поддержка</label><textarea className="w-full h-24 p-3 rounded-xl border border-brand-sage/40 text-xs bg-[#FAFAFA] resize-none" placeholder="Препараты и дозировки..."></textarea></div>
+                                    <div><label className="block text-[9px] font-bold text-brand-gray uppercase tracking-widest mb-2">Коррекция питания & Lifestyle</label><textarea className="w-full h-24 p-3 rounded-xl border border-brand-sage/40 text-xs bg-[#FAFAFA] resize-none" placeholder="Питание, сон, активность..."></textarea></div>
                                 </div>
-                                <div className="flex flex-col sm:flex-row justify-between items-end sm:items-center pt-8 border-t border-brand-sage/30 mt-8 gap-6">
-                                    <div><label className="block text-[10px] font-bold text-brand-gray uppercase tracking-widest mb-3">{t('rec4')}</label><div className="flex items-center gap-3"><div className="flex items-center border border-brand-sage/50 rounded-lg px-3 py-2 bg-[#FAFAFA] min-w-[160px]"><CalendarPlus size={16} className="text-brand-gray mr-2" /><input type="date" className="bg-transparent text-sm w-full" /></div></div></div>
-                                    <button className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-8 py-3.5 rounded-xl font-bold transition-colors text-sm">{t('recBtn')}</button>
+                                <div className="flex justify-end pt-4 border-t border-brand-sage/20">
+                                    <button className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow-sm">Сформировать</button>
                                 </div>
                             </div>
                         </div>
@@ -355,10 +312,6 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
                               <ContextualSidebar clientId={activeClient.id} />
                          </div>
                     )}
-                </div>
-
-                <div className="mt-16 text-center text-[10px] text-brand-gray/40 uppercase tracking-widest font-bold pb-8 border-t border-brand-sage/20 pt-8">
-                    &copy; {new Date().getFullYear()} VI antiage &bull; {t('footer')}
                 </div>
             </main>
         </div>
