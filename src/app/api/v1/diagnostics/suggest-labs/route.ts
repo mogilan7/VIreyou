@@ -19,15 +19,28 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "OPENAI_ASSISTANT_ID is not configured in .env.local" }, { status: 500 });
         }
 
-        // 1. Fetch User Data and Profile
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: { healthData: true }
+        // 1. Fetch Client Profile (Ensures the client exists in specialist's list)
+        const profile = await prisma.profiles.findUnique({
+            where: { id: userId }
         });
 
-        if (!user) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        if (!profile) {
+            return NextResponse.json({ error: "Client Profile not found" }, { status: 404 });
         }
+
+        // 1b. Fetch core user record by email lookup for health data (If available)
+        const authUser = await prisma.users.findUnique({ where: { id: userId } });
+        const email = authUser?.email;
+
+        let user: any = null;
+        if (email) {
+            user = await prisma.user.findUnique({
+                where: { email },
+                include: { healthData: true }
+            });
+        }
+
+        const fullName = profile.full_name || user?.full_name || "Client";
 
         // 2. Fetch Latest Questionnaire Scores
         const testResults = await prisma.test_results.findMany({
@@ -43,7 +56,7 @@ export async function POST(req: Request) {
             }
         });
 
-        // 3. Aggregate Nutrition Deficits (simplified)
+        // 3. Aggregate Nutrition Deficits
         const nutritionDeficits: string[] = [];
         const recentLogs = await prisma.nutritionLog.findMany({
             where: { user_id: userId },
@@ -60,14 +73,14 @@ export async function POST(req: Request) {
 
         // 4. Formulate Trigger State Context
         const triggersContext = {
-            metadata: { userId, fullName: user.full_name },
+            metadata: { userId, fullName },
             scores: {
                 "sarc_f": latestScores["sarc-f"] || latestScores["sarc_f"] || null,
                 "mini_cog": latestScores["mini-cog"] || latestScores["mini_cog"] || null,
                 "insomnia_index": latestScores["insomnia"] || latestScores["insomnia_index"] || null
             },
             deficits: nutritionDeficits,
-            currentBiomarkers: user.healthData?.biomarkers || {}
+            currentBiomarkers: user?.healthData?.biomarkers || {}
         };
 
         console.log(`[suggest-labs] Prompting OpenAI Assistant ${assistantId} explicitly...`);
@@ -113,7 +126,6 @@ export async function POST(req: Request) {
             
             if (content.type === "text") {
                 let text = content.text.value;
-                // Clean markdown wrappers if returned
                 text = text.replace(/^```json\s*|```$/g, "").trim();
                 const parsed = JSON.parse(text);
                 
