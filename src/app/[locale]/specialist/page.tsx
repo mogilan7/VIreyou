@@ -100,7 +100,7 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
         return notFound();
     }
 
-    let biomarkerData = [];
+    let biomarkerData: any[] = [];
 
     if (clientTestResults.length > 0) {
         biomarkerData = clientTestResults.map((result: any) => {
@@ -158,6 +158,7 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                             <h2 className="font-serif text-xl font-bold mb-2 z-10">{activeClient ? activeClient.full_name : 'Select Client'}</h2>
                             
                             <div className="w-full space-y-4 z-10 mt-2">
+                                {/* Anthropometrics Data Grid */}
                                 {activeClient?.welcome_data && (
                                     <div className="w-full border-t border-brand-sage/20 pt-3 text-left">
                                         <span className="text-[10px] font-bold text-brand-leaf uppercase flex items-center gap-1 mb-1.5">📋 Антропометрия / Анкета</span>
@@ -250,7 +251,7 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                             </div>
                         )}
 
-                        {/* Recommendation Form (Restored) */}
+                        {/* Recommendation Form */}
                         <div className="bg-white rounded-[1.5rem] border border-brand-sage/40 shadow-sm p-6 relative">
                             <div className="flex items-center justify-between mb-6 border-b border-brand-sage/10 pb-4">
                                 <div className="flex items-center gap-2">
