@@ -333,9 +333,8 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                 </div>
 
                 {/* Шкала Дневника Мониторинга (30 дней) */}
-                {latestAiRec && (
-                    <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md space-y-4 transition-all">
-                        <div className="flex items-center justify-between gap-2 border-b dark:border-white/5 border-brand-sage/20 pb-2 mb-2">
+                <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md space-y-4 transition-all">
+                    <div className="flex items-center justify-between gap-2 border-b dark:border-white/5 border-brand-sage/20 pb-2 mb-2">
                             <div>
                                 <h4 className="text-sm font-bold dark:text-slate-100 text-brand-text mb-1">Дневник мониторинга в ТГ-боте (30 дней)</h4>
                                 <p className="text-[10px] opacity-60">Заполняйте данные ежедневно для перехода к этапу «Анализ»</p>
@@ -360,7 +359,8 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                         
                         <div ref={diaryScrollRef} className="grid grid-flow-col items-center gap-2 md:gap-3 auto-cols-[calc((100%-32px)/5)] md:auto-cols-[calc((100%-72px)/7)] overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory w-full">
                             {Array.from({ length: 30 }).map((_, i) => {
-                                const dayDate = new Date(new Date(latestAiRec.created_at).getTime() + i * 24 * 60 * 60 * 1000);
+                                const baseDate = latestAiRec?.created_at ? new Date(latestAiRec.created_at) : new Date();
+                                const dayDate = new Date(baseDate.getTime() + i * 24 * 60 * 60 * 1000);
                                 const formattedDate = dayDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
                                 
                                 const isSameDay = (log: any) => {
@@ -408,7 +408,6 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                             </div>
                         </div>
                     </div>
-                )}
 
                 <div className="flex flex-col gap-6">
                     {/* Этап 01 - Диалог */}
