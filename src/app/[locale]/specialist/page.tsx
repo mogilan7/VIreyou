@@ -3,6 +3,10 @@ import { Search, MapPin, FileText, Download, TrendingUp, TrendingDown, Minus, Ed
 import { getTranslations } from "next-intl/server";
 import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
+import ReportViewer from "@/components/specialist/ReportViewer";
+import { updateReportPeriod } from "@/actions/update-report-settings";
+import { revalidatePath } from "next/cache";
+
 
 export const dynamic = 'force-dynamic';
 
@@ -89,6 +93,21 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
             if (results) {
                 clientTestResults = results;
             }
+
+            // Fetch absolute stats/settings for reports
+            var activeClientUser: any = null;
+            var activeReport: any = null;
+            
+            if (activeClient) {
+                const u = await prisma.user.findUnique({ where: { id: activeClient.id } });
+                if (u) {
+                    activeClientUser = u;
+                    const { generatePeriodicReport } = require('@/lib/reportGenerator');
+                    activeReport = await generatePeriodicReport(activeClient.id, (u as any).report_period_days || 7);
+                }
+
+            }
+
         }
     } else {
         // Not logged in -> hide existence
@@ -353,8 +372,48 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
                             </div>
                         </div>
 
+                        {/* Periodic Report Settings & View */}
+                        {activeClient && (
+                            <div className="bg-white rounded-[2rem] border border-brand-sage/40 shadow-sm p-8 relative mb-8">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-brand-sage/20">
+                                    <div>
+                                        <h2 className="font-serif text-2xl text-brand-text mb-1 flex items-center gap-2">📊 Периодический отчет</h2>
+                                        <p className="text-xs text-brand-gray">Текущий период мониторинга: <span className="font-bold text-brand-leaf">{(activeClientUser as any)?.report_period_days || 7} дней</span></p>
+                                    </div>
+
+                                    <form action={async (formData: FormData) => {
+                                        "use server";
+                                        const period = parseInt(formData.get("period") as string);
+                                        await updateReportPeriod(activeClient.id, period);
+                                    }} className="flex items-center gap-2 bg-[#FAFAFA] p-2 rounded-xl border border-brand-sage/20">
+                                        <label className="text-xs text-brand-gray whitespace-nowrap">Период (дней):</label>
+                                        <input 
+                                            type="number" 
+                                            name="period" 
+                                            min="1" 
+                                            defaultValue={(activeClientUser as any)?.report_period_days || 7} 
+                                            className="w-16 p-1 border border-brand-sage/40 rounded-lg text-sm text-center bg-white"
+                                        />
+                                        <button type="submit" className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
+                                            Обновить
+                                        </button>
+                                    </form>
+
+                                </div>
+
+                                <div className="max-h-[500px] overflow-y-auto pr-2 bg-[#FAFAFA]/50 p-6 rounded-2xl border border-dashed border-brand-sage/30">
+                                    {activeReport ? (
+                                        <ReportViewer markdown={activeReport.markdown} />
+                                    ) : (
+                                        <p className="text-gray-400 text-sm text-center py-8">Предоставление отчета недоступно. Убедитесь, что у клиента есть данные.</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Recommendations Form */}
                         <div className="bg-white rounded-[2rem] border border-brand-sage/40 shadow-sm p-8 relative">
+
 
                             {/* Quick Actions Sidebar */}
                             <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 flex flex-col gap-2">

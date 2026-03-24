@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  // directUrl = env("DIRECT_URL")
+  directUrl = env("DIRECT_URL")
   schemas   = ["auth", "public"]
 }
 
@@ -569,7 +569,11 @@ model User {
   reminder_time1      String?            @default("21:00")
   reminder_time2      String?
   reminder_time3      String?
+  timezone            String?            @default("Europe/Moscow")
+  report_period_days  Int?               @default(7)
+  last_report_date    DateTime?
   accessPermissions   AccessPermission[]
+
   specialistConsults  Consultation[]     @relation("SpecialistConsultations")
   clientConsultations Consultation[]     @relation("ClientConsultations")
   healthData          HealthData?

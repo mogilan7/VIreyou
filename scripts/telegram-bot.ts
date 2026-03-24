@@ -8,6 +8,8 @@ import path from "path";
 import cron from "node-cron";
 import prisma from "../src/lib/prisma";
 import { analyzeFoodWithAI, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI } from "../src/lib/telegram/ai-services";
+import { generatePeriodicReport } from "../src/lib/reportGenerator";
+
 
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -388,6 +390,23 @@ bot.on('text', async (ctx: any) => {
 
   if (!user) return ctx.reply("❌ Пользователь не привязан.");
 
+  // Выбор Часового Пояса
+  if (userStates[user.id] === 'WAITING_FOR_TIMEZONE') {
+      userStates[user.id] = ''; // Сброс статуса
+      try {
+           if (!text.includes('/')) {
+               return ctx.reply("❌ Некорректный формат. Напишите `Continent/City` (например, `Europe/Moscow`). Настройки часового пояса сброшены.");
+           }
+           await prisma.user.update({
+               where: { id: user.id },
+               data: { timezone: text } as any
+           });
+           return ctx.reply(`✅ Часовой пояс успешно установлен на **${text}**!`);
+      } catch (e) {
+           return ctx.reply("❌ Ошибка при сохранении часового пояса.");
+      }
+  }
+
   // Обработка правок (LOG_EDIT)
   if (userStates[user.id] === 'LOG_EDIT' && tempLog[user.id]) {
       await ctx.reply("⏳ Пересчитываю показатели с учетом правок...");
@@ -599,15 +618,25 @@ bot.action('main_menu', async (ctx: any) => {
     await sendWelcomeMenu(ctx, user);
 });
 
-// Утреннее напоминание (Cron в 09:00 ежедневно по Москве)
-cron.schedule('0 9 * * *', async () => {
-    console.log("[CRON] Запуск утреннего напоминания...");
+// Утреннее напоминание (Cron запускается каждый час в 00 минут)
+cron.schedule('0 * * * *', async () => {
+    console.log("[CRON] Проверка утренних напоминаний...");
+    const now = new Date();
     try {
         const users = await prisma.user.findMany({
             where: { telegram_id: { not: null } }
         });
 
         for (const user of users) {
+             const userTz = (user as any).timezone || 'Europe/Moscow';
+             const userTime = now.toLocaleTimeString('ru-RU', { 
+                 timeZone: userTz, 
+                 hour: '2-digit', 
+                 minute: '2-digit' 
+             });
+
+             if (userTime !== '09:00') continue;
+
              const results = await prisma.test_results.findMany({
                  where: { user_id: user.id },
                  orderBy: { created_at: 'desc' }
@@ -641,37 +670,35 @@ cron.schedule('0 9 * * *', async () => {
 // Вечерний Опрос (Cron в 21:00 ежедневно)
 // ----------------------------------------------------
 cron.schedule('* * * * *', async () => {
-    // Получаем текущее время в формате HH:MM по Москве
     const now = new Date();
-    const currentTime = now.toLocaleTimeString('ru-RU', { 
-        timeZone: 'Europe/Moscow', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-    });
 
     try {
         const users = await prisma.user.findMany({
-            where: {
-                telegram_id: { not: null },
-                OR: [
-                    { reminder_time1: currentTime },
-                    { reminder_time2: currentTime },
-                    { reminder_time3: currentTime }
-                ]
-            }
+            where: { telegram_id: { not: null } }
         });
 
-
         for (const user of users) {
-             bot.telegram.sendMessage(
-                 user.telegram_id!,
-                 `🌙 Добрый вечер, ${user.full_name || 'клиент'}!\nПожалуйста, отметьте водный режим и привычки за текущий день.`,
-                 Markup.inlineKeyboard([
-                     [Markup.button.callback('💧 Выпил 250мл', 'water_250')],
-                     [Markup.button.callback('💧 Выпил 500мл', 'water_500')],
-                     [Markup.button.callback('🚭 Отметить вредные привычки', 'habits_check')]
-                 ])
-             );
+             const userTz = (user as any).timezone || 'Europe/Moscow';
+             const currentTime = now.toLocaleTimeString('ru-RU', { 
+                 timeZone: userTz, 
+                 hour: '2-digit', 
+                 minute: '2-digit' 
+             });
+
+             if (user.reminder_time1 === currentTime || 
+                 user.reminder_time2 === currentTime || 
+                 user.reminder_time3 === currentTime) {
+                 
+                 bot.telegram.sendMessage(
+                     user.telegram_id!,
+                     `🌙 Добрый вечер, ${user.full_name || 'клиент'}!\nПожалуйста, отметьте водный режим и привычки за текущий день.`,
+                     Markup.inlineKeyboard([
+                         [Markup.button.callback('💧 Выпил 250мл', 'water_250')],
+                         [Markup.button.callback('💧 Выпил 500мл', 'water_500')],
+                         [Markup.button.callback('🚭 Отметить вредные привычки', 'habits_check')]
+                     ])
+                 );
+             }
         }
     } catch (error) {
         console.error("[CRON] Ошибка опроса:", error);
@@ -869,13 +896,51 @@ bot.action('menu_habits', async (ctx: any) => {
 
 bot.action('menu_settings', async (ctx: any) => {
     ctx.answerCbQuery();
-    ctx.reply("⚙️ **Настройки напоминаний**\n\nВыберите количество напоминаний в день, которые вы хотите получать (по времени Москвы):", Markup.inlineKeyboard([
+    ctx.reply("⚙️ **Настройки напоминаний**\n\nВыберите количество напоминаний в день, которые вы хотите получать:", Markup.inlineKeyboard([
         [Markup.button.callback('1️⃣ Одно время', 'set_count_1')],
         [Markup.button.callback('2️⃣ Два времени', 'set_count_2')],
         [Markup.button.callback('3️⃣ Три времени', 'set_count_3')],
-        [Markup.button.callback('📵 Выключить', 'set_count_0')]
+        [Markup.button.callback('📵 Выключить', 'set_count_0')],
+        [Markup.button.callback('🌐 Часовой пояс', 'menu_timezone')]
     ]));
 });
+
+bot.action('menu_timezone', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (user) {
+        userStates[user.id] = 'WAITING_FOR_TIMEZONE';
+    }
+    
+    ctx.reply("🌐 **Выбор часового пояса**\n\nВыберите ваш регион из списка или **напишите текстом** (например, `Europe/Moscow` или `Asia/Novosibirsk`):", Markup.inlineKeyboard([
+        [Markup.button.callback('Москва (МСК)', 'set_tz_moscow')],
+        [Markup.button.callback('Екатеринбург (+2 к МСК)', 'set_tz_yekt')],
+        [Markup.button.callback('Новосибирск (+4 к МСК)', 'set_tz_novt')],
+        [Markup.button.callback('Владивосток (+7 к МСК)', 'set_tz_vlat')],
+        [Markup.button.callback('⬅️ Назад', 'menu_settings')]
+    ]));
+});
+
+const setTimezone = async (ctx: any, tz: string, text: string) => {
+    const user = ctx.state.user;
+    if (user) userStates[user.id] = ''; // Сброс ожидания текста
+    try {
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { timezone: tz } as any
+        });
+        ctx.answerCbQuery();
+        ctx.reply(`✅ **Часовой пояс сохранен!**\n\n🌐 **${text}**`);
+    } catch (e) {
+        console.error("Save timezone error:", e);
+        ctx.reply("❌ Ошибка при сохранении настроек.");
+    }
+};
+
+bot.action('set_tz_moscow', (ctx: any) => setTimezone(ctx, 'Europe/Moscow', 'Москва (UTC+3)'));
+bot.action('set_tz_yekt', (ctx: any) => setTimezone(ctx, 'Asia/Yekaterinburg', 'Екатеринбург (UTC+5)'));
+bot.action('set_tz_novt', (ctx: any) => setTimezone(ctx, 'Asia/Novosibirsk', 'Новосибирск (UTC+7)'));
+bot.action('set_tz_vlat', (ctx: any) => setTimezone(ctx, 'Asia/Vladivostok', 'Владивосток (UTC+10)'));
 
 // --- Обработчики Настроек ---
 
@@ -941,7 +1006,66 @@ bot.action('save_time_3_preset1', (ctx: any) => presetSave(ctx, "09:00", "15:00"
 bot.action('save_time_3_preset2', (ctx: any) => presetSave(ctx, "08:00", "14:00", "20:00", "Напоминания установлены на **08:00**, **14:00** и **20:00**"));
 
 
+// ----------------------------------------------------
+// Периодический Отчет (Cron ежедневно в 11:00)
+// ----------------------------------------------------
+cron.schedule('* * * * *', async () => {
+    const now = new Date();
+    try {
+        const users = await prisma.user.findMany({
+            where: { telegram_id: { not: null } }
+        });
+
+        for (const user of users) {
+             const period = (user as any).report_period_days || 7;
+             const lastReport = (user as any).last_report_date ? new Date((user as any).last_report_date) : null;
+             
+             const userTz = (user as any).timezone || 'Europe/Moscow';
+             const currentTime = now.toLocaleTimeString('ru-RU', { 
+                 timeZone: userTz, 
+                 hour: '2-digit', 
+                 minute: '2-digit' 
+             });
+
+             if (currentTime !== '11:00') continue;
+
+             let isDue = false;
+             if (!lastReport) {
+                 isDue = true;
+             } else {
+                 const diffDays = (now.getTime() - lastReport.getTime()) / (1000 * 60 * 60 * 24);
+                 if (diffDays >= period) {
+                     isDue = true;
+                 }
+             }
+
+             if (isDue) {
+                 try {
+                     const report = await generatePeriodicReport(user.id, period);
+                     await bot.telegram.sendMessage(
+                         user.telegram_id!,
+                         report.markdown,
+                         { parse_mode: 'Markdown' }
+                     );
+                     
+                     await prisma.user.update({
+                         where: { id: user.id },
+                         data: { last_report_date: now } as any
+                     });
+                     console.log(`[CRON] Периодический отчет отправлен: ${user.full_name || user.email}`);
+                 } catch (err: any) {
+                     console.error(`[CRON] Ошибка отправки отчета для ${user.id}:`, err);
+                 }
+             }
+        }
+    } catch (error) {
+        console.error("[CRON] Ошибка периодических отчетов:", error);
+    }
+});
+
+
 bot.catch((err: any, ctx: any) => {
+
     console.error(`[TelegrafError] for ${ctx.updateType || 'unknown'}:`, err.message || err);
 });
 
