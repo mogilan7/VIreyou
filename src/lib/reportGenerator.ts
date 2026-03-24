@@ -33,8 +33,7 @@ export const NUTRIENT_NAMES: any = {
     calories: 'Калории'
 };
 
-export async function generatePeriodicReport(userId: string, days: number = 7, clientName?: string) {
-
+export async function generatePeriodicReport(userId: string, days: number = 7, clientName?: string, onlyActiveDays: boolean = false) {
     const endDate = new Date();
     endDate.setHours(23, 59, 59, 999);
     
@@ -53,9 +52,23 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
 
     if (!user) throw new Error("User not found");
 
+    // Calculate Active Days count based on unique calendar days with any log
+    const allLogDates = [
+        ...nutritionLogs.map((l: any) => l.created_at || l.date),
+        ...activityLogs.map((l: any) => l.created_at || l.date),
+        ...sleepLogs.map((l: any) => l.created_at),
+        ...hydrationLogs.map((l: any) => l.created_at),
+        ...habitLogs.map((l: any) => l.created_at)
+    ];
+
+    const uniqueDays = new Set(allLogDates.filter(Boolean).map(date => new Date(date).toLocaleDateString('en-CA')));
+    const activeDaysCount = uniqueDays.size > 0 ? uniqueDays.size : 1;
+    
+    // Denominator for average and habit calculations
+    const denominator = onlyActiveDays && activeDaysCount < days ? activeDaysCount : days;
+
     // --- Aggregation ---
 
-    // 1. Nutrition
     const nutritionSum: any = { calories: 0 };
     for (const key of Object.keys(NUTRITION_NORMS)) {
         nutritionSum[key] = 0;
@@ -70,21 +83,17 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
         }
     });
 
-    // 2. Activity
     const totalSteps = activityLogs.reduce((sum: number, a: any) => sum + (a.steps || 0), 0);
-    const avgSteps = activityLogs.length > 0 ? totalSteps / activityLogs.length : 0;
+    const avgSteps = activityLogs.length > 0 ? totalSteps / denominator : 0;
     const totalCalBurned = activityLogs.reduce((sum: number, a: any) => sum + (a.calories_burned || 0), 0);
 
-    // 3. Sleep
     const avgSleepDuration = sleepLogs.length > 0 
-        ? sleepLogs.reduce((sum: number, s: any) => sum + (s.duration_hrs || 0), 0) / sleepLogs.length 
+        ? sleepLogs.reduce((sum: number, s: any) => sum + (s.duration_hrs || 0), 0) / denominator 
         : 0;
 
-    // 4. Hydration
     const totalWater = hydrationLogs.reduce((sum: number, h: any) => sum + (h.volume_ml || 0), 0);
-    const avgWater = totalWater / days; // Average per day in the period
+    const avgWater = totalWater / denominator;
 
-    // 5. Habits / Recommendations
     const habitCounts: Record<string, { completed: number, total: number }> = {};
     habitLogs.forEach((h: any) => {
         if (!habitCounts[h.habit_key]) {
@@ -94,22 +103,25 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
         habitCounts[h.habit_key].total += 1;
     });
 
-    // --- Format Markdown for Specialist ---
+    // --- Format Markdown ---
     let markdown = `# 📊 Отчет по образу жизни за ${days} дней\n`;
     markdown += `**ФИО**: ${clientName || user.full_name || "Не указано"}\n`;
-
-    markdown += `**Период**: ${startDate.toLocaleDateString('ru-RU')} — ${endDate.toLocaleDateString('ru-RU')}\n\n`;
+    markdown += `**Период**: ${startDate.toLocaleDateString('ru-RU')} — ${endDate.toLocaleDateString('ru-RU')}`;
+    if (onlyActiveDays) {
+        markdown += ` *(только активные дни: ${denominator})*`;
+    }
+    markdown += `\n\n`;
 
     markdown += `## 📋 Выполнение рекомендаций (Привычки)\n`;
     if (Object.keys(habitCounts).length === 0) {
         markdown += `Данные о привычках не зафиксированы.\n\n`;
     } else {
         for (const [key, counts] of Object.entries(habitCounts)) {
-            const pct = (counts.completed / Math.max(days, counts.total)) * 100; // completion over period days or logs
+            const pct = (counts.completed / denominator) * 100;
             let emoji = '🔴';
             if (pct >= 80) emoji = '🟢';
             else if (pct >= 50) emoji = '🟡';
-            markdown += `${emoji} **${key}**: ${counts.completed} / ${days} дней (${pct.toFixed(0)}%)\n`;
+            markdown += `${emoji} **${key}**: ${counts.completed} / ${denominator} дн (${pct.toFixed(0)}%)\n`;
         }
         markdown += `\n`;
     }
@@ -122,7 +134,7 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
 
     markdown += `## 🍎 Питание и Микроэлементы\n`;
     markdown += `• **Всего калорий**: ${nutritionSum.calories.toFixed(0)} ккал\n`;
-    markdown += `• **Средние калории/день**: ${(nutritionSum.calories / days).toFixed(0)} ккал\n\n`;
+    markdown += `• **Средние калории/день**: ${(nutritionSum.calories / denominator).toFixed(0)} ккал\n\n`;
 
     markdown += `| Элемент | Всего | Норма за ${days}д | % от нормы |\n`;
     markdown += `|---|---|---|---|\n`;
@@ -133,15 +145,15 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
         let emoji = '🔴';
         if (pct >= 80) emoji = '🟢';
         else if (pct >= 50) emoji = '🟡';
-        
         markdown += `| ${emoji} ${NUTRIENT_NAMES[key]} | ${nutritionSum[key].toFixed(1)} ${config.unit} | ${periodNorm.toFixed(1)} ${config.unit} | ${pct.toFixed(0)}% |\n`;
     }
 
-    // --- Format JSON for AI ---
+    // --- Format JSON ---
     const aiJson = {
         userId,
         userName: user.full_name,
         periodDays: days,
+        onlyActiveDays: onlyActiveDays ? denominator : null,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         metrics: {
@@ -150,7 +162,7 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
             hydration: { totalVolume: totalWater, avgVolume: avgWater },
             nutrition: {
                 totalCalories: nutritionSum.calories,
-                avgCalories: nutritionSum.calories / days,
+                avgCalories: nutritionSum.calories / denominator,
                 totals: nutritionSum,
                 norms: NUTRITION_NORMS
             },

@@ -11,9 +11,12 @@ import { revalidatePath } from "next/cache";
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
-export default async function SpecialistDashboard(props: { searchParams: Promise<{ id?: string }> }) {
+export default async function SpecialistDashboard(props: { params: Promise<{ locale: string }>, searchParams: Promise<{ id?: string, onlyActive?: string }> }) {
     const searchParams = await props.searchParams;
+    const params = await props.params;
     const clientId = searchParams.id;
+    const onlyActive = searchParams.onlyActive === 'true';
+    const locale = params.locale;
 
     const t = await getTranslations('Dashboard.Specialist');
     const supabase = await createClient();
@@ -78,7 +81,7 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
                     if (u) {
                         activeClientUser = u;
                         const { generatePeriodicReport } = require('@/lib/reportGenerator');
-                        activeReport = await generatePeriodicReport(u.id, (u as any).report_period_days || 7, activeClient.full_name);
+                        activeReport = await generatePeriodicReport(u.id, (u as any).report_period_days || 7, activeClient.full_name, onlyActive);
                     }
                 }
             }
@@ -179,7 +182,7 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
                         </div>
                     </div>
 
-                    {/* Center Column: Main Data & Forms */}
+                    {/* Center Column */}
                     <div className="flex-1 flex flex-col gap-6">
                         <div className="bg-white rounded-[1.5rem] border border-brand-sage/40 overflow-hidden flex flex-col p-6">
                             <table className="w-full text-left bordedr-collapse">
@@ -192,23 +195,32 @@ export default async function SpecialistDashboard(props: { searchParams: Promise
                             </table>
                         </div>
 
-                        {/* Periodic Report Settings & View */}
+                        {/* Periodic Report */}
                         {activeReport && (
                             <div className="bg-white rounded-[1.5rem] border border-brand-sage/40 shadow-sm p-6 flex flex-col gap-4">
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-brand-sage/20">
                                     <div>
                                         <h2 className="font-serif text-lg text-brand-text mb-1">📊 Периодический отчет</h2>
-                                        <p className="text-[11px] text-brand-gray">Текущий период мониторинга: <span className="font-bold text-brand-leaf">{(activeClientUser as any)?.report_period_days || 7} дней</span></p>
+                                        <p className="text-[11px] text-brand-gray">Период мониторинга: <span className="font-bold text-brand-leaf">{(activeClientUser as any)?.report_period_days || 7} дней</span></p>
                                     </div>
 
                                     <form action={async (formData: FormData) => {
                                         "use server";
                                         const period = parseInt(formData.get("period") as string);
+                                        const active = formData.get("onlyActive") === 'on';
                                         await updateReportPeriod(activeClient.id, period);
-                                    }} className="flex items-center gap-2 bg-[#FAFAFA] p-2 rounded-xl border border-brand-sage/20">
+                                        const { redirect } = require("next/navigation");
+                                        redirect(`/${locale}/specialist?id=${activeClient.id}&onlyActive=${active}`);
+                                    }} className="flex items-center gap-3 bg-[#FAFAFA] p-2 rounded-xl border border-brand-sage/20">
                                         <label className="text-[11px] text-brand-gray whitespace-nowrap">Период:</label>
-                                        <input type="number" name="period" min="1" defaultValue={(activeClientUser as any)?.report_period_days || 7} className="w-12 p-1 border border-brand-sage/40 rounded-lg text-xs text-center" />
-                                        <button type="submit" className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Обновить</button>
+                                        <input type="number" name="period" min="1" defaultValue={(activeClientUser as any)?.report_period_days || 7} className="w-11 p-1 border border-brand-sage/40 rounded-lg text-xs text-center bg-white" />
+                                        
+                                        <label className="text-[10px] font-bold text-brand-leaf flex items-center gap-1 cursor-pointer">
+                                            <input type="checkbox" name="onlyActive" defaultChecked={onlyActive} className="accent-brand-leaf" />
+                                            Активные
+                                        </label>
+
+                                        <button type="submit" className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-3 py-1.5 rounded-xl text-xs font-semibold">Обновить</button>
                                     </form>
                                 </div>
 
