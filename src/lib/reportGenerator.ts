@@ -33,13 +33,23 @@ export const NUTRIENT_NAMES: any = {
     calories: 'Калории'
 };
 
-export async function generatePeriodicReport(userId: string, days: number = 7, clientName?: string, onlyActiveDays: boolean = false) {
-    const endDate = new Date();
-    endDate.setHours(23, 59, 59, 999);
+export async function generatePeriodicReport(userId: string, days: number = 7, clientName?: string, selectedDates?: string[]) {
+    // If selectedDates is provided, we use the max and min of those dates for our DB query boundary.
+    // Otherwise we use the last `days` days.
+    let startDate = new Date();
+    let endDate = new Date();
     
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    startDate.setHours(0, 0, 0, 0);
+    if (selectedDates && selectedDates.length > 0) {
+        const sortedDates = [...selectedDates].sort();
+        startDate = new Date(sortedDates[0]);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(sortedDates[sortedDates.length - 1]);
+        endDate.setHours(23, 59, 59, 999);
+    } else {
+        endDate.setHours(23, 59, 59, 999);
+        startDate.setDate(startDate.getDate() - days);
+        startDate.setHours(0, 0, 0, 0);
+    }
 
     const [nutritionLogs, activityLogs, sleepLogs, hydrationLogs, habitLogs, user] = await Promise.all([
         prisma.nutritionLog.findMany({ where: { user_id: userId, created_at: { gte: startDate, lte: endDate } } }),
@@ -52,20 +62,31 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
 
     if (!user) throw new Error("User not found");
 
-    // Calculate Active Days count based on unique calendar days with any log
-    const allLogDates = [
-        ...nutritionLogs.map((l: any) => l.created_at || l.date),
-        ...activityLogs.map((l: any) => l.created_at || l.date),
-        ...sleepLogs.map((l: any) => l.created_at),
-        ...hydrationLogs.map((l: any) => l.created_at),
-        ...habitLogs.map((l: any) => l.created_at)
-    ];
+    // Filter logs if selectedDates is provided
+    let filteredNutrition = nutritionLogs;
+    let filteredActivity = activityLogs;
+    let filteredSleep = sleepLogs;
+    let filteredHydration = hydrationLogs;
+    let filteredHabits = habitLogs;
 
-    const uniqueDays = new Set(allLogDates.filter(Boolean).map(date => new Date(date).toLocaleDateString('en-CA')));
-    const activeDaysCount = uniqueDays.size > 0 ? uniqueDays.size : 1;
-    
+    if (selectedDates && selectedDates.length > 0) {
+        const isSelected = (dateStr: string | Date | null | undefined) => {
+            if (!dateStr) return false;
+            // Handle ISO string or Date object securely
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return false;
+            const yyyyMmDd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            return selectedDates.includes(yyyyMmDd);
+        };
+        filteredNutrition = nutritionLogs.filter((l: any) => isSelected(l.created_at || l.date));
+        filteredActivity = activityLogs.filter((l: any) => isSelected(l.created_at || l.date));
+        filteredSleep = sleepLogs.filter((l: any) => isSelected(l.created_at));
+        filteredHydration = hydrationLogs.filter((l: any) => isSelected(l.created_at));
+        filteredHabits = habitLogs.filter((l: any) => isSelected(l.created_at));
+    }
+
     // Denominator for average and habit calculations
-    const denominator = onlyActiveDays && activeDaysCount < days ? activeDaysCount : days;
+    const denominator = selectedDates && selectedDates.length > 0 ? selectedDates.length : days;
 
     // --- Aggregation ---
 
@@ -74,7 +95,7 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
         nutritionSum[key] = 0;
     }
 
-    nutritionLogs.forEach((log: any) => {
+    filteredNutrition.forEach((log: any) => {
         nutritionSum.calories += Number(log.calories || 0);
         for (const key of Object.keys(NUTRITION_NORMS)) {
             if (log[key] !== null && log[key] !== undefined) {
@@ -83,19 +104,19 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
         }
     });
 
-    const totalSteps = activityLogs.reduce((sum: number, a: any) => sum + (a.steps || 0), 0);
-    const avgSteps = activityLogs.length > 0 ? totalSteps / denominator : 0;
-    const totalCalBurned = activityLogs.reduce((sum: number, a: any) => sum + (a.calories_burned || 0), 0);
+    const totalSteps = filteredActivity.reduce((sum: number, a: any) => sum + (a.steps || 0), 0);
+    const avgSteps = filteredActivity.length > 0 ? totalSteps / denominator : 0;
+    const totalCalBurned = filteredActivity.reduce((sum: number, a: any) => sum + (a.calories_burned || 0), 0);
 
-    const avgSleepDuration = sleepLogs.length > 0 
-        ? sleepLogs.reduce((sum: number, s: any) => sum + (s.duration_hrs || 0), 0) / denominator 
+    const avgSleepDuration = filteredSleep.length > 0 
+        ? filteredSleep.reduce((sum: number, s: any) => sum + (s.duration_hrs || 0), 0) / denominator 
         : 0;
 
-    const totalWater = hydrationLogs.reduce((sum: number, h: any) => sum + (h.volume_ml || 0), 0);
+    const totalWater = filteredHydration.reduce((sum: number, h: any) => sum + (h.volume_ml || 0), 0);
     const avgWater = totalWater / denominator;
 
     const habitCounts: Record<string, { completed: number, total: number }> = {};
-    habitLogs.forEach((h: any) => {
+    filteredHabits.forEach((h: any) => {
         if (!habitCounts[h.habit_key]) {
             habitCounts[h.habit_key] = { completed: 0, total: 0 };
         }
@@ -104,11 +125,11 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
     });
 
     // --- Format Markdown ---
-    let markdown = `# 📊 Отчет по образу жизни за ${days} дней\n`;
+    let markdown = `# 📊 Отчет по образу жизни за ${selectedDates && selectedDates.length > 0 ? selectedDates.length : days} дней\n`;
     markdown += `**ФИО**: ${clientName || user.full_name || "Не указано"}\n`;
     markdown += `**Период**: ${startDate.toLocaleDateString('ru-RU')} — ${endDate.toLocaleDateString('ru-RU')}`;
-    if (onlyActiveDays) {
-        markdown += ` *(только активные дни: ${denominator})*`;
+    if (selectedDates && selectedDates.length > 0) {
+        markdown += ` *(выбрано дней: ${selectedDates.length})*`;
     }
     markdown += `\n\n`;
 
@@ -153,7 +174,7 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
         userId,
         userName: user.full_name,
         periodDays: days,
-        onlyActiveDays: onlyActiveDays ? denominator : null,
+        selectedDatesCount: selectedDates ? selectedDates.length : null,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         metrics: {

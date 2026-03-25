@@ -7,15 +7,17 @@ import ReportViewer from "@/components/specialist/ReportViewer";
 import ContextualSidebar from "@/components/specialist/ContextualSidebar";
 import { updateReportPeriod } from "@/actions/update-report-settings";
 import { revalidatePath } from "next/cache";
+import MonitoringDiaryPreview from "@/components/specialist/MonitoringDiaryPreview";
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
-export default async function SpecialistDashboard(props: { params: Promise<{ locale: string }>, searchParams: Promise<{ id?: string, onlyActive?: string, aiTips?: string }> }) {
+export default async function SpecialistDashboard(props: { params: Promise<{ locale: string }>, searchParams: Promise<{ id?: string, dates?: string, aiTips?: string }> }) {
     const searchParams = await props.searchParams;
     const params = await props.params;
     const clientId = searchParams.id;
-    const onlyActive = searchParams.onlyActive === 'true';
+    const selectedDatesStr = searchParams.dates as string | undefined;
+    const selectedDates = selectedDatesStr ? selectedDatesStr.split(',') : undefined;
     const locale = params.locale;
 
     const t = await getTranslations('Dashboard.Specialist');
@@ -86,11 +88,20 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                 const email = authUser?.email;
 
                 if (email) {
-                    const u = await prisma.user.findUnique({ where: { email } });
+                    const u = await prisma.user.findUnique({ 
+                        where: { email },
+                        include: {
+                            nutritionLogs: true,
+                            sleepLogs: true,
+                            activityLogs: true,
+                            habitLogs: true,
+                            hydrationLogs: true
+                        }
+                    });
                     if (u) {
                         activeClientUser = u;
                         const { generatePeriodicReport } = require('@/lib/reportGenerator');
-                        activeReport = await generatePeriodicReport(u.id, (u as any).report_period_days || 7, activeClient.full_name, onlyActive);
+                        activeReport = await generatePeriodicReport(u.id, (u as any).report_period_days || 7, activeClient.full_name, selectedDates);
                     }
                 }
             }
@@ -219,29 +230,39 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                         {/* Periodic Report */}
                         {activeReport && (
                             <div className="bg-white rounded-[1.5rem] border border-brand-sage/40 shadow-sm p-6 flex flex-col gap-4">
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-brand-sage/20">
-                                    <div>
-                                        <h2 className="font-serif text-lg text-brand-text mb-1">📊 Периодический отчет</h2>
-                                        <p className="text-[11px] text-brand-gray">Период мониторинга: <span className="font-bold text-brand-leaf">{(activeClientUser as any)?.report_period_days || 7} дней</span></p>
-                                    </div>
-
+                                <div className="flex flex-col gap-4 pb-4 border-b border-brand-sage/20 w-full">
                                     <form action={async (formData: FormData) => {
                                         "use server";
                                         const period = parseInt(formData.get("period") as string);
-                                        const active = formData.get("onlyActive") === 'on';
+                                        const selectedDatesFormStr = formData.get("selectedDates") as string;
                                         await updateReportPeriod(activeClient.id, period);
                                         const { redirect } = require("next/navigation");
-                                        redirect(`/${locale}/specialist?id=${activeClient.id}&onlyActive=${active}`);
-                                    }} className="flex items-center gap-3 bg-[#FAFAFA] p-2 rounded-xl border border-brand-sage/20">
-                                        <label className="text-[11px] text-brand-gray whitespace-nowrap">Период:</label>
-                                        <input type="number" name="period" min="1" defaultValue={(activeClientUser as any)?.report_period_days || 7} className="w-11 p-1 border border-brand-sage/40 rounded-lg text-xs text-center bg-white" />
-                                        
-                                        <label className="text-[10px] font-bold text-brand-leaf flex items-center gap-1 cursor-pointer">
-                                            <input type="checkbox" name="onlyActive" defaultChecked={onlyActive} className="accent-brand-leaf" />
-                                            Активные
-                                        </label>
+                                        redirect(`/${locale}/specialist?id=${activeClient.id}&dates=${selectedDatesFormStr}`);
+                                    }} className="flex flex-col gap-4 w-full">
+                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                            <div>
+                                                <h2 className="font-serif text-lg text-brand-text mb-1">📊 Периодический отчет</h2>
+                                                <p className="text-[11px] text-brand-gray">Выбрано дней: <span className="font-bold text-brand-leaf">{selectedDates ? selectedDates.length : ((activeClientUser as any)?.report_period_days || 7)}</span></p>
+                                            </div>
 
-                                        <button type="submit" className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-3 py-1.5 rounded-xl text-xs font-semibold">Обновить</button>
+                                            <div className="flex items-center gap-3 bg-[#FAFAFA] p-2 rounded-xl border border-brand-sage/20">
+                                                <label className="text-[11px] text-brand-gray whitespace-nowrap">Период (дней):</label>
+                                                <input type="number" name="period" min="1" defaultValue={(activeClientUser as any)?.report_period_days || 7} className="w-11 p-1 border border-brand-sage/40 rounded-lg text-xs text-center bg-white" />
+                                                <button type="submit" className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-3 py-1.5 rounded-xl text-xs font-semibold">Сформировать</button>
+                                            </div>
+                                        </div>
+
+                                        <MonitoringDiaryPreview 
+                                            logs={{
+                                                nutrition: (activeClientUser as any)?.nutritionLogs || [],
+                                                sleep: (activeClientUser as any)?.sleepLogs || [],
+                                                activity: (activeClientUser as any)?.activityLogs || [],
+                                                habit: (activeClientUser as any)?.habitLogs || [],
+                                                hydration: (activeClientUser as any)?.hydrationLogs || [],
+                                            }}
+                                            periodDays={(activeClientUser as any)?.report_period_days || 7}
+                                            initialSelectedDates={selectedDates || []}
+                                        />
                                     </form>
                                 </div>
 
@@ -258,7 +279,7 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
                                     <div className="bg-[#E8F1EB] p-1.5 rounded-full text-brand-leaf"><Edit3 size={14} /></div>
                                     <h2 className="font-serif text-lg text-brand-text">Новая рекомендация</h2>
                                 </div>
-                                <a href={`/${locale}/specialist?id=${activeClient?.id}&onlyActive=${onlyActive}&aiTips=true`} className="text-[10px] font-bold text-brand-leaf border border-brand-leaf/30 px-2.5 py-1.5 rounded-xl flex items-center gap-1 hover:bg-brand-leaf/5 transition-colors cursor-pointer bg-brand-sage/5">
+                                <a href={`/${locale}/specialist?id=${activeClient?.id}&dates=${selectedDatesStr || ''}&aiTips=true`} className="text-[10px] font-bold text-brand-leaf border border-brand-leaf/30 px-2.5 py-1.5 rounded-xl flex items-center gap-1 hover:bg-brand-leaf/5 transition-colors cursor-pointer bg-brand-sage/5">
                                     💡 {searchParams.aiTips === 'true' ? 'Обновить ИИ' : 'Включить ИИ-подсказки'}
                                 </a>
                             </div>

@@ -6,9 +6,23 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import cron from "node-cron";
+
+if (process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL + (process.env.DATABASE_URL.includes('?') ? '&' : '?') + 'connection_limit=30&pool_timeout=40';
+}
+
 import prisma from "../src/lib/prisma";
 import { analyzeFoodWithAI, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI } from "../src/lib/telegram/ai-services";
 import { generatePeriodicReport } from "../src/lib/reportGenerator";
+
+// Global Error Handlers for Stability
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL] Uncaught Exception thrown:', err);
+});
 
 
 
@@ -669,6 +683,8 @@ cron.schedule('0 * * * *', async () => {
 // ----------------------------------------------------
 // Вечерний Опрос (Cron в 21:00 ежедневно)
 // ----------------------------------------------------
+// Периодические задачи: Вечерний Опрос и Отчеты (объединены для оптимизации)
+// ----------------------------------------------------
 cron.schedule('* * * * *', async () => {
     const now = new Date();
 
@@ -685,6 +701,7 @@ cron.schedule('* * * * *', async () => {
                  minute: '2-digit' 
              });
 
+             // --- Вечерний Опрос (Вечерний Опрос) ---
              if (user.reminder_time1 === currentTime || 
                  user.reminder_time2 === currentTime || 
                  user.reminder_time3 === currentTime) {
@@ -699,9 +716,44 @@ cron.schedule('* * * * *', async () => {
                      ])
                  );
              }
+
+             // --- Периодический Отчет (11:00) ---
+             if (currentTime === '11:00') {
+                 const period = (user as any).report_period_days || 7;
+                 const lastReport = (user as any).last_report_date ? new Date((user as any).last_report_date) : null;
+                 
+                 let isDue = false;
+                 if (!lastReport) {
+                     isDue = true;
+                 } else {
+                     const diffDays = (now.getTime() - lastReport.getTime()) / (1000 * 60 * 60 * 24);
+                     if (diffDays >= period) {
+                         isDue = true;
+                     }
+                 }
+
+                 if (isDue) {
+                     try {
+                         const report = await generatePeriodicReport(user.id, period);
+                         await bot.telegram.sendMessage(
+                             user.telegram_id!,
+                             report.markdown,
+                             { parse_mode: 'Markdown' }
+                         );
+                         
+                         await prisma.user.update({
+                             where: { id: user.id },
+                             data: { last_report_date: now } as any
+                         });
+                         console.log(`[CRON] Периодический отчет отправлен: ${user.full_name || user.email}`);
+                     } catch (err: any) {
+                         console.error(`[CRON] Ошибка отправки отчета для ${user.id}:`, err);
+                     }
+                 }
+             }
         }
     } catch (error) {
-        console.error("[CRON] Ошибка опроса:", error);
+        console.error("[CRON] Ошибка периодических задач:", error);
     }
 });
 
@@ -1006,62 +1058,8 @@ bot.action('save_time_3_preset1', (ctx: any) => presetSave(ctx, "09:00", "15:00"
 bot.action('save_time_3_preset2', (ctx: any) => presetSave(ctx, "08:00", "14:00", "20:00", "Напоминания установлены на **08:00**, **14:00** и **20:00**"));
 
 
-// ----------------------------------------------------
-// Периодический Отчет (Cron ежедневно в 11:00)
-// ----------------------------------------------------
-cron.schedule('* * * * *', async () => {
-    const now = new Date();
-    try {
-        const users = await prisma.user.findMany({
-            where: { telegram_id: { not: null } }
-        });
+// Периодический Отчет (объединен с Вечерним Опросом в строках 672+)
 
-        for (const user of users) {
-             const period = (user as any).report_period_days || 7;
-             const lastReport = (user as any).last_report_date ? new Date((user as any).last_report_date) : null;
-             
-             const userTz = (user as any).timezone || 'Europe/Moscow';
-             const currentTime = now.toLocaleTimeString('ru-RU', { 
-                 timeZone: userTz, 
-                 hour: '2-digit', 
-                 minute: '2-digit' 
-             });
-
-             if (currentTime !== '11:00') continue;
-
-             let isDue = false;
-             if (!lastReport) {
-                 isDue = true;
-             } else {
-                 const diffDays = (now.getTime() - lastReport.getTime()) / (1000 * 60 * 60 * 24);
-                 if (diffDays >= period) {
-                     isDue = true;
-                 }
-             }
-
-             if (isDue) {
-                 try {
-                     const report = await generatePeriodicReport(user.id, period);
-                     await bot.telegram.sendMessage(
-                         user.telegram_id!,
-                         report.markdown,
-                         { parse_mode: 'Markdown' }
-                     );
-                     
-                     await prisma.user.update({
-                         where: { id: user.id },
-                         data: { last_report_date: now } as any
-                     });
-                     console.log(`[CRON] Периодический отчет отправлен: ${user.full_name || user.email}`);
-                 } catch (err: any) {
-                     console.error(`[CRON] Ошибка отправки отчета для ${user.id}:`, err);
-                 }
-             }
-        }
-    } catch (error) {
-        console.error("[CRON] Ошибка периодических отчетов:", error);
-    }
-});
 
 
 bot.catch((err: any, ctx: any) => {
@@ -1072,11 +1070,10 @@ bot.catch((err: any, ctx: any) => {
 // Запуск
 
 console.log("Starting Telegram Bot (Long Polling)...");
-bot.launch({ dropPendingUpdates: true }).then(() => {
-    console.log("✅ Bot is polling for updates");
-}).catch(err => {
+bot.launch({ dropPendingUpdates: true }).catch(err => {
     console.error("Bot launch failed:", err);
 });
+console.log("✅ Bot is polling for updates");
 
 // Обеспечиваем корректное завершение
 process.once('SIGINT', () => bot.stop('SIGINT'));

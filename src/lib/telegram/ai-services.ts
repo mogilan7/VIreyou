@@ -4,6 +4,7 @@ dotenv.config({ path: ".env.local", override: true });
 import OpenAI, { toFile } from "openai";
 import fs from "fs";
 import path from "path";
+import ffmpeg from "ffmpeg-static";
 
 const apiKey = process.env.BOT_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 const openai = new OpenAI({ apiKey });
@@ -156,7 +157,7 @@ export async function transcribeVoiceWithAI(file_path: string): Promise<string> 
   console.log(`[VOICE] Converting ${file_path} to ${wavPath} via ffmpeg...`);
   
   try {
-    execSync(`ffmpeg -i "${file_path}" "${wavPath}" -y -loglevel error`);
+    execSync(`"${ffmpeg}" -i "${file_path}" "${wavPath}" -y -loglevel error`);
     console.log(`[VOICE] Conversion successful`);
   } catch (err) {
     console.error(`[VOICE] ffmpeg conversion failed:`, err);
