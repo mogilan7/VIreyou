@@ -116,13 +116,27 @@ const LifestyleDashboard = ({
   const habitDays = Array.from({ length: 30 }, (_, i) => {
     const d = new Date(currentFromDate.getTime() - (29 - i) * 86400000);
     const dayStr = d.toISOString().split('T')[0];
-    const hasBreach = habitsMonth.some((h: any) => 
+    const daysHabits = habitsMonth.filter((h: any) => 
       new Date(h.created_at).toISOString().split('T')[0] === dayStr
     );
-    return { day: dayStr, completed: !hasBreach }; // Green if no bad habits logged
+    
+    let type = 'clean';
+    if (daysHabits.some((h: any) => h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво'))) {
+      type = 'alcohol';
+    } else if (daysHabits.some((h: any) => h.habit_key?.toLowerCase().includes('курение') || h.habit_key?.toLowerCase().includes('сигарет'))) {
+      type = 'smoking';
+    } else if (daysHabits.length > 0) {
+      type = 'other';
+    }
+
+    return { day: dayStr, type };
   });
 
-  const stabilityPct = Math.round((habitDays.filter(d => d.completed).length / 30) * 100);
+  const stabilityPct = Math.round((habitDays.filter(d => d.type === 'clean').length / 30) * 100);
+  
+  const uniqueHabits = Array.from(new Set(habitsMonth.map((h: any) => h.habit_key?.toLowerCase()))) as (string | undefined)[];
+  const hasAlcohol = uniqueHabits.some(h => h && (h.includes('алкоголь') || h.includes('пиво')));
+  const hasSmoking = uniqueHabits.some(h => h && (h.includes('курение') || h.includes('сигарет')));
 
   return (
     <div className={`min-h-screen flex transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0F172A] text-white' : 'bg-[#F7F5F0] text-[#2D2D2D]'} font-sans relative`}>
@@ -395,23 +409,36 @@ const LifestyleDashboard = ({
               <span className="truncate">Привычки и стабильность</span>
             </h2>
             <div className="flex gap-1 sm:gap-2 shrink-0">
-               <span className="p-1 px-1.5 sm:px-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[8px] sm:text-xs font-bold uppercase tracking-wider">Алкоголь</span>
-               <span className="p-1 px-1.5 sm:px-2 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[8px] sm:text-xs font-bold uppercase tracking-wider">Курение</span>
+               {hasAlcohol && <span className="p-1 px-1.5 sm:px-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[8px] sm:text-xs font-bold uppercase tracking-wider">Алкоголь</span>}
+               {hasSmoking && <span className="p-1 px-1.5 sm:px-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 text-[8px] sm:text-xs font-bold uppercase tracking-wider">Курение</span>}
             </div>
           </div>
           
           <div className="flex flex-wrap gap-1 md:gap-1.5 justify-start md:justify-between px-1">
-            {habitDays.map((item, idx) => (
-              <div 
-                key={idx}
-                className={`w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 rounded-sm md:rounded-md transition-all cursor-help ${
-                  item.completed 
-                  ? 'bg-[#60B76F] shadow-[0_0_8px_rgba(96,183,111,0.3)]' 
-                  : 'bg-slate-200 dark:bg-slate-800'
-                }`}
-                title={`${new Date(item.day).toLocaleDateString('ru-RU')}: ${item.completed ? 'Чистый день' : 'Были нарушения'}`}
-              />
-            ))}
+            {habitDays.map((item, idx) => {
+              let colorClass = 'bg-slate-200 dark:bg-slate-800';
+              let shadow = '';
+              if (item.type === 'clean') {
+                colorClass = 'bg-[#60B76F]';
+                shadow = 'shadow-[0_0_8px_rgba(96,183,111,0.3)]';
+              } else if (item.type === 'alcohol') {
+                colorClass = 'bg-red-400';
+              } else if (item.type === 'smoking') {
+                colorClass = 'bg-yellow-400';
+              }
+
+              return (
+                <div 
+                  key={idx}
+                  className={`w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 rounded-sm md:rounded-md transition-all cursor-help ${colorClass} ${shadow}`}
+                  title={`${new Date(item.day).toLocaleDateString('ru-RU')}: ${
+                    item.type === 'clean' ? 'Чистый день' : 
+                    item.type === 'alcohol' ? 'Алкоголь' : 
+                    item.type === 'smoking' ? 'Курение' : 'Нарушение'
+                  }`}
+                />
+              );
+            })}
           </div>
           
           <div className="flex items-center justify-between text-[10px] sm:text-xs md:text-sm text-slate-500 px-1 border-t border-slate-100 dark:border-white/5 pt-3">
