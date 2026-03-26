@@ -1,7 +1,6 @@
 import { redirect } from '@/i18n/routing';
 import { createClient } from '@/utils/supabase/server';
 import { DashboardThemeProvider, ThemeWrapper } from '@/components/dashboard/ThemeContext';
-import PublicNavbar from '@/components/layout/PublicNavbar';
 import React from 'react';
 
 export default async function CabinetLayout({
@@ -24,8 +23,7 @@ export default async function CabinetLayout({
         <DashboardThemeProvider>
             <ThemeWrapper>
                 <div className="min-h-screen font-sans">
-                    <PublicNavbar />
-                    <div className="flex pt-24 lg:pt-0">
+                    <div className="flex">
                         {children}
                     </div>
                 </div>

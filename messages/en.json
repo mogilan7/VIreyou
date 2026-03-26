@@ -1336,5 +1336,122 @@
             "selenium": "Selenium",
             "iodine": "Iodine"
         }
+    },
+    "Bot": {
+        "Auth": {
+            "notLinked": "⚠️ You haven't linked your account. Please send `/start <your_email>` or link Telegram in your personal cabinet on the platform.",
+            "welcomeUnlinked": "👋 Hello! I am your longevity assistant.\n\nTo link your account, send the command:\n`/start your_email@example.com` or link me in your personal cabinet.",
+            "userNotFound": "❌ User with this email was not found on the platform.",
+            "linkSuccess": "✅ Account linked successfully!",
+            "linkError": "❌ An error occurred during authorization.",
+            "langPrompt": "🌐 **Please select your language / Пожалуйста, выберите язык:**"
+        },
+        "Menu": {
+            "caption": "🧬 **Main Menu**\n\nGlad to see you, {name}!\nI'll help you monitor your lifestyle for maximum longevity.\n\n Choose a section:",
+            "recommendations": "📋 My Recommendations",
+            "nutrition": "🍎 Nutrition Analysis",
+            "activity": "🏃‍♂️ Physical Activity",
+            "sleep": "🛌 Sleep Analysis",
+            "water": "💧 Water",
+            "habits": "🚭 Bad Habits",
+            "dashboard": "📊 Lifestyle (Dashboard)",
+            "settings": "⚙️ Settings"
+        },
+        "Settings": {
+            "languageBtn": "🌐 Language / Язык",
+            "languagePrompt": "🌐 **Language Selection / Выбор языка**\n\nSelect the bot interface language:",
+            "langRuBtn": "🇷🇺 Русский",
+            "langEnBtn": "🇬🇧 English",
+            "langSaved": "✅ Language successfully changed to English!",
+            "mainText": "⚙️ **Reminder Settings**\n\nSelect the number of daily reminders you want to receive:",
+            "rem1": "1️⃣ One time",
+            "rem2": "2️⃣ Two times",
+            "rem3": "3️⃣ Three times",
+            "rem0": "📵 Turn off",
+            "timezone": "🌐 Timezone",
+            "tzPrompt": "🌐 **Timezone Selection**\n\nSelect your region or **type it in** (e.g. `Europe/London` or `America/New_York`):",
+            "tzMsk": "Moscow (MSK)",
+            "tzYek": "Yekaterinburg (+2 to MSK)",
+            "tzNov": "Novosibirsk (+4 to MSK)",
+            "tzVla": "Vladivostok (+7 to MSK)",
+            "tzSaved": "✅ **Timezone saved!**\n\n🌐 **{tzName}**",
+            "tzError": "❌ Error saving settings.",
+            "remTimePrompt": "🕒 Select time for reminder:",
+            "remOff": "🔕 Reminders are turned off. All data will be collected via your manual photo/text uploads.",
+            "remSaved": "✅ **Settings saved!**\n\nReminders set to: {time}",
+            "back": "⬅️ Back"
+        },
+        "Water": {
+            "prompt": "💧 **Water Registration**\n\nHow many milliliters (ml) did you drink?\n\nChoose from presets below, or just type it (e.g., `200ml`).",
+            "btn250": "💧 250 ml",
+            "btn500": "💧 500 ml",
+            "btn750": "💧 750 ml",
+            "saved": "✅ +{vol}ml successfully saved!",
+            "text": "💧 Great! Imbibed +{vol}ml."
+        },
+        "Habits": {
+            "prompt": "🚭 Please type or record a voice note about which habits you want to log (e.g., 'smoked today' or 'no alcohol').",
+            "checkBtn": "🚭 Log bad habits",
+            "saved": "🚭 **Bad Habit**: **{habit}**\n\n📝 {desc}",
+            "empty": "You haven't logged any habits yet."
+        },
+        "Nutrition": {
+            "prompt": "🍎 **Nutrition Analysis**\n\nSend me a **photo of your dish**, text, or voice description.\n\nI will calculate calories, macronutrients, fiber, and micronutrients!",
+            "saved": "🍎 **Nutrition**: **{dish}** ({grams}g):\n\n🔥 Calories: {cal} kcal\n🥩 Protein: {prot}g\n🍞 Carbs: {carbs}g\n🥑 Fats: {fat}g\n\n📝 {desc}",
+            "noDataToday": "No data for today yet. Send a food photo or description!",
+            "reportTitle": "📊 **Nutrient Report for {date}**\n\n",
+            "calLine": "🔥 **Calories**: {cal} kcal\n\n"
+        },
+        "Sleep": {
+            "prompt": "🛌 **Sleep Analysis**\n\nSend a **screenshot** of your sleep phases or describe your rest in text.",
+            "saved": "📊 **Sleep Metrics**:\n\n💤 Duration: {dur}h\n🔴 Deep: {deep}h\n🔵 REM: {rem}h\n⚪️ Light: {light}h\n❤️ Resting HR: {hr}\n📉 HRV: {hrv}\n\n📝 {desc}"
+        },
+        "Activity": {
+            "prompt": "🏃‍♂️ **Physical Activity**\n\nSend a **screenshot** of your activity or describe your workout.",
+            "saved": "🏃‍♂️ **Activity**:\n\n👣 Steps: {steps}\n🔥 Calories: {cal}\n⏱ Time: {mins} min\n\n📝 {desc}"
+        },
+        "Confirmation": {
+            "btnSave": "✅ Save",
+            "btnEdit": "✏️ Edit",
+            "editPrompt": "✏️ Type what exactly needs to be changed (e.g., 'increase chicken to 200g' or 'I slept an hour less'). I'll recalculate.",
+            "success": "✅ Metrics successfully saved to your journal!",
+            "error": "❌ Error saving data."
+        },
+        "Processing": {
+            "photoWait": "⏳ Photo received, analyzing...",
+            "photoUnknown": "🤔 Sorry, I'm not sure if this is food or a fitness tracker screenshot. Please describe it via text or voice.",
+            "photoError": "❌ Error processing AI photo. Try again.",
+            "voiceWait": "🎙️ Voice note downloading, transcribing...",
+            "voiceTranscription": "📝 Transcription: \"{text}\"\n\n⏳ Analyzing metrics...",
+            "voiceUnknown": "🤔 Failed to parse health metrics from the voice message. Please rephrase.",
+            "voiceError": "❌ Error processing voice.",
+            "textWait": "⏳ Analyzing metrics...",
+            "textUnknown": "🤔 Not sure these are health metrics. Please describe in text or send a photo.",
+            "textError": "❌ Error processing text.",
+            "editWait": "⏳ Recalculating metrics with your edits...",
+            "editUnknown": "🤔 Failed to recalculate. Please rephrase your edit.",
+            "editError": "❌ AI recalculation error. Try again."
+        },
+        "Checklist": {
+            "emptyTitle": "📋 **Recommendations**\n\nYou have no active recommendations from the AI Assistant yet.",
+            "emptyTests": "📋 **Recommendations**\n\nThere are no specific tests in the latest consultation.",
+            "title": "📋 **Your Recommendations (Checklist)**:\n\n",
+            "takeTest": "Take Test",
+            "instructionsHeader": "\n📅 **7-Day Monitoring Instructions**:\n",
+            "instr1": "1. 🍎 **Nutrition**: Send photos or food descriptions.\n",
+            "instr2": "2. 🛌 **Sleep**: Send sleep metrics in the morning.\n",
+            "instr3": "3. 🏃‍♂️ **Activity**: Send steps/workouts in the evening.\n",
+            "instr4": "4. 💧 **Water**: Type volume (e.g., `250ml`).\n\n",
+            "instrFooter": "_Data will help the AI prepare the 'Analysis' stage!_",
+            "cabinetBtn": "🖥 Personal Cabinet"
+        },
+        "Reminders": {
+            "morningGreeting": "☀️ **Good morning, {name}!**\n\nYou haven't completed the following recommended tests yet:\n{tests}\n\nClick **📋 My Recommendations** in the bot menu to see details and links!",
+            "eveningGreeting": "🌙 Good evening, {name}!\nPlease log your hydration and habits for today."
+        },
+        "Misc": {
+            "dateOffsetPrev": "\n\n📅 _Record date: Yesterday_",
+            "dateOffsetNext": "\n\n📅 _Record date: Tomorrow_"
+        }
     }
 }

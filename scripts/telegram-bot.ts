@@ -15,6 +15,26 @@ import prisma from "../src/lib/prisma";
 import { analyzeFoodWithAI, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI } from "../src/lib/telegram/ai-services";
 import { generatePeriodicReport } from "../src/lib/reportGenerator";
 
+const ruMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/ru.json'), 'utf8'));
+const enMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/en.json'), 'utf8'));
+
+export function t(locale: string, pathStr: string, params: Record<string, any> = {}): string {
+  const msgs: any = locale === 'en' ? enMessages?.Bot : ruMessages?.Bot;
+  if (!msgs) return pathStr;
+  const keys = pathStr.split('.');
+  let result = msgs;
+  for(const k of keys) {
+    if(!result) return pathStr;
+    result = result[k];
+  }
+  if (typeof result !== 'string') return pathStr;
+  let finalStr = result;
+  for (const [k, v] of Object.entries(params)) {
+    finalStr = finalStr.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+  }
+  return finalStr;
+}
+
 // Global Error Handlers for Stability
 process.on('unhandledRejection', (reason, promise) => {
   console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
@@ -88,13 +108,22 @@ const userStates: Record<string, string> = {};
 bot.use(async (ctx: any, next) => {
   const tgId = ctx.from?.id.toString();
   
+  // Default language 
+  ctx.state.lang = 'ru';
+
   if (tgId) {
     const user = await prisma.user.findFirst({
       where: { telegram_id: tgId },
     });
     if (user) {
       ctx.state.user = user;
+      ctx.state.lang = (user as any).language || 'ru';
     }
+  }
+
+  // Handle explicit language selection if it comes early
+  if (ctx.callbackQuery && ctx.callbackQuery.data.startsWith('set_lang_')) {
+    return next();
   }
 
   if (ctx.message && ctx.message.text && ctx.message.text.startsWith('/start')) {
@@ -102,7 +131,7 @@ bot.use(async (ctx: any, next) => {
   }
 
   if (!ctx.state.user) {
-    return ctx.reply("⚠️ Вы не привязали свой аккаунт. Пожалуйста, отправьте команду `/start <ваш_email>` или привяжите Telegram в личном кабинете на сайте.");
+    return ctx.reply(t(ctx.state.lang, 'Auth.notLinked'));
   }
 
   return next();
@@ -133,29 +162,118 @@ bot.command('start', async (ctx: any) => {
     // Проверяем авторизацию еще раз (для запуска без аргументов)
     const user = ctx.state.user;
     if (user) {
+         if (!user.language) {
+             return sendLanguagePrompt(ctx);
+         }
          return sendWelcomeMenu(ctx, user);
     }
-    return ctx.reply("👋 Привет! Я твой ассистент по долголетию.\n\nЧтобы привязать аккаунт, отправь команду:\n`/start ваш_email@example.com` или привяжи меня в личном кабинете на платформе.");
+    return ctx.reply(t(ctx.state.lang, 'Auth.welcomeUnlinked'));
   }
 
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return ctx.reply("❌ Пользователь с таким email не найден на платформе.");
+      return ctx.reply(t(ctx.state.lang, 'Auth.userNotFound'));
+    }
+
+    // Auto-detect timezone from Telegram language_code if not already set
+    const autoTz = detectTimezoneFromLang(ctx.from.language_code);
+    const updateData: any = { telegram_id: ctx.from.id.toString() };
+    if (!(user as any).timezone || (user as any).timezone === 'Europe/Moscow') {
+        updateData.timezone = autoTz;
     }
 
     const updatedUser = await prisma.user.update({
       where: { email },
-      data: { telegram_id: ctx.from.id.toString() },
+      data: updateData,
     });
 
-    ctx.reply("✅ Аккаунт привязан успешно!");
+    ctx.state.user = updatedUser;
+    ctx.state.lang = (updatedUser as any).language || 'ru';
+
+    ctx.reply(t(ctx.state.lang, 'Auth.linkSuccess'));
+    
+    if (!(updatedUser as any).language) {
+      return sendLanguagePrompt(ctx);
+    }
     sendWelcomeMenu(ctx, updatedUser);
   } catch (error) {
     console.error("Start command error:", error);
-    ctx.reply("❌ Произошла ошибка при авторизации.");
+    ctx.reply(t(ctx.state.lang, 'Auth.linkError'));
   }
 });
+
+// Auto-detect timezone from Telegram language_code
+function detectTimezoneFromLang(languageCode?: string): string {
+    const map: Record<string, string> = {
+        'ru': 'Europe/Moscow',
+        'uk': 'Europe/Kiev',
+        'be': 'Europe/Minsk',
+        'kk': 'Asia/Almaty',
+        'uz': 'Asia/Tashkent',
+        'ky': 'Asia/Bishkek',
+        'tg': 'Asia/Dushanbe',
+        'az': 'Asia/Baku',
+        'hy': 'Asia/Yerevan',
+        'ka': 'Asia/Tbilisi',
+        'tt': 'Europe/Moscow',
+        'ba': 'Asia/Yekaterinburg',
+        'en': 'UTC',
+        'de': 'Europe/Berlin',
+        'fr': 'Europe/Paris',
+        'es': 'Europe/Madrid',
+        'it': 'Europe/Rome',
+        'pt': 'Europe/Lisbon',
+        'pl': 'Europe/Warsaw',
+        'cs': 'Europe/Prague',
+        'ro': 'Europe/Bucharest',
+        'tr': 'Europe/Istanbul',
+        'ar': 'Asia/Riyadh',
+        'he': 'Asia/Jerusalem',
+        'zh': 'Asia/Shanghai',
+        'ja': 'Asia/Tokyo',
+        'ko': 'Asia/Seoul',
+    };
+    const code = (languageCode || '').split('-')[0].toLowerCase();
+    return map[code] || 'Europe/Moscow';
+}
+
+async function sendLanguagePrompt(ctx: any) {
+  const lang = ctx.state.lang || 'ru';
+  await ctx.reply(t(lang, 'Auth.langPrompt'), Markup.inlineKeyboard([
+      [Markup.button.callback('🇷🇺 Русский', 'set_lang_ru'), Markup.button.callback('🇬🇧 English', 'set_lang_en')]
+  ]));
+}
+
+bot.action('set_lang_ru', async (ctx: any) => {
+    ctx.answerCbQuery();
+    await saveLanguageAndMenu(ctx, 'ru');
+});
+
+bot.action('set_lang_en', async (ctx: any) => {
+    ctx.answerCbQuery();
+    await saveLanguageAndMenu(ctx, 'en');
+});
+
+bot.action('settings_language', async (ctx: any) => {
+    ctx.answerCbQuery();
+    await sendLanguagePrompt(ctx);
+});
+
+async function saveLanguageAndMenu(ctx: any, lang: string) {
+    const user = ctx.state.user;
+    if (!user) return ctx.reply("❌ User not found.");
+    
+    const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: { language: lang } as any
+    });
+    ctx.state.user = updatedUser;
+    ctx.state.lang = lang;
+    
+    await ctx.reply(t(lang, 'Settings.langSaved'));
+    await sendWelcomeMenu(ctx, updatedUser);
+}
 
 // Вспомогательная функция для отображения меню
 async function sendWelcomeMenu(ctx: any, user: any) {
@@ -180,7 +298,8 @@ async function sendWelcomeMenu(ctx: any, user: any) {
       console.log("Profile fetch failed:", e);
   }
 
-  const caption = `🧬 **Главное меню**\n\nРад Вас видеть, ${name}!\nЯ помогу Вам контролировать образ жизни для достижения максимального долголетия.\n\n Выберите раздел:`;
+  const lang = ctx.state?.lang || 'ru';
+  const caption = t(lang, 'Menu.caption', { name });
 
   try {
       if (fs.existsSync(imagePath)) {
@@ -188,28 +307,28 @@ async function sendWelcomeMenu(ctx: any, user: any) {
               caption: caption,
               parse_mode: 'Markdown',
               ...Markup.inlineKeyboard([
-                  [Markup.button.callback('📋 Мои рекомендации', 'menu_checklist')],
-                  [Markup.button.callback('🍎 Анализ питания', 'menu_nutrition')],
-                  [Markup.button.callback('🏃‍♂️ Физическая активность', 'menu_activity')],
-                  [Markup.button.callback('🛌 Анализ сна', 'menu_sleep')],
-                  [Markup.button.callback('💧 Вода', 'menu_water')],
-                  [Markup.button.callback('🚭 Вредные привычки', 'menu_habits')],
-                  [Markup.button.webApp('📊 Образ жизни (Дашборд)', 'https://vireyou.com/ru/cabinet/lifestyle')],
-                  [Markup.button.callback('⚙️ Настройки', 'menu_settings')]
+                  [Markup.button.callback(t(lang, 'Menu.recommendations'), 'menu_checklist')],
+                  [Markup.button.callback(t(lang, 'Menu.nutrition'), 'menu_nutrition')],
+                  [Markup.button.callback(t(lang, 'Menu.activity'), 'menu_activity')],
+                  [Markup.button.callback(t(lang, 'Menu.sleep'), 'menu_sleep')],
+                  [Markup.button.callback(t(lang, 'Menu.water'), 'menu_water')],
+                  [Markup.button.callback(t(lang, 'Menu.habits'), 'menu_habits')],
+                  [Markup.button.webApp(t(lang, 'Menu.dashboard'), lang === 'en' ? 'https://vireyou.com/en/cabinet/lifestyle' : 'https://vireyou.com/ru/cabinet/lifestyle')],
+                  [Markup.button.callback(t(lang, 'Menu.settings'), 'menu_settings')]
               ])
           });
       } else {
            await ctx.reply(caption, {
               parse_mode: 'Markdown',
               ...Markup.inlineKeyboard([
-                  [Markup.button.callback('📋 Мои рекомендации', 'menu_checklist')],
-                  [Markup.button.callback('🍎 Анализ питания', 'menu_nutrition')],
-                  [Markup.button.callback('🏃‍♂️ Физическая активность', 'menu_activity')],
-                  [Markup.button.callback('🛌 Анализ сна', 'menu_sleep')],
-                  [Markup.button.callback('💧 Вода', 'menu_water')],
-                  [Markup.button.callback('🚭 Вредные привычки', 'menu_habits')],
-                  [Markup.button.webApp('📊 Образ жизни (Дашборд)', 'https://vireyou.com/ru/cabinet/lifestyle')],
-                  [Markup.button.callback('⚙️ Настройки', 'menu_settings')]
+                  [Markup.button.callback(t(lang, 'Menu.recommendations'), 'menu_checklist')],
+                  [Markup.button.callback(t(lang, 'Menu.nutrition'), 'menu_nutrition')],
+                  [Markup.button.callback(t(lang, 'Menu.activity'), 'menu_activity')],
+                  [Markup.button.callback(t(lang, 'Menu.sleep'), 'menu_sleep')],
+                  [Markup.button.callback(t(lang, 'Menu.water'), 'menu_water')],
+                  [Markup.button.callback(t(lang, 'Menu.habits'), 'menu_habits')],
+                  [Markup.button.webApp(t(lang, 'Menu.dashboard'), lang === 'en' ? 'https://vireyou.com/en/cabinet/lifestyle' : 'https://vireyou.com/ru/cabinet/lifestyle')],
+                  [Markup.button.callback(t(lang, 'Menu.settings'), 'menu_settings')]
               ])
           });
       }
@@ -273,29 +392,38 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
         habit_key: parsedData.habit_key 
     };
 
+    const lang = ctx.state.lang || 'ru';
     let text = "";
     if (parsedData.type === "NUTRITION") {
         const d = parsedData.data;
-        text = `🍎 **Питание**: **${d.dish || 'Без названия'}** (${d.grams || '?'}г):\n\n🔥 Калории: ${d.calories} ккал\n🥩 Белки: ${d.protein}г\n🍞 Углеводы: ${d.carbs}г\n🥑 Жиры: ${d.fat}г\n\n📝 ${parsedData.description}`;
+        text = t(lang, 'Nutrition.saved', { 
+            dish: d.dish || (lang === 'en' ? 'Unknown' : 'Без названия'), 
+            grams: d.grams || '?', cal: d.calories, prot: d.protein, carbs: d.carbs, fat: d.fat, desc: parsedData.description 
+        });
     } else if (parsedData.type === "SLEEP") {
         const d = parsedData.data;
-        text = `📊 **Показатели сна**:\n\n💤 Длительность: ${d.duration_hrs || 0}ч\n🔴 Глубокий: ${d.deep_hrs || 0}ч\n🔵 REM: ${d.rem_hrs || 0}ч\n⚪️ Легкий: ${d.light_hrs || 0}ч\n❤️ Пульс покой: ${d.resting_heart_rate || '--'}\n📉 HRV: ${d.hrv || '--'}\n\n📝 ${parsedData.description}`;
+        text = t(lang, 'Sleep.saved', {
+            dur: d.duration_hrs || 0, deep: d.deep_hrs || 0, rem: d.rem_hrs || 0, light: d.light_hrs || 0,
+            hr: d.resting_heart_rate || '--', hrv: d.hrv || '--', desc: parsedData.description
+        });
     } else if (parsedData.type === "ACTIVITY") {
         const d = parsedData.data;
-        text = `🏃‍♂️ **Активность**:\n\n👣 Шаги: ${d.steps || 0}\n🔥 Калории: ${d.calories_burned || 0}\n⏱ Время: ${d.active_minutes || 0} мин\n\n📝 ${parsedData.description}`;
+        text = t(lang, 'Activity.saved', {
+            steps: d.steps || 0, cal: d.calories_burned || 0, mins: d.active_minutes || 0, desc: parsedData.description
+        });
     } else if (parsedData.type === "HABIT") {
         const d = parsedData.data;
-        text = `🚭 **Вредная привычка**: **${d.habit_key}**\n\n📝 ${parsedData.description}`;
+        text = t(lang, 'Habits.saved', { habit: d.habit_key, desc: parsedData.description });
     }
 
     const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
     if (dateOffset !== 0) {
-        text += `\n\n📅 _Дата записи: ${dateOffset < 0 ? 'Вчера' : 'Завтра'}_`;
+        text += dateOffset < 0 ? t(lang, 'Misc.dateOffsetPrev') : t(lang, 'Misc.dateOffsetNext');
     }
 
     return ctx.reply(text, Markup.inlineKeyboard([
-        [Markup.button.callback('✅ Сохранить', 'save_log_confirm')],
-        [Markup.button.callback('✏️ Внести правки', 'edit_log_prompt')]
+        [Markup.button.callback(t(lang, 'Confirmation.btnSave'), 'save_log_confirm')],
+        [Markup.button.callback(t(lang, 'Confirmation.btnEdit'), 'edit_log_prompt')]
     ]));
 }
 
@@ -306,8 +434,9 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
 bot.on('photo', async (ctx: any) => {
   const photo = ctx.message.photo[ctx.message.photo.length - 1]; // Самое большое
   const tempPath = path.join('/tmp', `photo_${photo.file_id}.jpg`);
+  const lang = ctx.state.lang || 'ru';
 
-  await ctx.reply("⏳ Фото получено, анализирую...");
+  await ctx.reply(t(lang, 'Processing.photoWait'));
 
   try {
     await downloadTelegramFile(photo.file_id, tempPath);
@@ -334,12 +463,12 @@ bot.on('photo', async (ctx: any) => {
                 date_offset_days: foodData.date_offset_days
             });
         } else {
-            await ctx.reply("🤔 Извините, я не уверен, что это еда или скриншот фитнес-приложений. Пожалуйста, опишите текстом или голосом.");
+            await ctx.reply(t(lang, 'Processing.photoUnknown'));
         }
     }
   } catch (error) {
     console.error("Photo Error:", error);
-    await ctx.reply("❌ Ошибка при обработке фото ИИ. Попробуйте еще раз.");
+    await ctx.reply(t(lang, 'Processing.photoError'));
   } finally {
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
   }
@@ -351,8 +480,9 @@ bot.on('photo', async (ctx: any) => {
 bot.on('voice', async (ctx: any) => {
   const voice = ctx.message.voice;
   const tempPath = path.join('/tmp', `voice_${voice.file_id}.ogg`);
+  const lang = ctx.state.lang || 'ru';
 
-  await ctx.reply("🎙️ Запись скачивается, расшифровываю...");
+  await ctx.reply(t(lang, 'Processing.voiceWait'));
   console.log(`[VOICE] Starting voice process, file_id: ${voice.file_id}`);
 
   try {
@@ -361,7 +491,7 @@ bot.on('voice', async (ctx: any) => {
     
     const text = await transcribeVoiceWithAI(tempPath);
     console.log(`[VOICE] Transcription text: ${text}`);
-    await ctx.reply(`📝 Расшифровка: "${text}"\n\n⏳ Анализирую показатели...`);
+    await ctx.reply(t(lang, 'Processing.voiceTranscription', { text }));
 
     const parsedData = await analyzeTextWithAI(text);
     console.log(`[VOICE] AI Analysis status: ${parsedData.status}`);
@@ -369,11 +499,11 @@ bot.on('voice', async (ctx: any) => {
     if (parsedData.status === "SUCCESS") {
         await sendConfirmationMessage(ctx, parsedData);
     } else {
-        await ctx.reply("🤔 Не удалось распознать показатели из голосового сообщения. Попробуйте сформулировать иначе.");
+        await ctx.reply(t(lang, 'Processing.voiceUnknown'));
     }
   } catch (error) {
     console.error("Voice Error:", error);
-    await ctx.reply("❌ Ошибка при обработке голоса.");
+    await ctx.reply(t(lang, 'Processing.voiceError'));
   } finally {
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
     console.log(`[VOICE] Finished process for ${voice.file_id}`);
@@ -387,42 +517,44 @@ bot.on('voice', async (ctx: any) => {
 bot.hears(/^(\d+)\s*(мл|ml|миллилитров)$/i, async (ctx: any) => {
     const volume = parseInt(ctx.match[1]);
     const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
 
-    if (!user) return ctx.reply("❌ Пользователь не привязан.");
+    if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
 
     await prisma.hydrationLog.create({
         data: { user_id: user.id, volume_ml: volume }
     });
 
-    return ctx.reply(`✅ Записано: **+${volume} мл** выпитой воды! 💦`);
+    return ctx.reply(t(lang, 'Water.saved', { vol: volume }));
 });
 
 bot.on('text', async (ctx: any) => {
   const text = ctx.message.text;
   const user = ctx.state.user;
+  const lang = ctx.state.lang || 'ru';
 
-  if (!user) return ctx.reply("❌ Пользователь не привязан.");
+  if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
 
   // Выбор Часового Пояса
   if (userStates[user.id] === 'WAITING_FOR_TIMEZONE') {
       userStates[user.id] = ''; // Сброс статуса
       try {
            if (!text.includes('/')) {
-               return ctx.reply("❌ Некорректный формат. Напишите `Continent/City` (например, `Europe/Moscow`). Настройки часового пояса сброшены.");
+               return ctx.reply("❌ Invalid timezone format.");
            }
            await prisma.user.update({
                where: { id: user.id },
                data: { timezone: text } as any
            });
-           return ctx.reply(`✅ Часовой пояс успешно установлен на **${text}**!`);
+           return ctx.reply(t(lang, 'Settings.tzSaved', { tzName: text }));
       } catch (e) {
-           return ctx.reply("❌ Ошибка при сохранении часового пояса.");
+           return ctx.reply(t(lang, 'Settings.tzError'));
       }
   }
 
   // Обработка правок (LOG_EDIT)
   if (userStates[user.id] === 'LOG_EDIT' && tempLog[user.id]) {
-      await ctx.reply("⏳ Пересчитываю показатели с учетом правок...");
+      await ctx.reply(t(lang, 'Processing.editWait'));
       try {
           const previousData = JSON.stringify(tempLog[user.id].data);
           const parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON.`);
@@ -431,26 +563,26 @@ bot.on('text', async (ctx: any) => {
               userStates[user.id] = ''; // Сброс статуса
               await sendConfirmationMessage(ctx, parsedData);
           } else {
-              await ctx.reply("🤔 Не удалось пересчитать. Попробуйте сформулировать правку иначе.");
+              await ctx.reply(t(lang, 'Processing.editUnknown'));
           }
       } catch (err) {
-          await ctx.reply("❌ Ошибка пересчета ИИ. Попробуйте еще раз.");
+          await ctx.reply(t(lang, 'Processing.editError'));
       }
       return;
   }
 
   // Обычный анализ
-  await ctx.reply("⏳ Анализирую показатели...");
+  await ctx.reply(t(lang, 'Processing.textWait'));
   try {
       const parsedData = await analyzeTextWithAI(text);
       if (parsedData.status === "SUCCESS") {
           await sendConfirmationMessage(ctx, parsedData);
       } else {
-          await ctx.reply("🤔 Не уверен, что это показатели здоровья. Пожалуйста, опишите текстом или отправьте фото.");
+          await ctx.reply(t(lang, 'Processing.textUnknown'));
       }
   } catch (err) {
       console.error("Text Error:", err);
-      await ctx.reply("❌ Ошибка при обработке текста.");
+      await ctx.reply(t(lang, 'Processing.textError'));
   }
 });
 
@@ -461,7 +593,8 @@ bot.on('text', async (ctx: any) => {
 bot.action('save_log_confirm', async (ctx: any) => {
     ctx.answerCbQuery();
     const user = ctx.state.user;
-    if (!user || !tempLog[user.id]) return ctx.reply("❌ Нет данных для сохранения.");
+    const lang = ctx.state.lang || 'ru';
+    if (!user || !tempLog[user.id]) return ctx.reply(t(lang, 'Confirmation.error'));
 
     const cached = tempLog[user.id];
     try {
@@ -485,18 +618,19 @@ bot.action('save_log_confirm', async (ctx: any) => {
                 });
             }
         } else if (cached.type === "SLEEP") {
+            const sleepData: any = {
+                user_id: user.id,
+                duration_hrs: cached.data.duration_hrs ? Number(cached.data.duration_hrs) : 0,
+                deep_hrs: cached.data.deep_hrs ? Number(cached.data.deep_hrs) : 0,
+                rem_hrs: cached.data.rem_hrs ? Number(cached.data.rem_hrs) : 0,
+                light_hrs: cached.data.light_hrs ? Number(cached.data.light_hrs) : 0,
+                hrv: cached.data.hrv ? Number(cached.data.hrv) : null,
+                resting_heart_rate: cached.data.resting_heart_rate ? Number(cached.data.resting_heart_rate) : null,
+                notes: cached.description,
+                created_at: date
+            };
             await prisma.sleepLog.create({
-                data: {
-                    user_id: user.id,
-                    duration_hrs: cached.data.duration_hrs ? Number(cached.data.duration_hrs) : 0,
-                    deep_hrs: cached.data.deep_hrs ? Number(cached.data.deep_hrs) : 0,
-                    rem_hrs: cached.data.rem_hrs ? Number(cached.data.rem_hrs) : 0,
-                    light_hrs: cached.data.light_hrs ? Number(cached.data.light_hrs) : 0,
-                    hrv: cached.data.hrv ? Number(cached.data.hrv) : null,
-                    resting_heart_rate: cached.data.resting_heart_rate ? Number(cached.data.resting_heart_rate) : null,
-                    notes: cached.description,
-                    created_at: date
-                }
+                data: sleepData
             });
         } else if (cached.type === "ACTIVITY") {
             await prisma.activityLog.create({
@@ -522,30 +656,39 @@ bot.action('save_log_confirm', async (ctx: any) => {
         }
 
         delete tempLog[user.id];
-        await ctx.reply("✅ Показатели успешно записаны в ваш журнал!");
+        await ctx.reply(t(lang, 'Confirmation.success'));
     } catch (e) {
         console.error("Save Log Error:", e);
-        await ctx.reply("❌ Ошибка сохранения данных.");
+        await ctx.reply(t(lang, 'Confirmation.error'));
     }
 });
 
 bot.action('edit_log_prompt', async (ctx: any) => {
     ctx.answerCbQuery();
     const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
     if (!user) return;
     
     userStates[user.id] = 'LOG_EDIT';
-    await ctx.reply("✏️ Напишите текстом, что именно нужно изменить (например, 'увеличь вес курицы до 200г' или 'я лег на час раньше'). Я сделаю пересчет.");
+    await ctx.reply(t(lang, 'Confirmation.editPrompt'));
 });
 
 // ----------------------------------------------------
 // Чек-лист Рекомендаций и Утреннее напоминание
 // ----------------------------------------------------
 
-const TEST_NAMES: Record<string, string> = {
-    'systemic-bio-age': 'Системный Биовозраст', 'insomnia': 'Индекс бессонницы', 'circadian': 'Циркадные ритмы',
-    'energy': 'Калькулятор TDEE', 'nicotine': 'Тест Фагерстрема', 'alcohol': 'RUS-AUDIT',
-    'sarc-f': 'SARC-F', 'greene-scale': 'Шкала Грина', 'ipss': 'IPSS', 'mief-5': 'МИЭФ-5', 'score': 'SCORE'
+const TEST_NAMES: Record<string, Record<string, string>> = {
+    'systemic-bio-age': { ru: 'Системный Биовозраст', en: 'Systemic Biological Age' },
+    'insomnia': { ru: 'Индекс бессонницы', en: 'Insomnia Index' },
+    'circadian': { ru: 'Циркадные ритмы', en: 'Circadian Rhythms' },
+    'energy': { ru: 'Калькулятор TDEE', en: 'TDEE Calculator' },
+    'nicotine': { ru: 'Тест Фагерстрема', en: 'Fagerström Test' },
+    'alcohol': { ru: 'RUS-AUDIT', en: 'AUDIT (Alcohol)' },
+    'sarc-f': { ru: 'SARC-F', en: 'SARC-F' },
+    'greene-scale': { ru: 'Шкала Грина', en: 'Greene Climacteric Scale' },
+    'ipss': { ru: 'IPSS', en: 'IPSS (Prostate)' },
+    'mief-5': { ru: 'МИЭФ-5', en: 'IIEF-5 (Male Health)' },
+    'score': { ru: 'SCORE', en: 'SCORE (Cardio risk)' }
 };
 
 const TEST_ALIASES: Record<string, string[]> = {
@@ -555,25 +698,26 @@ const TEST_ALIASES: Record<string, string[]> = {
 };
 
 const TEST_PATHS: Record<string, string> = {
-    'systemic-bio-age': '/ru/diagnostics/systemic-bio-age',
-    'bio-age': '/ru/diagnostics/bio-age',
-    'alcohol': '/ru/diagnostics/alcohol',
-    'RU-AUDIT': '/ru/diagnostics/alcohol',
-    'insomnia': '/ru/diagnostics/insomnia',
-    'circadian': '/ru/diagnostics/circadian',
-    'energy': '/ru/diagnostics/energy',
-    'nicotine': '/ru/diagnostics/nicotine',
-    'sarc-f': '/ru/diagnostics/sarc-f',
-    'greene-scale': '/ru/diagnostics/greene-scale',
-    'ipss': '/ru/diagnostics/ipss',
-    'mief-5': '/ru/diagnostics/mief-5',
-    'score': '/ru/diagnostics/score'
+    'systemic-bio-age': '/diagnostics/systemic-bio-age',
+    'bio-age': '/diagnostics/bio-age',
+    'alcohol': '/diagnostics/alcohol',
+    'RU-AUDIT': '/diagnostics/alcohol',
+    'insomnia': '/diagnostics/insomnia',
+    'circadian': '/diagnostics/circadian',
+    'energy': '/diagnostics/energy',
+    'nicotine': '/diagnostics/nicotine',
+    'sarc-f': '/diagnostics/sarc-f',
+    'greene-scale': '/diagnostics/greene-scale',
+    'ipss': '/diagnostics/ipss',
+    'mief-5': '/diagnostics/mief-5',
+    'score': '/diagnostics/score'
 };
 
 bot.action('menu_checklist', async (ctx: any) => {
     ctx.answerCbQuery();
     const user = ctx.state.user;
-    if (!user) return ctx.reply("❌ Пользователь не привязан.");
+    const lang = ctx.state.lang || 'ru';
+    if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
 
     try {
         const results = await prisma.test_results.findMany({
@@ -585,52 +729,54 @@ bot.action('menu_checklist', async (ctx: any) => {
         const latestAiRec = aiRecs.length > 0 ? aiRecs[0] : null;
 
         if (!latestAiRec) {
-            return ctx.reply("📋 **Рекомендации**\n\nУ вас пока нет активных рекомендаций от ИИ-Ассистента.");
+            return ctx.reply(t(lang, 'Checklist.emptyTitle'));
         }
 
         const recommendedTests = (latestAiRec.raw_data as any)?.recommendedTests || [];
         if (recommendedTests.length === 0) {
-             return ctx.reply("📋 **Рекомендации**\n\nВ последней консультации нет конкретных тестов.");
+             return ctx.reply(t(lang, 'Checklist.emptyTests'));
         }
 
-        let text = "📋 **Ваши рекомендации (Чек-лист)**:\n\n";
+        let text = t(lang, 'Checklist.title');
         recommendedTests.forEach((tid: string) => {
              const aliases = TEST_ALIASES[tid] || [tid];
              const isCompleted = results.some((r: any) => aliases.includes(r.test_type));
-             const name = TEST_NAMES[tid] || tid;
-             const path = TEST_PATHS[tid] || `/ru/diagnostics/${tid}`;
-             const link = `https://vireyou.com${path}`;
-             text += `${isCompleted ? '✅' : '🔴'} **${name}**\n   └ [Пройти тест](${link})\n\n`;
+             const testNameObj = TEST_NAMES[tid];
+             const name = testNameObj ? (testNameObj[lang] || testNameObj['ru']) : tid;
+             const path = TEST_PATHS[tid] || `/diagnostics/${tid}`;
+             const link = `https://vireyou.com/${lang}${path}`;
+             text += `${isCompleted ? '✅' : '🔴'} **${name}**\n   └ [${t(lang, 'Checklist.takeTest')}](${link})\n\n`;
         });
 
-        text += "\n📅 **Инструкция по 7-дневному мониторингу**:\n";
-        text += "1. 🍎 **Питание**: Отправляйте фото или описание еды.\n";
-        text += "2. 🛌 **Сон**: Присылайте показатели сна утром.\n";
-        text += "3. 🏃‍♂️ **Активность**: Присылайте шаги/нагрузки вечером.\n";
-        text += "4. 💧 **Вода**: Пишите объем (например, `250мл`).\n\n";
-        text += "_Данные помогут ИИ подготовить этап 'Анализ'!_";
+        text += t(lang, 'Checklist.instructionsHeader');
+        text += t(lang, 'Checklist.instr1');
+        text += t(lang, 'Checklist.instr2');
+        text += t(lang, 'Checklist.instr3');
+        text += t(lang, 'Checklist.instr4');
+        text += t(lang, 'Checklist.instrFooter');
 
         await ctx.reply(text, { 
             parse_mode: 'Markdown', 
             disable_web_page_preview: true,
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: "🖥 Личный кабинет", url: "https://vireyou.com/ru/cabinet" }],
-                    [{ text: "⬅️ Назад", callback_data: "main_menu" }]
+                    [{ text: t(lang, 'Checklist.cabinetBtn'), url: `https://vireyou.com/${lang}/cabinet` }],
+                    [{ text: t(lang, 'Settings.back'), callback_data: "main_menu" }]
                 ]
             }
         });
 
     } catch (e) {
         console.error("Checklist Error:", e);
-        await ctx.reply("❌ Ошибка при загрузке рекомендаций.");
+        await ctx.reply(t(lang, 'Confirmation.error'));
     }
 });
 
 bot.action('main_menu', async (ctx: any) => {
     ctx.answerCbQuery();
     const user = ctx.state.user;
-    if (!user) return ctx.reply("❌ Пользователь не привязан.");
+    const lang = ctx.state.lang || 'ru';
+    if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
     await sendWelcomeMenu(ctx, user);
 });
 
@@ -644,7 +790,8 @@ cron.schedule('0 * * * *', async () => {
         });
 
         for (const user of users) {
-             const userTz = (user as any).timezone || 'Europe/Moscow';
+             const userTz = user.timezone || 'Europe/Moscow';
+             const lang = (user as any).language || 'ru';
              const userTime = now.toLocaleTimeString('ru-RU', { 
                  timeZone: userTz, 
                  hour: '2-digit', 
@@ -669,10 +816,15 @@ cron.schedule('0 * * * *', async () => {
                   return !results.some((r: any) => aliases.includes(r.test_type));
              });
              if (incompleteTests.length > 0) {
-                  const items = incompleteTests.map((t: string) => `• ${TEST_NAMES[t] || t}`).join('\n');
+                  const items = incompleteTests.map((tId: string) => {
+                      const testNameObj = TEST_NAMES[tId];
+                      const name = testNameObj ? (testNameObj[lang] || testNameObj['ru']) : tId;
+                      return `• ${name}`;
+                  }).join('\n');
+
                   await bot.telegram.sendMessage(
                       user.telegram_id!,
-                      `☀️ **Доброе утро, ${user.full_name || 'клиент'}!**\n\nВы еще не прошли следующие тесты из списка рекомендаций:\n${items}\n\nНажмите кнопу **📋 Мои рекомендации** в меню бота, чтобы увидеть детали и ссылки на прохождение!`,
+                      t(lang, 'Reminders.morningGreeting', { name: user.full_name || (lang === 'en' ? 'Client' : 'клиент'), tests: items }),
                       { parse_mode: 'Markdown' }
                   );
              }
@@ -696,25 +848,26 @@ cron.schedule('* * * * *', async () => {
         });
 
         for (const user of users) {
-             const userTz = (user as any).timezone || 'Europe/Moscow';
+             const userTz = user.timezone || 'Europe/Moscow';
+             const lang = (user as any).language || 'ru';
              const currentTime = now.toLocaleTimeString('ru-RU', { 
                  timeZone: userTz, 
                  hour: '2-digit', 
                  minute: '2-digit' 
              });
 
-             // --- Вечерний Опрос (Вечерний Опрос) ---
+             // --- Вечерний Опрос ---
              if (user.reminder_time1 === currentTime || 
                  user.reminder_time2 === currentTime || 
                  user.reminder_time3 === currentTime) {
                  
                  bot.telegram.sendMessage(
                      user.telegram_id!,
-                     `🌙 Добрый вечер, ${user.full_name || 'клиент'}!\nПожалуйста, отметьте водный режим и привычки за текущий день.`,
+                     t(lang, 'Reminders.eveningGreeting', { name: user.full_name || (lang === 'en' ? 'Client' : 'клиент') }),
                      Markup.inlineKeyboard([
-                         [Markup.button.callback('💧 Выпил 250мл', 'water_250')],
-                         [Markup.button.callback('💧 Выпил 500мл', 'water_500')],
-                         [Markup.button.callback('🚭 Отметить вредные привычки', 'habits_check')]
+                         [Markup.button.callback(lang === 'en' ? '💧 Drank 250ml' : '💧 Выпил 250мл', 'water_250')],
+                         [Markup.button.callback(lang === 'en' ? '💧 Drank 500ml' : '💧 Выпил 500мл', 'water_500')],
+                         [Markup.button.callback(t(lang, 'Habits.checkBtn'), 'habits_check')]
                      ])
                  );
              }
@@ -736,7 +889,7 @@ cron.schedule('* * * * *', async () => {
 
                  if (isDue) {
                      try {
-                         const report = await generatePeriodicReport(user.id, period);
+                         const report = await generatePeriodicReport(user.id, period, undefined, undefined, lang);
                          await bot.telegram.sendMessage(
                              user.telegram_id!,
                              report.markdown,
@@ -747,26 +900,27 @@ cron.schedule('* * * * *', async () => {
                              where: { id: user.id },
                              data: { last_report_date: now } as any
                          });
-                         console.log(`[CRON] Периодический отчет отправлен: ${user.full_name || user.email}`);
+                         console.log(`[CRON] Periodic report sent: ${user.full_name || user.email}`);
                      } catch (err: any) {
-                         console.error(`[CRON] Ошибка отправки отчета для ${user.id}:`, err);
+                         console.error(`[CRON] Error sending report for ${user.id}:`, err);
                      }
                  }
              }
         }
     } catch (error) {
-        console.error("[CRON] Ошибка периодических задач:", error);
+        console.error("[CRON] Periodic task error:", error);
     }
 });
 
 // Обработчики кнопок
 bot.action('menu_water', async (ctx: any) => {
     ctx.answerCbQuery();
-    await ctx.reply("💧 **Регистрация воды**\n\nСколько миллилитров (мл) вы выпили?\n\nВыберите из пресетов ниже, либо просто напишите в чат (например: `200мл`).", 
+    const lang = ctx.state.lang || 'ru';
+    await ctx.reply(t(lang, 'Water.prompt'), 
         Markup.inlineKeyboard([
-            [Markup.button.callback('💧 250 мл', 'water_250')],
-            [Markup.button.callback('💧 500 мл', 'water_500')],
-            [Markup.button.callback('💧 750 мл', 'water_750')]
+            [Markup.button.callback(t(lang, 'Water.btn250'), 'water_250')],
+            [Markup.button.callback(t(lang, 'Water.btn500'), 'water_500')],
+            [Markup.button.callback(t(lang, 'Water.btn750'), 'water_750')]
         ])
     );
 });
@@ -774,40 +928,43 @@ bot.action('menu_water', async (ctx: any) => {
 bot.action('water_750', async (ctx: any) => {
     const user = await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
     if (!user) return ctx.answerCbQuery("Пользователь не найден.");
+    const lang = (user as any).language || 'ru';
     
     await prisma.hydrationLog.create({
         data: { user_id: user.id, volume_ml: 750 }
     });
-    ctx.answerCbQuery("✅ +750мл успешно сохранено!");
-    ctx.reply("💧 Отлично! Выпито +750мл.");
+    ctx.answerCbQuery(t(lang, 'Water.saved', { vol: 750 }));
+    ctx.reply(t(lang, 'Water.text', { vol: 750 }));
 });
 
 bot.action('water_250', async (ctx: any) => {
-    // В inline-кнопках ctx.from.id — это тот, кто нажал
     const user = await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
     if (!user) return ctx.answerCbQuery("Пользователь не найден.");
+    const lang = (user as any).language || 'ru';
     
     await prisma.hydrationLog.create({
         data: { user_id: user.id, volume_ml: 250 }
     });
-    ctx.answerCbQuery("✅ +250мл успешно сохранено!");
-    ctx.reply("💧 Отлично! Выпито +250мл.");
+    ctx.answerCbQuery(t(lang, 'Water.saved', { vol: 250 }));
+    ctx.reply(t(lang, 'Water.text', { vol: 250 }));
 });
 
 bot.action('water_500', async (ctx: any) => {
     const user = await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
     if (!user) return ctx.answerCbQuery("Пользователь не найден.");
+    const lang = (user as any).language || 'ru';
     
     await prisma.hydrationLog.create({
         data: { user_id: user.id, volume_ml: 500 }
     });
-    ctx.answerCbQuery("✅ +500мл успешно сохранено!");
-    ctx.reply("💧 Отлично! Выпито +500мл.");
+    ctx.answerCbQuery(t(lang, 'Water.saved', { vol: 500 }));
+    ctx.reply(t(lang, 'Water.text', { vol: 500 }));
 });
 
 bot.action('habits_check', async (ctx: any) => {
     ctx.answerCbQuery();
-    ctx.reply("🚭 Пожалуйста, напишите текстом или голосом, какие привычки вы хотите отметить (например, 'курил сегодня' или 'без алкоголя').");
+    const lang = ctx.state.lang || 'ru';
+    ctx.reply(t(lang, 'Habits.prompt'));
 });
 
 const NUTRITION_NORMS: any = {
@@ -859,7 +1016,7 @@ const NUTRIENT_NAMES: any = {
     manganese: 'Марганец', selenium: 'Селен', iodine: 'Йод'
 };
 
-async function generateDailyReport(userId: string) {
+async function generateDailyReport(userId: string, lang: string = 'ru') {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -886,7 +1043,8 @@ async function generateDailyReport(userId: string) {
         }
     });
 
-    let report = `📊 **Отчет по нутриентам за ${today.toLocaleDateString('ru-RU')}**\n\n`;
+    const dateStr = today.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU');
+    let report = t(lang, 'Nutrition.reportTitle', { date: dateStr });
     let hasData = false;
 
     // Считаем КБЖУ отдельно
@@ -901,7 +1059,7 @@ async function generateDailyReport(userId: string) {
 
     if (logs.length > 0) hasData = true;
 
-    report += `🔥 **Калории**: ${kbtu.calories.toFixed(1)} ккал\n\n`;
+    report += t(lang, 'Nutrition.calLine', { cal: kbtu.calories.toFixed(1) });
 
     for (const [key, config] of Object.entries(NUTRITION_NORMS) as any) {
         const pct = (sum[key] / config.norm) * 100;
@@ -909,11 +1067,15 @@ async function generateDailyReport(userId: string) {
         if (pct >= 80) emoji = '🟢';
         else if (pct >= 50) emoji = '🟡';
         
-        report += `${emoji} **${NUTRIENT_NAMES[key]}**: ${sum[key].toFixed(1)} / ${config.norm} ${config.unit} (${pct.toFixed(0)}%)\n`;
+        const nutrientName = lang === 'en' ? 
+            (key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')) : 
+            (NUTRIENT_NAMES[key] || key);
+
+        report += `${emoji} **${nutrientName}**: ${sum[key].toFixed(1)} / ${config.norm} ${config.unit} (${pct.toFixed(0)}%)\n`;
     }
 
     if (!hasData) {
-        report += "Пока нет данных за сегодня. Отправьте фото еды или описание!";
+        report += t(lang, 'Nutrition.noDataToday');
     }
 
     return report;
@@ -921,62 +1083,72 @@ async function generateDailyReport(userId: string) {
 
 bot.action('menu_nutrition', async (ctx: any) => {
     ctx.answerCbQuery();
-    await ctx.reply("🍎 **Анализ питания**\n\nОтправьте мне **фото блюда**, текстовое или голосовое описание.\n\nЯ рассчитаю калории, БЖУ, клетчатку и микроэлементы!");
+    const lang = ctx.state.lang || 'ru';
+    await ctx.reply(t(lang, 'Nutrition.prompt'));
 });
 
 bot.action('get_nutrition_report', async (ctx: any) => {
     const user = await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
     if (!user) return ctx.answerCbQuery("Пользователь не найден.");
+    const lang = (user as any).language || 'ru';
     
     ctx.answerCbQuery();
-    const report = await generateDailyReport(user.id);
+    const report = await generateDailyReport(user.id, lang);
     ctx.reply(report, { parse_mode: 'Markdown' });
 });
 
 bot.action('menu_activity', async (ctx: any) => {
     ctx.answerCbQuery();
-    ctx.reply("🏃‍♂️ **Физическая активность**\n\nОтправьте мне **скриншот** активности или опишите тренировку словами.");
+    const lang = ctx.state.lang || 'ru';
+    ctx.reply(t(lang, 'Activity.prompt'));
 });
 
 bot.action('menu_sleep', async (ctx: any) => {
     ctx.answerCbQuery();
-    ctx.reply("🛌 **Анализ сна**\n\nПришлите **скриншот** фаз сна или напишите о вашем отдыхе текстом.");
+    const lang = ctx.state.lang || 'ru';
+    ctx.reply(t(lang, 'Sleep.prompt'));
 });
 
 bot.action('menu_habits', async (ctx: any) => {
     ctx.answerCbQuery();
-    ctx.reply("🚭 **Вредные привычки**\n\nОпишите ваши успехи или отказы сегодня. Например: 'Сегодня без сладкого и алкоголя'.");
+    const lang = ctx.state.lang || 'ru';
+    ctx.reply(t(lang, 'Habits.prompt'));
 });
 
 bot.action('menu_settings', async (ctx: any) => {
     ctx.answerCbQuery();
-    ctx.reply("⚙️ **Настройки напоминаний**\n\nВыберите количество напоминаний в день, которые вы хотите получать:", Markup.inlineKeyboard([
-        [Markup.button.callback('1️⃣ Одно время', 'set_count_1')],
-        [Markup.button.callback('2️⃣ Два времени', 'set_count_2')],
-        [Markup.button.callback('3️⃣ Три времени', 'set_count_3')],
-        [Markup.button.callback('📵 Выключить', 'set_count_0')],
-        [Markup.button.callback('🌐 Часовой пояс', 'menu_timezone')]
+    const lang = ctx.state.lang || 'ru';
+    const tzPref = ctx.state.user?.timezone || 'Europe/Moscow';
+    await ctx.reply(t(lang, 'Settings.mainText'), Markup.inlineKeyboard([
+        [Markup.button.callback(t(lang, 'Settings.rem1'), 'set_count_1')],
+        [Markup.button.callback(t(lang, 'Settings.rem2'), 'set_count_2')],
+        [Markup.button.callback(t(lang, 'Settings.rem3'), 'set_count_3')],
+        [Markup.button.callback(t(lang, 'Settings.rem0'), 'set_count_0')],
+        [Markup.button.callback(`${t(lang, 'Settings.timezone')} (${tzPref})`, 'menu_timezone')],
+        [Markup.button.callback(t(lang, 'Settings.languageBtn'), 'settings_language')]
     ]));
 });
 
 bot.action('menu_timezone', async (ctx: any) => {
     ctx.answerCbQuery();
     const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
     if (user) {
         userStates[user.id] = 'WAITING_FOR_TIMEZONE';
     }
     
-    ctx.reply("🌐 **Выбор часового пояса**\n\nВыберите ваш регион из списка или **напишите текстом** (например, `Europe/Moscow` или `Asia/Novosibirsk`):", Markup.inlineKeyboard([
-        [Markup.button.callback('Москва (МСК)', 'set_tz_moscow')],
-        [Markup.button.callback('Екатеринбург (+2 к МСК)', 'set_tz_yekt')],
-        [Markup.button.callback('Новосибирск (+4 к МСК)', 'set_tz_novt')],
-        [Markup.button.callback('Владивосток (+7 к МСК)', 'set_tz_vlat')],
-        [Markup.button.callback('⬅️ Назад', 'menu_settings')]
+    await ctx.reply(t(lang, 'Settings.tzPrompt'), Markup.inlineKeyboard([
+        [Markup.button.callback(t(lang, 'Settings.tzMsk'), 'set_tz_moscow')],
+        [Markup.button.callback(t(lang, 'Settings.tzYek'), 'set_tz_yekt')],
+        [Markup.button.callback(t(lang, 'Settings.tzNov'), 'set_tz_novt')],
+        [Markup.button.callback(t(lang, 'Settings.tzVla'), 'set_tz_vlat')],
+        [Markup.button.callback(t(lang, 'Settings.back'), 'menu_settings')]
     ]));
 });
 
 const setTimezone = async (ctx: any, tz: string, text: string) => {
     const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
     if (user) userStates[user.id] = ''; // Сброс ожидания текста
     try {
         await prisma.user.update({
@@ -984,10 +1156,10 @@ const setTimezone = async (ctx: any, tz: string, text: string) => {
             data: { timezone: tz } as any
         });
         ctx.answerCbQuery();
-        ctx.reply(`✅ **Часовой пояс сохранен!**\n\n🌐 **${text}**`);
+        ctx.reply(t(lang, 'Settings.tzSaved', { tzName: text }));
     } catch (e) {
         console.error("Save timezone error:", e);
-        ctx.reply("❌ Ошибка при сохранении настроек.");
+        ctx.reply(t(lang, 'Settings.tzError'));
     }
 };
 
@@ -1000,7 +1172,8 @@ bot.action('set_tz_vlat', (ctx: any) => setTimezone(ctx, 'Asia/Vladivostok', 'В
 
 bot.action('set_count_1', async (ctx: any) => {
     ctx.answerCbQuery();
-    ctx.reply("🕒 Выберите время для напоминания:", Markup.inlineKeyboard([
+    const lang = ctx.state.lang || 'ru';
+    ctx.reply(t(lang, 'Settings.remTimePrompt'), Markup.inlineKeyboard([
         [Markup.button.callback('09:00', 'save_time_1_0900'), Markup.button.callback('18:00', 'save_time_1_1800')],
         [Markup.button.callback('21:00', 'save_time_1_2100'), Markup.button.callback('22:00', 'save_time_1_2200')]
     ]));
@@ -1008,7 +1181,9 @@ bot.action('set_count_1', async (ctx: any) => {
 
 bot.action('set_count_2', async (ctx: any) => {
     ctx.answerCbQuery();
-    ctx.reply("🕒 Выберите комбинацию времени:", Markup.inlineKeyboard([
+    const lang = ctx.state.lang || 'ru';
+    const text = lang === 'en' ? 'Choose time combination:' : 'Выберите комбинацию времени:';
+    ctx.reply(`🕒 ${text}`, Markup.inlineKeyboard([
         [Markup.button.callback('09:00 и 21:00', 'save_time_2_preset1')],
         [Markup.button.callback('10:00 и 20:00', 'save_time_2_preset2')]
     ]));
@@ -1016,7 +1191,9 @@ bot.action('set_count_2', async (ctx: any) => {
 
 bot.action('set_count_3', async (ctx: any) => {
     ctx.answerCbQuery();
-    ctx.reply("🕒 Выберите комбинацию времени:", Markup.inlineKeyboard([
+    const lang = ctx.state.lang || 'ru';
+    const text = lang === 'en' ? 'Choose time combination:' : 'Выберите комбинацию времени:';
+    ctx.reply(`🕒 ${text}`, Markup.inlineKeyboard([
         [Markup.button.callback('09:00, 15:00 и 21:00', 'save_time_3_preset1')],
         [Markup.button.callback('08:00, 14:00 и 20:00', 'save_time_3_preset2')]
     ]));
@@ -1024,40 +1201,43 @@ bot.action('set_count_3', async (ctx: any) => {
 
 bot.action('set_count_0', async (ctx: any) => {
     const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
     await prisma.user.update({
         where: { id: user.id },
         data: { reminder_time1: null, reminder_time2: null, reminder_time3: null }
     });
     ctx.answerCbQuery();
-    ctx.reply("🔕 Напоминания выключены. Вся информация собирается при ваших ручных отправках фото/текста.");
+    ctx.reply(t(lang, 'Settings.remOff'));
 });
 
 // Сохранение Пресетов
-const presetSave = async (ctx: any, t1: string | null, t2: string | null, t3: string | null, text: string) => {
+const presetSave = async (ctx: any, t1: string | null, t2: string | null, t3: string | null, textRu: string, textEn: string) => {
     const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
     try {
         await prisma.user.update({
             where: { id: user.id },
             data: { reminder_time1: t1, reminder_time2: t2, reminder_time3: t3 }
         });
         ctx.answerCbQuery();
-        ctx.reply(`✅ **Настройки сохранены!**\n\n${text}`);
+        const msg = lang === 'en' ? textEn : textRu;
+        ctx.reply(t(lang, 'Settings.remSaved', { time: msg }));
     } catch (e) {
         console.error("Save time error:", e);
-        ctx.reply("❌ Ошибка при сохранении настроек.");
+        ctx.reply(t(lang, 'Settings.tzError'));
     }
 };
 
-bot.action('save_time_1_0900', (ctx: any) => presetSave(ctx, "09:00", null, null, "Напоминание установлено на **09:00**"));
-bot.action('save_time_1_1800', (ctx: any) => presetSave(ctx, "18:00", null, null, "Напоминание установлено на **18:00**"));
-bot.action('save_time_1_2100', (ctx: any) => presetSave(ctx, "21:00", null, null, "Напоминание установлено на **21:00**"));
-bot.action('save_time_1_2200', (ctx: any) => presetSave(ctx, "22:00", null, null, "Напоминание установлено на **22:00**"));
+bot.action('save_time_1_0900', (ctx: any) => presetSave(ctx, "09:00", null, null, "09:00", "09:00"));
+bot.action('save_time_1_1800', (ctx: any) => presetSave(ctx, "18:00", null, null, "18:00", "18:00"));
+bot.action('save_time_1_2100', (ctx: any) => presetSave(ctx, "21:00", null, null, "21:00", "21:00"));
+bot.action('save_time_1_2200', (ctx: any) => presetSave(ctx, "22:00", null, null, "22:00", "22:00"));
 
-bot.action('save_time_2_preset1', (ctx: any) => presetSave(ctx, "09:00", "21:00", null, "Напоминания установлены на **09:00** и **21:00**"));
-bot.action('save_time_2_preset2', (ctx: any) => presetSave(ctx, "10:00", "20:00", null, "Напоминания установлены на **10:00** и **20:00**"));
+bot.action('save_time_2_preset1', (ctx: any) => presetSave(ctx, "09:00", "21:00", null, "09:00 и 21:00", "09:00 and 21:00"));
+bot.action('save_time_2_preset2', (ctx: any) => presetSave(ctx, "10:00", "20:00", null, "10:00 и 20:00", "10:00 and 20:00"));
 
-bot.action('save_time_3_preset1', (ctx: any) => presetSave(ctx, "09:00", "15:00", "21:00", "Напоминания установлены на **09:00**, **15:00** и **21:00**"));
-bot.action('save_time_3_preset2', (ctx: any) => presetSave(ctx, "08:00", "14:00", "20:00", "Напоминания установлены на **08:00**, **14:00** и **20:00**"));
+bot.action('save_time_3_preset1', (ctx: any) => presetSave(ctx, "09:00", "15:00", "21:00", "09:00, 15:00 и 21:00", "09:00, 15:00 and 21:00"));
+bot.action('save_time_3_preset2', (ctx: any) => presetSave(ctx, "08:00", "14:00", "20:00", "08:00, 14:00 и 20:00", "08:00, 14:00 and 20:00"));
 
 
 // Периодический Отчет (объединен с Вечерним Опросом в строках 672+)

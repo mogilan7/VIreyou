@@ -33,7 +33,7 @@ export const NUTRIENT_NAMES: any = {
     calories: 'Калории'
 };
 
-export async function generatePeriodicReport(userId: string, days: number = 7, clientName?: string, selectedDates?: string[]) {
+export async function generatePeriodicReport(userId: string, days: number = 7, clientName?: string, selectedDates?: string[], lang: string = 'ru') {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new Error("User not found");
     const userTz = user.timezone || 'Europe/Moscow';
@@ -136,39 +136,46 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
     });
 
     // --- Format Markdown ---
-    let markdown = `# 📊 Отчет по образу жизни за ${selectedDates && selectedDates.length > 0 ? selectedDates.length : days} дней\n`;
-    markdown += `**ФИО**: ${clientName || user.full_name || "Не указано"}\n`;
-    markdown += `**Период**: ${startDate.toLocaleDateString('ru-RU')} — ${endDate.toLocaleDateString('ru-RU')}`;
+    const isEn = lang === 'en';
+    let markdown = isEn 
+        ? `# 📊 Lifestyle Report for ${selectedDates && selectedDates.length > 0 ? selectedDates.length : days} days\n`
+        : `# 📊 Отчет по образу жизни за ${selectedDates && selectedDates.length > 0 ? selectedDates.length : days} дней\n`;
+
+    markdown += `**${isEn ? 'Full Name' : 'ФИО'}**: ${clientName || user.full_name || (isEn ? "Not specified" : "Не указано")}\n`;
+    
+    const dFormat = isEn ? 'en-US' : 'ru-RU';
+    markdown += `**${isEn ? 'Period' : 'Период'}**: ${startDate.toLocaleDateString(dFormat)} — ${endDate.toLocaleDateString(dFormat)}`;
+    
     if (selectedDates && selectedDates.length > 0) {
-        markdown += ` *(выбрано дней: ${selectedDates.length})*`;
+        markdown += ` *(${isEn ? 'selected days' : 'выбрано дней'}: ${selectedDates.length})*`;
     }
     markdown += `\n\n`;
 
-    markdown += `## 📋 Выполнение рекомендаций (Привычки)\n`;
+    markdown += `## 📋 ${isEn ? 'Recommendation Progress (Habits)' : 'Выполнение рекомендаций (Привычки)'}\n`;
     if (Object.keys(habitCounts).length === 0) {
-        markdown += `Данные о привычках не зафиксированы.\n\n`;
+        markdown += `${isEn ? 'No habit data recorded.' : 'Данные о привычках не зафиксированы.'}\n\n`;
     } else {
         for (const [key, counts] of Object.entries(habitCounts)) {
             const pct = (counts.completed / denominator) * 100;
             let emoji = '🔴';
             if (pct >= 80) emoji = '🟢';
             else if (pct >= 50) emoji = '🟡';
-            markdown += `${emoji} **${key}**: ${counts.completed} / ${denominator} дн (${pct.toFixed(0)}%)\n`;
+            markdown += `${emoji} **${key}**: ${counts.completed} / ${denominator} ${isEn ? 'days' : 'дн'} (${pct.toFixed(0)}%)\n`;
         }
         markdown += `\n`;
     }
 
-    markdown += `## 🏃‍♂️ Активность и Сон\n`;
-    markdown += `• **Средние шаги/день**: ${avgSteps.toFixed(0)} шагов\n`;
-    markdown += `• **Всего сожжено**: ${totalCalBurned.toFixed(0)} ккал\n`;
-    markdown += `• **Средний сон**: ${avgSleepDuration.toFixed(1)} ч\n`;
-    markdown += `• **Гидратация (ср/день)**: ${avgWater.toFixed(0)} мл\n\n`;
+    markdown += `## 🏃‍♂️ ${isEn ? 'Activity and Sleep' : 'Активность и Сон'}\n`;
+    markdown += `• **${isEn ? 'Avg Steps/day' : 'Средние шаги/день'}**: ${avgSteps.toFixed(0)} ${isEn ? 'steps' : 'шагов'}\n`;
+    markdown += `• **${isEn ? 'Total Burned' : 'Всего сожжено'}**: ${totalCalBurned.toFixed(0)} ${isEn ? 'kcal' : 'ккал'}\n`;
+    markdown += `• **${isEn ? 'Avg Sleep' : 'Средний сон'}**: ${avgSleepDuration.toFixed(1)} ${isEn ? 'h' : 'ч'}\n`;
+    markdown += `• **${isEn ? 'Hydration (avg/day)' : 'Гидратация (ср/день)'}**: ${avgWater.toFixed(0)} ${isEn ? 'ml' : 'мл'}\n\n`;
 
-    markdown += `## 🍎 Питание и Микроэлементы\n`;
-    markdown += `• **Всего калорий**: ${nutritionSum.calories.toFixed(0)} ккал\n`;
-    markdown += `• **Средние калории/день**: ${(nutritionSum.calories / denominator).toFixed(0)} ккал\n\n`;
+    markdown += `## 🍎 ${isEn ? 'Nutrition and Micronutrients' : 'Питание и Микроэлементы'}\n`;
+    markdown += `• **${isEn ? 'Total Calories' : 'Всего калорий'}**: ${nutritionSum.calories.toFixed(0)} ${isEn ? 'kcal' : 'ккал'}\n`;
+    markdown += `• **${isEn ? 'Avg Calories/day' : 'Средние калории/день'}**: ${(nutritionSum.calories / denominator).toFixed(0)} ${isEn ? 'kcal' : 'ккал'}\n\n`;
 
-    markdown += `| Элемент | Всего | Норма за ${days}д | % от нормы |\n`;
+    markdown += `| ${isEn ? 'Element' : 'Элемент'} | ${isEn ? 'Total' : 'Всего'} | ${isEn ? 'Norm for' : 'Норма за'} ${days}${isEn ? 'd' : 'д'} | ${isEn ? '% of norm' : '% от нормы'} |\n`;
     markdown += `|---|---|---|---|\n`;
 
     for (const [key, config] of Object.entries(NUTRITION_NORMS) as any) {
@@ -177,7 +184,11 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
         let emoji = '🔴';
         if (pct >= 80) emoji = '🟢';
         else if (pct >= 50) emoji = '🟡';
-        markdown += `| ${emoji} ${NUTRIENT_NAMES[key]} | ${nutritionSum[key].toFixed(1)} ${config.unit} | ${periodNorm.toFixed(1)} ${config.unit} | ${pct.toFixed(0)}% |\n`;
+
+        const nutrientName = isEn ? (key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')) : (NUTRIENT_NAMES[key] || key);
+        const unit = isEn ? (config.unit === 'г' ? 'g' : (config.unit === 'мг' ? 'mg' : 'mcg')) : config.unit;
+
+        markdown += `| ${emoji} ${nutrientName} | ${nutritionSum[key].toFixed(1)} ${unit} | ${periodNorm.toFixed(1)} ${unit} | ${pct.toFixed(0)}% |\n`;
     }
 
     // --- Format JSON ---

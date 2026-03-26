@@ -566,6 +566,7 @@ model User {
   role                String
   full_name           String?
   telegram_id         String?
+  language            String?            @default("ru")
   reminder_time1      String?            @default("21:00")
   reminder_time2      String?
   reminder_time3      String?
