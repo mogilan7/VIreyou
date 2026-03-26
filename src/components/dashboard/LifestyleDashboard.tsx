@@ -152,7 +152,7 @@ const LifestyleDashboard = ({
   const dayNames = locale === 'ru' ? ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
-    <div className={`min-h-screen flex transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0F172A] text-white' : 'bg-[#F7F5F0] text-[#2D2D2D]'} font-sans relative`}>
+    <div className={`min-h-screen flex w-full transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0F172A] text-white' : 'bg-[#F7F5F0] text-[#2D2D2D]'} font-sans relative`}>
       <Sidebar role="client" profileName={userMetadata?.full_name || "Пользователь"} />
 
       <main className="flex-1 lg:ml-64 px-2 sm:px-4 md:px-8 pt-20 lg:pt-8 space-y-4 sm:space-y-6 md:space-y-8 pb-24 lg:pb-12 w-full max-w-[100vw] sm:max-w-7xl overflow-x-hidden min-w-0">
@@ -218,7 +218,7 @@ const LifestyleDashboard = ({
             label={t('sleep')} 
             value={lastSleep ? Math.floor(lastSleep.duration_hrs).toString() : "0"} 
             unit={lastSleep ? `${t('hrs')} ${Math.round((lastSleep.duration_hrs % 1) * 60)}${t('min')}` : t('hrs')} 
-            target={lastSleep?.deep_hrs ? `${t('deep')}: ${lastSleep.deep_hrs.toFixed(1)}${t('hrs')}` : `8${t('hrs')} цель`}
+            target={lastSleep?.deep_hrs ? `${t('deep')}: ${lastSleep.deep_hrs.toFixed(1)}${t('hrs')}` : `8${t('hrs')} ${t('sleepGoal')}`}
             progress={( (lastSleep?.duration_hrs || 0) / 8) * 100}
             color="bg-indigo-500"
             history={sleepWeek}
