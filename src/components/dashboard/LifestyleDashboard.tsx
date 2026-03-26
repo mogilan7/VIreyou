@@ -145,6 +145,8 @@ const LifestyleDashboard = ({
   const hasAlcohol = uniqueHabits.some(h => h && (h.includes('алкоголь') || h.includes('пиво')));
   const hasSmoking = uniqueHabits.some(h => h && (h.includes('курение') || h.includes('сигарет')));
 
+  const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
   return (
     <div className={`min-h-screen flex transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0F172A] text-white' : 'bg-[#F7F5F0] text-[#2D2D2D]'} font-sans relative`}>
       <Sidebar role="client" profileName={userMetadata?.full_name || "Пользователь"} />
@@ -446,6 +448,11 @@ const LifestyleDashboard = ({
           </div>
           
           <div className="grid grid-cols-7 gap-1 md:gap-2 px-1">
+            {habitDays.map((item, idx) => (
+              <div key={`name-${idx}`} className="text-[8px] sm:text-[10px] text-gray-400 text-center font-medium uppercase">
+                {dayNames[new Date(item.day).getDay()]}
+              </div>
+            ))}
             {habitDays.map((item, idx) => {
               let colorClass = 'bg-[#60B76F]'; // Default to Green
               let shadow = 'shadow-[0_0_8px_rgba(96,183,111,0.3)]';
