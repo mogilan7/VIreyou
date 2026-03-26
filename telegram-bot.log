@@ -1,0 +1,36 @@
+[PRISMA INIT] Database Host: aws-1-ap-northeast-1.pooler.supabase.com, Port: 5432
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.3.1] injecting env (9) from .env.local -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🛡️ auth for agents: https://vestauth.com
+[dotenv@17.3.1] injecting env (9) from .env.local -- tip: ⚙️  enable debug logging with { debug: true }
+Starting Telegram Bot (Long Polling)...
+✅ Bot is polling for updates
+[2026-03-25T03:23:22.018Z] [PID: 22875] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Wed Mar 25 2026 09:53:00 GMT+0630 (Myanmar Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[CRON] Проверка утренних напоминаний...
+[2026-03-25T03:32:35.947Z] [PID: 22875] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Wed Mar 25 2026 10:01:00 GMT+0630 (Myanmar Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-03-25T03:32:35.954Z] [PID: 22875] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Wed Mar 25 2026 10:02:00 GMT+0630 (Myanmar Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[CRON] Ошибка периодических задач: PrismaClientKnownRequestError: 
+Invalid `prisma.user.findMany()` invocation in
+/Users/mogilevandrei/.gemini/antigravity/scratch/longevity-portal/scripts/telegram-bot.ts:692:41
+
+  689 const now = new Date();
+  690 
+  691 try {
+→ 692     const users = await prisma.user.findMany(
+Can't reach database server at `aws-1-ap-northeast-1.pooler.supabase.com:5432`
+
+Please make sure your database server is running at `aws-1-ap-northeast-1.pooler.supabase.com:5432`.
+    at $n.handleRequestError (/Users/mogilevandrei/.gemini/antigravity/scratch/longevity-portal/node_modules/@prisma/client/runtime/library.js:121:7315)
+    at $n.handleAndLogRequestError (/Users/mogilevandrei/.gemini/antigravity/scratch/longevity-portal/node_modules/@prisma/client/runtime/library.js:121:6623)
+    at $n.request (/Users/mogilevandrei/.gemini/antigravity/scratch/longevity-portal/node_modules/@prisma/client/runtime/library.js:121:6307)
+    at async l (/Users/mogilevandrei/.gemini/antigravity/scratch/longevity-portal/node_modules/@prisma/client/runtime/library.js:130:9633)
+    at async <anonymous> (/Users/mogilevandrei/.gemini/antigravity/scratch/longevity-portal/scripts/telegram-bot.ts:692:23)
+    at async Timeout._onTimeout (/Users/mogilevandrei/.gemini/antigravity/scratch/longevity-portal/node_modules/node-cron/src/scheduler/runner.ts:100:30) {
+  code: 'P1001',
+  clientVersion: '5.22.0',
+  meta: {
+    modelName: 'User',
+    database_host: 'aws-1-ap-northeast-1.pooler.supabase.com',
+    database_port: 5432
+  }
+}

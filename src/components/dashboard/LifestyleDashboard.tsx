@@ -117,26 +117,26 @@ const LifestyleDashboard = ({
     <div className={`min-h-screen flex transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0F172A] text-white' : 'bg-[#F7F5F0] text-[#2D2D2D]'} font-sans`}>
       <Sidebar role="client" profileName={userMetadata?.full_name || "Пользователь"} />
 
-      <main className="flex-1 lg:ml-64 px-4 pt-24 lg:pt-8 md:px-8 space-y-8 pb-24 lg:pb-12 max-w-7xl">
+      <main className="flex-1 lg:ml-64 px-3 md:px-8 pt-20 lg:pt-8 space-y-6 md:space-y-8 pb-24 lg:pb-12 max-w-7xl overflow-x-hidden">
         
         {/* --- Header Section --- */}
         <section className="space-y-4">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div>
-              <h1 className="font-serif text-4xl font-bold tracking-tight">Образ жизни</h1>
-              <p className="text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#60B76F]" />
-                {totalSteps > 8000 ? "Активный день! Продолжайте в том же духе." : "Хорошее начало дня для восстановления."}
+          <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+            <div className="space-y-1">
+              <h1 className="font-serif text-3xl md:text-4xl font-bold tracking-tight">Образ жизни</h1>
+              <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 text-sm md:text-base">
+                <CheckCircle2 className="w-4 h-4 text-[#60B76F] shrink-0" />
+                <span className="leading-tight">{totalSteps > 8000 ? "Активный день! Продолжайте в том же духе." : "Хорошее начало дня для восстановления."}</span>
               </p>
             </div>
             
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 p-1 rounded-xl border border-white/20 backdrop-blur-sm overflow-x-auto scrollbar-hide">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-1 bg-white/50 dark:bg-slate-800/50 p-1 rounded-xl border border-white/20 backdrop-blur-sm overflow-x-auto scrollbar-hide max-w-full">
                 {['Сегодня', 'Вчера', 'Неделя', 'Месяц'].map((range) => (
                   <button
                     key={range}
                     onClick={() => updateRange(range)}
-                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                    className={`px-3 md:px-4 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all whitespace-nowrap ${
                       (range === 'Сегодня' && selectedRange === 'Сегодня') || (range === 'Неделя' && !fromStr && !toStr)
                       ? 'bg-[#60B76F] text-white shadow-lg shadow-[#60B76F]/20' 
                       : 'hover:bg-white/80 dark:hover:bg-slate-700'
@@ -147,18 +147,18 @@ const LifestyleDashboard = ({
                 ))}
               </div>
               
-              <form action="" method="GET" className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 p-1 rounded-xl border border-white/20 backdrop-blur-sm">
-                 <input type="date" name="from" defaultValue={fromStr || formatDate(currentFromDate)} className="bg-transparent border-0 text-xs p-1 dark:text-white" />
-                 <span className="text-slate-400">-</span>
-                 <input type="date" name="to" defaultValue={toStr || formatDate(new Date())} className="bg-transparent border-0 text-xs p-1 dark:text-white" />
-                 <button type="submit" className="bg-[#60B76F] text-white p-1 rounded-lg"><ChevronRight size={14}/></button>
+              <form action="" method="GET" className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 p-1 rounded-xl border border-white/20 backdrop-blur-sm w-full sm:w-auto">
+                 <input type="date" name="from" defaultValue={fromStr || formatDate(currentFromDate)} className="bg-transparent border-0 text-[10px] md:text-xs p-1 dark:text-white flex-1 focus:ring-0" />
+                 <span className="text-slate-400 text-xs">-</span>
+                 <input type="date" name="to" defaultValue={toStr || formatDate(new Date())} className="bg-transparent border-0 text-[10px] md:text-xs p-1 dark:text-white flex-1 focus:ring-0" />
+                 <button type="submit" className="bg-[#60B76F] text-white p-1.5 rounded-lg shrink-0"><ChevronRight size={14}/></button>
               </form>
             </div>
           </div>
         </section>
 
         {/* --- Summary Cards --- */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <SummaryCard 
             icon={<Droplets className="text-blue-500" />} 
             label="Вода" 
@@ -208,24 +208,20 @@ const LifestyleDashboard = ({
             userTz={userTz}
             historyValueKey="calories"
             historyUnit="ккал"
-            isNutrition
-            nutritionNorms={nutritionNorms}
-            nutrientNames={nutrientNames}
-            nutritionToday={nutritionToday}
           />
         </section>
 
         {/* --- Detailed Nutrition --- */}
-        <section className="glass-card p-6 rounded-3xl space-y-6">
+        <section className="glass-card p-4 md:p-6 rounded-3xl space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold flex items-center gap-2">
+            <h2 className="text-lg md:text-xl font-bold flex items-center gap-2">
               <Utensils className="w-5 h-5 text-orange-500" />
               Питание и КБЖУ
             </h2>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            <div className="h-48 flex justify-center relative">
+          <div className="grid lg:grid-cols-2 gap-8 items-center">
+            <div className="h-40 md:h-48 flex justify-center relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -239,7 +235,7 @@ const LifestyleDashboard = ({
                   >
                     {nutritionPieData.length > 0 ? (
                       nutritionPieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={Object.values(MACRO_COLORS)[index % 3]} />
+                        <Cell key={`cell-${index}`} fill={Object.values(MACRO_COLORS)[index % 4]} />
                       ))
                     ) : (
                       <Cell fill="#e2e8f0" />
@@ -249,12 +245,12 @@ const LifestyleDashboard = ({
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-2xl font-bold">{totalCalories > 1000 ? (totalCalories/1000).toFixed(1) + 'k' : totalCalories}</span>
-                <span className="text-xs text-slate-500">ккал</span>
+                <span className="text-xl md:text-2xl font-bold">{totalCalories > 1000 ? (totalCalories/1000).toFixed(1) + 'k' : totalCalories}</span>
+                <span className="text-[10px] md:text-xs text-slate-500">ккал</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-6">
               <MacroItem label="Белки" current={totalMacros.protein} target={nutritionNorms.protein.norm} color={MACRO_COLORS.proteins} unit="г" />
               <MacroItem label="Жиры" current={totalMacros.fat} target={nutritionNorms.fat.norm} color={MACRO_COLORS.fats} unit="г" />
               <MacroItem label="Углеводы" current={totalMacros.carbs} target={nutritionNorms.carbs.norm} color={MACRO_COLORS.carbs} unit="г" />
@@ -262,16 +258,38 @@ const LifestyleDashboard = ({
             </div>
           </div>
 
+          {/* Nutrition Report Dropdown - MOVED HERE */}
+          <details className="group pt-2 border-t border-slate-100 dark:border-white/5">
+              <summary className="text-xs text-[#60B76F] cursor-pointer list-none flex items-center justify-between font-bold uppercase tracking-wider py-2">
+                  📊 Отчет по всем нутриентам <ChevronDown size={14} className="group-open:rotate-180 transition-transform" />
+              </summary>
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-[10px] text-gray-500 dark:text-slate-400 bg-white/30 dark:bg-black/10 p-3 rounded-2xl border border-white/10">
+                  {Object.entries(nutritionNorms).map(([key, config]: any) => {
+                      const val = nutritionToday.reduce((sum: number, n: any) => sum + Number(n[key] || 0), 0);
+                      const pct = (val / config.norm) * 100;
+                      let emoji = '🔴';
+                      if (pct >= 80) emoji = '🟢';
+                      else if (pct >= 50) emoji = '🟡';
+                      return (
+                          <div key={key} className="flex justify-between items-center py-1 px-2 hover:bg-white/40 dark:hover:bg-white/5 rounded-lg transition-colors border-b border-slate-100/50 dark:border-white/5 last:border-0 sm:border-0">
+                              <span className="truncate pr-2">{emoji} {nutrientNames[key]}</span>
+                              <span className="font-medium shrink-0">{val.toFixed(1)} / {config.norm}</span>
+                          </div>
+                      );
+                  })}
+              </div>
+          </details>
+
           {/* Meals List */}
           <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-             {nutritionToday.length === 0 ? <p className="text-gray-400 text-sm text-center">Трапез не зафиксировано</p> :
+             {nutritionToday.length === 0 ? <p className="text-gray-400 text-sm text-center py-4">Трапез не зафиксировано</p> :
               nutritionToday.map((n: any) => (
                 <MealRow 
                   key={n.id}
                   time={new Date(n.created_at).toLocaleTimeString('ru-RU', { timeZone: userTz, hour: '2-digit', minute:'2-digit' })} 
                   name={n.dish || "Прием пищи"} 
                   kcal={n.calories} 
-                  tags={[n.protein > 20 ? 'Белок' : null, n.fiber > 5 ? 'Клетчатка' : null].filter(Boolean)} 
+                  tags={[n.protein > 20 ? 'Белок' : null, n.fiber > 5 ? 'Клетчатка' : null, n.grams ? `${n.grams}г` : null].filter(Boolean)} 
                   hasImage={!!n.image_url}
                   id={n.id}
                   deleteNutritionLog={deleteNutritionLog}
@@ -282,11 +300,11 @@ const LifestyleDashboard = ({
         </section>
 
         {/* --- Sleep & Activity Grid --- */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-4 md:gap-6">
           {/* Sleep Detailed */}
-          <section className="glass-card p-6 rounded-3xl space-y-6">
+          <section className="glass-card p-4 md:p-6 rounded-3xl space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold flex items-center gap-2">
+              <h2 className="text-lg md:text-xl font-bold flex items-center gap-2">
                 <Moon className="w-5 h-5 text-indigo-500" />
                 Сон и HRV
               </h2>
@@ -296,7 +314,7 @@ const LifestyleDashboard = ({
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={sleepChartData} layout="vertical">
                     <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12, fill: '#94A3B8' }} />
+                    <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10, fill: '#94A3B8' }} />
                     <Tooltip cursor={{ fill: 'transparent' }} />
                     <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
                       {sleepChartData.map((entry, index) => (
@@ -311,21 +329,21 @@ const LifestyleDashboard = ({
             </div>
             <div className="flex justify-between items-center px-2 py-3 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-2xl">
               <div className="text-center flex-1">
-                <p className="text-xs text-indigo-400 uppercase tracking-wider">HRV (ВСР)</p>
-                <p className="text-lg font-bold">—</p>
+                <p className="text-[10px] text-indigo-400 uppercase tracking-wider font-bold">HRV (ВСР)</p>
+                <p className="text-base md:text-lg font-bold">—</p>
               </div>
               <div className="w-px h-8 bg-indigo-200 dark:bg-indigo-800" />
               <div className="text-center flex-1">
-                <p className="text-xs text-indigo-400 uppercase tracking-wider">Пульс покой</p>
-                <p className="text-lg font-bold">—</p>
+                <p className="text-[10px] text-indigo-400 uppercase tracking-wider font-bold">Пульс покой</p>
+                <p className="text-base md:text-lg font-bold">—</p>
               </div>
             </div>
           </section>
 
           {/* Activity Trend */}
-          <section className="glass-card p-6 rounded-3xl space-y-6">
+          <section className="glass-card p-4 md:p-6 rounded-3xl space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold flex items-center gap-2">
+              <h2 className="text-lg md:text-xl font-bold flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-[#60B76F]" />
                 Тренд активности
               </h2>
@@ -339,7 +357,7 @@ const LifestyleDashboard = ({
                       <stop offset="95%" stopColor="#60B76F" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94A3B8'}} />
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#94A3B8'}} />
                   <Tooltip />
                   <Area type="monotone" dataKey="steps" stroke="#60B76F" fillOpacity={1} fill="url(#colorSteps)" />
                 </AreaChart>
@@ -347,28 +365,28 @@ const LifestyleDashboard = ({
             </div>
             <div className="flex gap-4">
               <div className="flex-1 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                <p className="text-xs text-slate-500">Всего шагов (7д)</p>
-                <p className="text-lg font-bold">{activityWeek.reduce((s:number,a:any)=>s+(a.steps||0),0).toLocaleString()}</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Всего шагов (7д)</p>
+                <p className="text-base md:text-lg font-bold">{activityWeek.reduce((s:number,a:any)=>s+(a.steps||0),0).toLocaleString()}</p>
               </div>
               <div className="flex-1 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                <p className="text-xs text-slate-500">Последний пульс</p>
-                <p className="text-lg font-bold">—</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Последний пульс</p>
+                <p className="text-base md:text-lg font-bold">—</p>
               </div>
             </div>
           </section>
         </div>
 
         {/* --- Habits --- */}
-        <section className="glass-card p-6 rounded-3xl space-y-6">
+        <section className="glass-card p-4 md:p-6 rounded-3xl space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold flex items-center gap-2">
+            <h2 className="text-lg md:text-xl font-bold flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-purple-500" />
               Привычки за день
             </h2>
           </div>
           
-          <div className="space-y-3">
-             {habitsToday.length === 0 ? <p className="text-gray-400 text-sm text-center">Записей нет</p> :
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+             {habitsToday.length === 0 ? <p className="text-gray-400 text-sm text-center col-span-full py-4">Записей нет</p> :
               habitsToday.map((h: any) => (
                 <div key={h.id} className="flex gap-3 items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/30">
                   {h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво') ? (
@@ -377,7 +395,7 @@ const LifestyleDashboard = ({
                       <Cigarette size={18} className="text-amber-500 flex-shrink-0" />
                   )}
                   <div className="flex-1">
-                      <p className="text-sm dark:text-slate-300 font-bold">{h.habit_key}</p>
+                      <p className="text-xs md:text-sm dark:text-slate-300 font-bold">{h.habit_key}</p>
                       <p className="text-[10px] text-gray-400">{new Date(h.created_at).toLocaleTimeString('ru-RU', { timeZone: userTz, hour: '2-digit', minute:'2-digit' })}</p>
                   </div>
                 </div>
@@ -398,6 +416,16 @@ const LifestyleDashboard = ({
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(96, 183, 111, 0.3);
+          border-radius: 10px;
+        }
       `}} />
     </div>
   );
@@ -405,22 +433,22 @@ const LifestyleDashboard = ({
 
 // --- Helper Components ---
 
-const SummaryCard = ({ icon, label, value, unit, target, progress, color, history, userTz, historyValueKey = 'volume_ml', historyUnit = 'мл', isNutrition, nutritionNorms, nutrientNames, nutritionToday }: any) => (
-  <div className="glass-card p-4 rounded-3xl space-y-3 transition-transform hover:-translate-y-1">
+const SummaryCard = ({ icon, label, value, unit, target, progress, color, history, userTz, historyValueKey = 'volume_ml', historyUnit = 'мл' }: any) => (
+  <div className="glass-card p-3 md:p-4 rounded-3xl space-y-2 md:space-y-3 transition-transform hover:-translate-y-1">
     <div className="flex justify-between items-start">
-      <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/80">
-        {icon}
+      <div className="p-1.5 md:p-2 rounded-xl bg-slate-50 dark:bg-slate-800/80">
+        {React.cloneElement(icon as React.ReactElement<any>, { size: 18 })}
       </div>
-      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{label}</span>
+      <span className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{label}</span>
     </div>
     <div>
       <div className="flex items-baseline gap-1">
-        <span className="text-xl font-bold dark:text-white">{value}</span>
-        <span className="text-xs text-slate-400 font-medium">{unit}</span>
+        <span className="text-lg md:text-xl font-bold dark:text-white">{value}</span>
+        <span className="text-[10px] md:text-xs text-slate-400 font-medium">{unit}</span>
       </div>
-      <p className="text-[10px] text-slate-500 font-medium">{target}</p>
+      <p className="text-[9px] md:text-[10px] text-slate-500 font-medium truncate">{target}</p>
     </div>
-    <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+    <div className="h-1 md:h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
       <div 
         className={`h-full ${color} transition-all duration-1000`} 
         style={{ width: `${Math.min(progress, 100)}%` }} 
@@ -429,50 +457,26 @@ const SummaryCard = ({ icon, label, value, unit, target, progress, color, histor
 
     {/* Dropdown lists - "За неделю" */}
     <details className="group mt-2 pt-2 border-t border-slate-100 dark:border-white/5">
-        <summary className="text-[9px] text-[#60B76F] cursor-pointer list-none flex items-center justify-between font-bold uppercase tracking-wider">
+        <summary className="text-[8px] md:text-[9px] text-[#60B76F] cursor-pointer list-none flex items-center justify-between font-bold uppercase tracking-wider">
             🗓️ За неделю <ChevronDown size={10} className="group-open:rotate-180 transition-transform" />
         </summary>
-        <div className="mt-2 space-y-1 max-h-24 overflow-y-auto text-[10px] text-gray-500 dark:text-slate-400 custom-scrollbar">
-            {history.slice(0, 7).map((h: any) => (
+        <div className="mt-2 space-y-1 max-h-24 overflow-y-auto text-[9px] md:text-[10px] text-gray-500 dark:text-slate-400 custom-scrollbar">
+            {history && history.length > 0 ? history.slice(0, 7).map((h: any) => (
                 <div key={h.id} className="flex justify-between pb-0.5 border-b border-slate-50 dark:border-white/5 last:border-0">
                   <span>{new Date(h.created_at).toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', timeZone: userTz})}</span>
                   <span className="font-bold">{h[historyValueKey]?.toFixed(0)} {historyUnit}</span>
                 </div>
-            ))}
+            )) : <p className="text-center py-1 opacity-50">Нет данных</p>}
         </div>
     </details>
-
-    {/* Nutrition Report Dropdown */}
-    {isNutrition && (
-        <details className="group mt-1 pt-1 border-t border-slate-100 dark:border-white/5">
-            <summary className="text-[9px] text-[#60B76F] cursor-pointer list-none flex items-center justify-between font-bold uppercase tracking-wider">
-                📊 Отчет нутриентов <ChevronDown size={10} className="group-open:rotate-180 transition-transform" />
-            </summary>
-            <div className="mt-2 space-y-1 max-h-32 overflow-y-auto text-[9px] text-gray-500 dark:text-slate-400 custom-scrollbar bg-slate-50/50 dark:bg-slate-800/50 p-1 rounded-lg">
-                {Object.entries(nutritionNorms).map(([key, config]: any) => {
-                    const val = nutritionToday.reduce((sum: number, n: any) => sum + Number(n[key] || 0), 0);
-                    const pct = (val / config.norm) * 100;
-                    let emoji = '🔴';
-                    if (pct >= 80) emoji = '🟢';
-                    else if (pct >= 50) emoji = '🟡';
-                    return (
-                        <div key={key} className="flex justify-between items-center pb-0.5 border-b border-slate-100 dark:border-white/5 last:border-0">
-                            <span>{emoji} {nutrientNames[key]}</span>
-                            <span>{val.toFixed(1)} / {config.norm} ({pct.toFixed(0)}%)</span>
-                        </div>
-                    );
-                })}
-            </div>
-        </details>
-    )}
   </div>
 );
 
 const MacroItem = ({ label, current, target, color, unit }: any) => (
   <div className="space-y-1">
-    <div className="flex justify-between text-[11px] font-bold">
+    <div className="flex justify-between text-[10px] md:text-[11px] font-bold">
       <span className="text-slate-500 uppercase">{label}</span>
-      <span className="dark:text-white">{current}{unit} <span className="text-slate-400 font-normal">/ {target}{unit}</span></span>
+      <span className="dark:text-white shrink-0 ml-2">{current}{unit} <span className="text-slate-400 font-normal">/ {target}{unit}</span></span>
     </div>
     <div className="h-1 w-full bg-slate-100 dark:bg-slate-800 rounded-full">
       <div 
@@ -484,27 +488,27 @@ const MacroItem = ({ label, current, target, color, unit }: any) => (
 );
 
 const MealRow = ({ time, name, kcal, tags, hasImage, id, deleteNutritionLog }: any) => (
-  <div className="flex items-center gap-4 group cursor-pointer p-2 -mx-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all overflow-hidden">
-    <div className="text-[11px] font-bold text-slate-400 w-10">{time}</div>
+  <div className="flex items-center gap-2 md:gap-4 group cursor-pointer p-2 -mx-1 md:-mx-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all overflow-hidden">
+    <div className="text-[10px] md:text-[11px] font-bold text-slate-400 w-8 md:w-10 shrink-0">{time}</div>
     {hasImage ? (
-      <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden">
+      <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden shrink-0">
         <img src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100&h=100&fit=crop`} alt="Food" className="object-cover w-full h-full" />
       </div>
     ) : (
-      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-        <Utensils className="w-5 h-5 text-slate-400" />
+      <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+        <Utensils className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
       </div>
     )}
     <div className="flex-1 min-w-0">
-      <p className="text-sm font-bold truncate dark:text-white">{name}</p>
-      <div className="flex gap-2 mt-0.5">
+      <p className="text-xs md:text-sm font-bold truncate dark:text-white">{name}</p>
+      <div className="flex flex-wrap gap-1 mt-0.5">
         {tags.map((tag: any) => (
-          <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">{tag}</span>
+          <span key={tag} className="text-[8px] md:text-[9px] px-1 md:px-1.5 py-0.5 rounded bg-slate-200/50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium whitespace-nowrap">{tag}</span>
         ))}
       </div>
     </div>
-    <div className="flex items-center gap-3">
-        <div className="text-sm font-bold text-slate-700 dark:text-slate-300">
+    <div className="flex items-center gap-2 md:gap-3 shrink-0">
+        <div className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300">
         {kcal} <span className="text-[10px] font-normal text-slate-400">ккал</span>
         </div>
         <DeleteLogButton id={id} action={deleteNutritionLog} />
@@ -513,3 +517,4 @@ const MealRow = ({ time, name, kcal, tags, hasImage, id, deleteNutritionLog }: a
 );
 
 export default LifestyleDashboard;
+
