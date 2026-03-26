@@ -121,13 +121,13 @@ const LifestyleDashboard = ({
     );
     
     let type = 'clean';
-    if (daysHabits.some((h: any) => h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво'))) {
-      type = 'alcohol';
-    } else if (daysHabits.some((h: any) => h.habit_key?.toLowerCase().includes('курение') || h.habit_key?.toLowerCase().includes('сигарет'))) {
-      type = 'smoking';
-    } else if (daysHabits.length > 0) {
-      type = 'other';
-    }
+    const holdsAlcohol = daysHabits.some((h: any) => h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво'));
+    const holdsSmoking = daysHabits.some((h: any) => h.habit_key?.toLowerCase().includes('курение') || h.habit_key?.toLowerCase().includes('сигарет'));
+
+    if (holdsAlcohol && holdsSmoking) type = 'both';
+    else if (holdsAlcohol) type = 'alcohol';
+    else if (holdsSmoking) type = 'smoking';
+    else if (daysHabits.length > 0) type = 'other';
 
     return { day: dayStr, type };
   });
@@ -422,9 +422,11 @@ const LifestyleDashboard = ({
                 colorClass = 'bg-[#60B76F]';
                 shadow = 'shadow-[0_0_8px_rgba(96,183,111,0.3)]';
               } else if (item.type === 'alcohol') {
-                colorClass = 'bg-red-400';
+                colorClass = 'bg-slate-400 dark:bg-slate-600'; // Серый для алкоголя
               } else if (item.type === 'smoking') {
-                colorClass = 'bg-yellow-400';
+                colorClass = 'bg-yellow-400'; // Желтый для курения
+              } else if (item.type === 'both') {
+                colorClass = 'bg-red-400'; // Красный для обоих
               }
 
               return (
