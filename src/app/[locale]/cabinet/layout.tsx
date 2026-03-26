@@ -22,8 +22,8 @@ export default async function CabinetLayout({
     return (
         <DashboardThemeProvider>
             <ThemeWrapper>
-                <div className="min-h-screen font-sans">
-                    <div className="flex">
+                <div className="min-h-screen font-sans w-full">
+                    <div className="flex w-full">
                         {children}
                     </div>
                 </div>
