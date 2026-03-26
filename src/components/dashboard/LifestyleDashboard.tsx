@@ -375,6 +375,15 @@ const LifestyleDashboard = ({
                 </div>
               )}
             </div>
+            <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
+              {sleepChartData.map((s, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+                  <span className="text-[10px] text-slate-500 font-medium">{s.name} {s.value.toFixed(1)}ч</span>
+                </div>
+              ))}
+            </div>
+            
             <div className="flex justify-between items-center px-1 sm:px-2 py-2 sm:py-3 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl sm:rounded-2xl mt-auto">
               <div className="text-center flex-1 min-w-0">
                 <p className="text-[8px] sm:text-[10px] text-indigo-400 uppercase tracking-tight font-bold truncate">HRV</p>
@@ -467,8 +476,16 @@ const LifestyleDashboard = ({
           </div>
           
           <div className="flex items-center justify-between text-[10px] sm:text-xs md:text-sm text-slate-500 px-1 border-t border-slate-100 dark:border-white/5 pt-3">
-            <span>Стабильность за 7 дней</span>
-            <span className="font-bold text-[#60B76F] text-sm sm:text-base">{stabilityPct}%</span>
+            <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#60B76F]" /><span>Чисто</span></div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-slate-400" /><span>Алкоголь</span></div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-400" /><span>Курение</span></div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-400" /><span>Комбо</span></div>
+            </div>
+            <div className="shrink-0 text-right">
+                <p className="text-[10px] text-slate-400 leading-none mb-1">Стабильность за 7 дней</p>
+                <span className="font-bold text-[#60B76F] text-sm sm:text-base">{stabilityPct}%</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-2">
