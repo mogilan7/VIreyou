@@ -40,6 +40,8 @@ const NUTRIENT_NAMES: any = {
     manganese: 'Марганец', selenium: 'Селен', iodine: 'Йод'
 };
 
+import LifestyleDashboard from "@/components/dashboard/LifestyleDashboard";
+
 export default async function LifestylePage({ searchParams }: { searchParams: Promise<{ from?: string, to?: string }> }) {
     try {
         const resolvedParams = await searchParams;
@@ -56,20 +58,23 @@ export default async function LifestylePage({ searchParams }: { searchParams: Pr
         const publicUser = await prisma.user.findUnique({ where: { email: user.email! } });
         const userId = publicUser ? publicUser.id : user.id;
 
+        const userTz = publicUser?.timezone || 'Europe/Moscow';
+        
+        const getTzMidnightUTC = (dateStr: string | null, offsetDays: number, isEnd: boolean) => {
+            const base = dateStr ? new Date(`${dateStr}T12:00:00Z`) : new Date();
+            const tzStr = base.toLocaleString('en-US', { timeZone: userTz, hour12: false });
+            const tzDate = new Date(tzStr); 
+            const offsetMs = tzDate.getTime() - base.getTime();
+            let midnightUtc = new Date(tzDate.setHours(0, 0, 0, 0) - offsetMs);
+            if (offsetDays) midnightUtc = new Date(midnightUtc.getTime() + offsetDays * 86400000);
+            if (isEnd) return new Date(midnightUtc.getTime() + 86400000 - 1);
+            return midnightUtc;
+        };
+
         // Фиксация дат для фильтрации
-        let fromDate = new Date();
-        fromDate.setHours(0, 0, 0, 0);
-        let toDate = new Date();
-        toDate.setHours(23, 59, 59, 999);
-
-        if (fromStr) fromDate = new Date(fromStr);
-        if (toStr) {
-            toDate = new Date(toStr);
-            toDate.setHours(23, 59, 59, 999);
-        }
-
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
+        let fromDate = getTzMidnightUTC(fromStr || null, 0, false);
+        let toDate = getTzMidnightUTC(toStr || null, 0, true);
+        const weekAgo = getTzMidnightUTC(null, -7, false);
 
         // Fetch Logs from Prisma
         const [nutritionToday, activityToday, sleepToday, hydrationToday, habitsToday, nutritionWeek, activityWeek, sleepWeek, hydrationWeek] = await Promise.all([
@@ -92,223 +97,27 @@ export default async function LifestylePage({ searchParams }: { searchParams: Pr
         const totalCalories = nutritionToday.reduce((sum: number, n: any) => sum + Number(n.calories || 0), 0);
         const totalSteps = activityToday.reduce((sum: number, a: any) => sum + (a.steps || 0), 0);
 
+        const data = {
+            nutritionToday, activityToday, sleepToday, hydrationToday, habitsToday,
+            nutritionWeek, activityWeek, sleepWeek, hydrationWeek,
+            totalWater, lastSleep, lastActivity, totalCalories, totalSteps,
+            nutritionNorms: NUTRITION_NORMS,
+            nutrientNames: NUTRIENT_NAMES
+        }
+
         return (
-            <div className="min-h-screen font-sans flex transition-colors duration-300">
-                <Sidebar role="client" profileName={user?.user_metadata?.full_name || "Пользователь"} />
-
-                <main className="flex-1 w-full lg:ml-64 p-4 md:p-8 overflow-x-hidden pt-24 lg:pt-8 bg-slate-50 dark:bg-slate-950">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-                            <div>
-                                <h1 className="text-3xl font-bold dark:text-slate-100 text-brand-text mb-1">Образ жизни</h1>
-                                <p className="text-sm text-gray-500 dark:text-slate-400">Мониторинг вашего питания, активности и сна на основе данных из Telegram-бота.</p>
-                            </div>
-
-                            {/* Фильтр Периода */}
-                            <form action="" method="GET" className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3 rounded-xl shadow-sm">
-                                <div className="flex items-center gap-1">
-                                    <input type="date" name="from" defaultValue={fromStr || fromDate.toISOString().split('T')[0]} className="bg-slate-50 dark:bg-slate-800 border-0 rounded-lg p-1.5 text-xs dark:text-slate-200" />
-                                </div>
-                                <span className="text-gray-400">-</span>
-                                <div className="flex items-center gap-1">
-                                    <input type="date" name="to" defaultValue={toStr || toDate.toISOString().split('T')[0]} className="bg-slate-50 dark:bg-slate-800 border-0 rounded-lg p-1.5 text-xs dark:text-slate-200" />
-                                </div>
-                                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg">Применить</button>
-                            </form>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                            {/* Water Card */}
-                            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
-                                <div>
-                                    <div className="flex items-center gap-4 mb-4">
-                                        <div className="p-3 rounded-xl bg-blue-500/10 text-blue-500">
-                                            <GlassWater size={24} />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-400">💧 Гидратация</p>
-                                            <h3 className="text-2xl font-bold dark:text-slate-100">{totalWater} <span className="text-sm font-normal text-gray-400">мл</span></h3>
-                                        </div>
-                                    </div>
-                                    <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2">
-                                        <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${Math.min((totalWater / 2000) * 100, 100)}%` }}></div>
-                                    </div>
-                                    <p className="text-[10px] text-gray-400 mt-1">Норма: 2000 мл</p>
-                                </div>
-
-                                {/* Список неделя */}
-                                <details className="group mt-4 pt-2 border-t border-slate-100 dark:border-white/5">
-                                    <summary className="text-[10px] text-blue-500 cursor-pointer list-none flex items-center justify-between">
-                                        🗓️ За неделю <ChevronDown size={12} className="group-open:rotate-180 transition-transform" />
-                                    </summary>
-                                    <div className="mt-2 space-y-1 max-h-24 overflow-y-auto text-[11px] text-gray-500 dark:text-slate-400">
-                                        {hydrationWeek.map((h: any) => (
-                                            <div key={h.id} className="flex justify-between">{new Date(h.created_at).toLocaleDateString([], {day:'2-digit', month:'2-digit'})}: <span>{h.volume_ml} мл</span></div>
-                                        ))}
-                                    </div>
-                                </details>
-                            </div>
-
-                            {/* Sleep Card */}
-                            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="p-3 rounded-xl bg-purple-500/10 text-purple-500">
-                                        <Bed size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-400">🛌 Сон</p>
-                                        <h3 className="text-xl font-bold dark:text-slate-100">
-                                            {lastSleep && lastSleep.duration_hrs ? `${Math.floor(lastSleep.duration_hrs)}ч ${Math.round((lastSleep.duration_hrs % 1) * 60)}м` : "—"}
-                                        </h3>
-                                        {lastSleep?.deep_hrs && <p className="text-[10px] text-gray-400">Глубокий: {Math.floor(lastSleep.deep_hrs)}ч {Math.round((lastSleep.deep_hrs % 1) * 60)}м</p>}
-                                    </div>
-                                </div>
-
-                                <details className="group mt-4 pt-2 border-t border-slate-100 dark:border-white/5">
-                                    <summary className="text-[10px] text-blue-500 cursor-pointer list-none flex items-center justify-between">
-                                        🗓️ За неделю <ChevronDown size={12} className="group-open:rotate-180 transition-transform" />
-                                    </summary>
-                                    <div className="mt-2 space-y-1 max-h-24 overflow-y-auto text-[11px] text-gray-500 dark:text-slate-400">
-                                        {sleepWeek.map((s: any) => (
-                                            <div key={s.id} className="flex justify-between">{new Date(s.created_at).toLocaleDateString([], {day:'2-digit', month:'2-digit'})}: <span>{s.duration_hrs?.toFixed(1)}ч</span></div>
-                                        ))}
-                                    </div>
-                                </details>
-                            </div>
-
-                            {/* Activity Card */}
-                            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="p-3 rounded-xl bg-green-500/10 text-green-500">
-                                        <Activity size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-400">🏃‍♂️ Активность</p>
-                                        <h3 className="text-xl font-bold dark:text-slate-100">{totalSteps} <span className="text-sm font-normal text-gray-400">шагов</span></h3>
-                                        {lastActivity?.calories_burned && <p className="text-[10px] text-orange-500">🔥 {lastActivity.calories_burned} ккал</p>}
-                                    </div>
-                                </div>
-
-                                <details className="group mt-4 pt-2 border-t border-slate-100 dark:border-white/5">
-                                    <summary className="text-[10px] text-blue-500 cursor-pointer list-none flex items-center justify-between">
-                                        🗓️ За неделю <ChevronDown size={12} className="group-open:rotate-180 transition-transform" />
-                                    </summary>
-                                    <div className="mt-2 space-y-1 max-h-24 overflow-y-auto text-[11px] text-gray-500 dark:text-slate-400">
-                                        {activityWeek.map((a: any) => (
-                                            <div key={a.id} className="flex justify-between">{new Date(a.created_at).toLocaleDateString([], {day:'2-digit', month:'2-digit'})}: <span>{a.steps || 0}</span></div>
-                                        ))}
-                                    </div>
-                                </details>
-                            </div>
-
-                            {/* Nutrition Card */}
-                            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
-                                <div className="flex items-center gap-4 mb-3">
-                                    <div className="p-3 rounded-xl bg-red-500/10 text-red-500">
-                                        <Apple size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-400">🍎 Питание</p>
-                                        <h3 className="text-xl font-bold dark:text-slate-100">{totalCalories} <span className="text-sm font-normal text-gray-400">ккал</span></h3>
-                                    </div>
-                                </div>
-
-                                {/* Краткий отчет КБЖУ со скроллом */}
-                                <details className="group mt-2 mb-2">
-                                    <summary className="text-[11px] text-blue-500 cursor-pointer list-none flex items-center justify-between font-semibold">
-                                        📊 Отчет по всем нутриентам <ChevronDown size={12} className="group-open:rotate-180 transition-transform" />
-                                    </summary>
-                                    <div className="mt-1 space-y-1 max-h-40 overflow-y-auto text-xs text-gray-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl">
-                                        {Object.entries(NUTRITION_NORMS).map(([key, config]: any) => {
-                                            const val = nutritionToday.reduce((sum: number, n: any) => sum + Number(n[key] || 0), 0);
-                                            const pct = (val / config.norm) * 100;
-                                            let emoji = '🔴';
-                                            if (pct >= 80) emoji = '🟢';
-                                            else if (pct >= 50) emoji = '🟡';
-                                            return (
-                                                <div key={key} className="flex justify-between items-center text-[10px] pb-1 border-b border-slate-100 dark:border-white/5 last:border-0">
-                                                    <span>{emoji} {NUTRIENT_NAMES[key]}</span>
-                                                    <span>{val.toFixed(1)} / {config.norm} ({pct.toFixed(0)}%)</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </details>
-
-                                <details className="group mt-2 pt-2 border-t border-slate-100 dark:border-white/5">
-                                    <summary className="text-[10px] text-blue-500 cursor-pointer list-none flex items-center justify-between">
-                                        🗓️ За неделю <ChevronDown size={12} className="group-open:rotate-180 transition-transform" />
-                                    </summary>
-                                    <div className="mt-2 space-y-1 max-h-24 overflow-y-auto text-[11px] text-gray-500 dark:text-slate-400">
-                                        {nutritionWeek.filter((n: any, i: number, arr: any[]) => arr.findIndex((x: any) => new Date(x.created_at).toLocaleDateString() === new Date(n.created_at).toLocaleDateString()) === i).map((n: any) => {
-                                            const dayCal = nutritionWeek.filter((x: any) => new Date(x.created_at).toLocaleDateString() === new Date(n.created_at).toLocaleDateString()).reduce((sum: number, x: any) => sum + (x.calories || 0), 0);
-                                            return (
-                                                <div key={n.id} className="flex justify-between">{new Date(n.created_at).toLocaleDateString([], {day:'2-digit', month:'2-digit'})}: <span>{dayCal} ккал</span></div>
-                                            );
-                                        })}
-                                    </div>
-                                </details>
-                            </div>
-                        </div>
-
-                        {/* Logs Detailed Lists */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 rounded-2xl p-6 shadow-sm">
-                                <h3 className="text-lg font-bold mb-4 dark:text-slate-200">🥗 Последние приемы пищи</h3>
-                                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                                    {nutritionToday.length === 0 ? <p className="text-gray-400 text-sm">Трапез не зафиксировано за период</p> :
-                                        nutritionToday.map((n: any) => (
-                                            <div key={n.id} className="p-4 rounded-xl border border-slate-50 dark:border-white/5 bg-slate-50/50 dark:bg-slate-800/20">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <div>
-                                                        <p className="text-sm font-semibold dark:text-slate-300">{n.dish || "Без названия"}</p>
-                                                        {n.grams && <p className="text-[10px] text-gray-400">{n.grams} г</p>}
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xs text-gray-400">{new Date(n.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                                        <DeleteLogButton id={n.id} action={deleteNutritionLog} />
-                                                    </div>
-                                                </div>
-                                                <p className="text-xs text-gray-500 mb-2 truncate">{n.description}</p>
-                                                <div className="flex gap-4 text-[10px] text-gray-500">
-                                                    <span>🔥 {n.calories} ккал</span>
-                                                    <span>🥩 Б: {n.protein}г</span>
-                                                    <span>🥑 Ж: {n.fat}г</span>
-                                                    <span>🍞 У: {n.carbs}г</span>
-                                                </div>
-                                            </div>
-                                        ))
-                                    }
-                                </div>
-                            </div>
-
-                            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 rounded-2xl p-6 shadow-sm">
-                                <h3 className="text-lg font-bold mb-4 dark:text-slate-200">🚭 Вредные привычки за сегодня</h3>
-                                <div className="space-y-3">
-                                    {habitsToday.length === 0 ? <p className="text-gray-400 text-sm">Привычки не зафиксированы за период</p> :
-                                        habitsToday.map((h: any) => (
-                                            <div key={h.id} className="flex gap-3 items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/30">
-                                                    {h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво') ? (
-                                                        <Wine size={18} className="text-purple-400 flex-shrink-0" />
-                                                    ) : (
-                                                        <Cigarette size={18} className="text-amber-500 flex-shrink-0" />
-                                                    )}
-                                                <div className="flex-1">
-                                                    <p className="text-sm dark:text-slate-300">{h.habit_key}</p>
-                                                    <p className="text-[10px] text-gray-400">{new Date(h.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                                                </div>
-                                            </div>
-                                        ))
-                                    }
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </main>
-            </div>
+            <LifestyleDashboard 
+                data={data}
+                userMetadata={user?.user_metadata}
+                userTz={userTz}
+                deleteNutritionLog={deleteNutritionLog}
+                fromStr={fromStr}
+                toStr={toStr}
+                currentFromDate={fromDate}
+            />
         );
     } catch (err: any) {
         return <div className="p-8 text-center text-red-500">Ошибка: {err.message}</div>;
     }
 }
+

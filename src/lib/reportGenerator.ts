@@ -34,33 +34,44 @@ export const NUTRIENT_NAMES: any = {
 };
 
 export async function generatePeriodicReport(userId: string, days: number = 7, clientName?: string, selectedDates?: string[]) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new Error("User not found");
+    const userTz = user.timezone || 'Europe/Moscow';
+
+    // Helper to find exact UTC time for midnight in the user's timezone
+    const getTzMidnightUTC = (dateStr: string | null, offsetDays: number, isEnd: boolean) => {
+        const base = dateStr ? new Date(`${dateStr}T12:00:00Z`) : new Date();
+        const tzStr = base.toLocaleString('en-US', { timeZone: userTz, hour12: false });
+        const tzDate = new Date(tzStr); // parses as server local time
+        const offsetMs = tzDate.getTime() - base.getTime();
+        
+        let midnightUtc = new Date(tzDate.setHours(0, 0, 0, 0) - offsetMs);
+        if (offsetDays) midnightUtc = new Date(midnightUtc.getTime() + offsetDays * 86400000);
+        if (isEnd) return new Date(midnightUtc.getTime() + 86400000 - 1);
+        return midnightUtc;
+    };
+
     // If selectedDates is provided, we use the max and min of those dates for our DB query boundary.
     // Otherwise we use the last `days` days.
-    let startDate = new Date();
-    let endDate = new Date();
+    let startDate: Date;
+    let endDate: Date;
     
     if (selectedDates && selectedDates.length > 0) {
         const sortedDates = [...selectedDates].sort();
-        startDate = new Date(sortedDates[0]);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(sortedDates[sortedDates.length - 1]);
-        endDate.setHours(23, 59, 59, 999);
+        startDate = getTzMidnightUTC(sortedDates[0], 0, false);
+        endDate = getTzMidnightUTC(sortedDates[sortedDates.length - 1], 0, true);
     } else {
-        endDate.setHours(23, 59, 59, 999);
-        startDate.setDate(startDate.getDate() - days);
-        startDate.setHours(0, 0, 0, 0);
+        endDate = getTzMidnightUTC(null, 0, true);
+        startDate = getTzMidnightUTC(null, -days + 1, false);
     }
 
-    const [nutritionLogs, activityLogs, sleepLogs, hydrationLogs, habitLogs, user] = await Promise.all([
+    const [nutritionLogs, activityLogs, sleepLogs, hydrationLogs, habitLogs] = await Promise.all([
         prisma.nutritionLog.findMany({ where: { user_id: userId, created_at: { gte: startDate, lte: endDate } } }),
         prisma.activityLog.findMany({ where: { user_id: userId, created_at: { gte: startDate, lte: endDate } } }),
         prisma.sleepLog.findMany({ where: { user_id: userId, created_at: { gte: startDate, lte: endDate } } }),
         prisma.hydrationLog.findMany({ where: { user_id: userId, created_at: { gte: startDate, lte: endDate } } }),
-        prisma.habitLog.findMany({ where: { user_id: userId, created_at: { gte: startDate, lte: endDate } } }),
-        prisma.user.findUnique({ where: { id: userId } })
+        prisma.habitLog.findMany({ where: { user_id: userId, created_at: { gte: startDate, lte: endDate } } })
     ]);
-
-    if (!user) throw new Error("User not found");
 
     // Filter logs if selectedDates is provided
     let filteredNutrition = nutritionLogs;

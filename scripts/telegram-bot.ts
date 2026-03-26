@@ -236,9 +236,7 @@ async function saveFoodLog(userId: string, foodData: any) {
   }
   // Обработка оффсета даты (например, "Вчера")
   if (foodData.date_offset_days !== undefined && foodData.date_offset_days !== 0) {
-      const date = new Date();
-      date.setDate(date.getDate() + Number(foodData.date_offset_days));
-      data.created_at = date;
+      data.created_at = new Date(Date.now() + Number(foodData.date_offset_days) * 86400000);
   }
 
   const log = await prisma.nutritionLog.create({ data });
@@ -468,7 +466,7 @@ bot.action('save_log_confirm', async (ctx: any) => {
     try {
         let date = new Date();
         if (cached.date_offset_days) {
-            date.setDate(date.getDate() + Number(cached.date_offset_days));
+            date = new Date(Date.now() + Number(cached.date_offset_days) * 86400000);
         }
 
         if (cached.type === "NUTRITION") {
