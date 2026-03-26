@@ -133,9 +133,8 @@ const LifestyleDashboard = ({
     const holdsSmoking = daysHabits.some((h: any) => h.habit_key?.toLowerCase().includes('курение') || h.habit_key?.toLowerCase().includes('сигарет'));
 
     if (holdsAlcohol && holdsSmoking) type = 'both';
-    else if (holdsAlcohol) type = 'alcohol';
     else if (holdsSmoking) type = 'smoking';
-    else if (daysHabits.length > 0) type = 'other';
+    else if (daysHabits.length > 0) type = 'alcohol'; // Any other breach is gray (Alcohol/General)
 
     return { day: dayStr, type };
   });
@@ -448,17 +447,18 @@ const LifestyleDashboard = ({
           
           <div className="grid grid-cols-7 gap-1 md:gap-2 px-1">
             {habitDays.map((item, idx) => {
-              let colorClass = 'bg-slate-200 dark:bg-slate-800';
-              let shadow = '';
-              if (item.type === 'clean') {
-                colorClass = 'bg-[#60B76F]';
-                shadow = 'shadow-[0_0_8px_rgba(96,183,111,0.3)]';
-              } else if (item.type === 'alcohol') {
-                colorClass = 'bg-slate-400 dark:bg-slate-600'; // Серый для алкоголя
+              let colorClass = 'bg-[#60B76F]'; // Default to Green
+              let shadow = 'shadow-[0_0_8px_rgba(96,183,111,0.3)]';
+              
+              if (item.type === 'alcohol') {
+                colorClass = 'bg-slate-400 dark:bg-slate-600';
+                shadow = '';
               } else if (item.type === 'smoking') {
-                colorClass = 'bg-yellow-400'; // Желтый для курения
+                colorClass = 'bg-yellow-400';
+                shadow = '';
               } else if (item.type === 'both') {
-                colorClass = 'bg-red-400'; // Красный для обоих
+                colorClass = 'bg-red-400';
+                shadow = '';
               }
 
               return (
