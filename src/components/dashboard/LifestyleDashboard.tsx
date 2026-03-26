@@ -290,7 +290,6 @@ const LifestyleDashboard = ({
                       <Cell fill="#e2e8f0" />
                     )}
                   </Pie>
-                  <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -356,7 +355,7 @@ const LifestyleDashboard = ({
             <div className="flex justify-between items-center px-1">
               <h2 className="text-base sm:text-lg md:text-xl font-bold flex items-center gap-1.5 sm:gap-2">
                 <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500 shrink-0" />
-                <span className="truncate">Сон и HRV</span>
+                <span className="truncate">{t('sleep')} & HRV</span>
               </h2>
             </div>
             <div className="h-40 md:h-48 w-full flex justify-center relative min-w-0">
@@ -376,16 +375,15 @@ const LifestyleDashboard = ({
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-400 text-xs sm:text-sm">Данные сна отсутствуют</div>
+                <div className="h-full flex items-center justify-center text-slate-400 text-xs sm:text-sm">{t('noData')}</div>
               )}
               {sleepChartData.length > 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-lg sm:text-xl md:text-2xl font-bold">{lastSleep?.duration_hrs?.toFixed(1) || '0'}</span>
-                  <span className="text-[9px] sm:text-[10px] md:text-xs text-slate-500">часов</span>
+                  <span className="text-[9px] sm:text-[10px] md:text-xs text-slate-500">{t('hrs')}</span>
                 </div>
               )}
             </div>
