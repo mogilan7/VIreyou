@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
 import { deleteNutritionLog } from './actions';
 import LifestyleDashboard from "@/components/dashboard/LifestyleDashboard";
+import { getTranslations } from 'next-intl/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,11 +39,40 @@ const NUTRIENT_NAMES: any = {
     manganese: 'Марганец', selenium: 'Селен', iodine: 'Йод'
 };
 
-export default async function LifestylePage({ searchParams }: { searchParams: Promise<{ from?: string, to?: string }> }) {
+export default async function LifestylePage({ 
+    searchParams,
+    params
+}: { 
+    searchParams: Promise<{ from?: string, to?: string }>,
+    params: Promise<{ locale: string }>
+}) {
     try {
         const resolvedParams = await searchParams;
+        const { locale } = await params;
+        const t = await getTranslations({ locale, namespace: 'Lifestyle' });
+
         const fromStr = resolvedParams.from;
         const toStr = resolvedParams.to;
+
+        const nutrientKeys = [
+            'protein', 'fat', 'carbs', 'fiber', 'sugar_fast', 'trans_fat', 'cholesterol',
+            'omega_3', 'omega_6', 'vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K',
+            'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B5', 'vitamin_B6', 'vitamin_B7',
+            'vitamin_B9', 'vitamin_B12', 'vitamin_C', 'calcium', 'iron', 'magnesium',
+            'phosphorus', 'potassium', 'sodium', 'zinc', 'copper', 'manganese', 'selenium', 'iodine'
+        ];
+
+        const localizedNutrientNames: any = {};
+        nutrientKeys.forEach(key => {
+            localizedNutrientNames[key] = t(`nutrients.${key}`);
+        });
+
+        const localizedNutritionNorms: any = { ...NUTRITION_NORMS };
+        Object.keys(localizedNutritionNorms).forEach(key => {
+            const unitKey = localizedNutritionNorms[key].unit === 'г' ? 'unitGram' : 
+                          localizedNutritionNorms[key].unit === 'мг' ? 'unitMg' : 'unitMcg';
+            localizedNutritionNorms[key].unit = t(unitKey);
+        });
 
         const supabase = await createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -106,8 +136,8 @@ export default async function LifestylePage({ searchParams }: { searchParams: Pr
             nutritionWeek, activityWeek, habitsWeek, sleepWeek, hydrationWeek,
             habitsMonth,
             totalWater, lastSleep, lastActivity, totalCalories, totalSteps,
-            nutritionNorms: NUTRITION_NORMS,
-            nutrientNames: NUTRIENT_NAMES
+            nutritionNorms: localizedNutritionNorms,
+            nutrientNames: localizedNutrientNames
         }
 
         return (

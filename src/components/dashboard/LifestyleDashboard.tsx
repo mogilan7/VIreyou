@@ -11,9 +11,10 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
   Tooltip, Cell, PieChart, Pie, AreaChart, Area
 } from 'recharts';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import Sidebar from "@/components/dashboard/Sidebar";
 import DeleteLogButton from '@/components/dashboard/DeleteLogButton';
+import { useTranslations } from 'next-intl';
 
 const MACRO_COLORS = {
   proteins: '#60B76F',
@@ -41,6 +42,9 @@ const LifestyleDashboard = ({
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const params = useParams();
+  const locale = (params?.locale as string) || 'ru';
+  const t = useTranslations('Lifestyle');
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   const { 
@@ -63,18 +67,18 @@ const LifestyleDashboard = ({
 
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
-    if (range === 'Сегодня') {
+    if (range === t('today')) {
         from = formatDate(tzNow);
         to = from;
-    } else if (range === 'Вчера') {
+    } else if (range === t('yesterday')) {
         const yesterday = new Date(tzNow.getTime() - 86400000);
         from = formatDate(yesterday);
         to = from;
-    } else if (range === 'Неделя') {
+    } else if (range === t('week')) {
         const weekAgo = new Date(tzNow.getTime() - 7 * 86400000);
         from = formatDate(weekAgo);
         to = formatDate(tzNow);
-    } else if (range === 'Месяц') {
+    } else if (range === t('month')) {
         const monthAgo = new Date(tzNow.getTime() - 30 * 86400000);
         from = formatDate(monthAgo);
         to = formatDate(tzNow);
@@ -89,23 +93,23 @@ const LifestyleDashboard = ({
   const isMonth = fromStr && toStr && (new Date(toStr).getTime() - new Date(fromStr).getTime() > 20 * 86400000);
 
   const selectedRange = (fromStr === toStr || (!fromStr && !toStr)) ? 
-    (isToday ? 'Сегодня' : isYesterday ? 'Вчера' : 'Дата') : 
-    (isMonth ? 'Месяц' : isWeek ? 'Неделя' : 'Период');
+    (isToday ? t('today') : isYesterday ? t('yesterday') : t('date')) : 
+    (isMonth ? t('month') : isWeek ? t('week') : t('period'));
 
   const [optimisticRange, setOptimisticRange] = useState<string | null>(null);
   const currentRange = optimisticRange || selectedRange;
 
   // Format activity trend for last 7 days
   const activityTrend = activityWeek.slice(0, 7).reverse().map((a: any) => ({
-    day: new Date(a.created_at).toLocaleDateString('ru-RU', { weekday: 'short', timeZone: userTz }),
+    day: new Date(a.created_at).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short', timeZone: userTz }),
     steps: a.steps || 0
   }));
 
   // Format sleep data for chart
   const sleepChartData = [
-    { name: 'Глубокий', value: lastSleep?.deep_hrs || 0, color: '#1E3A8A' },
-    { name: 'REМ', value: lastSleep?.rem_hrs || 0, color: '#3B82F6' },
-    { name: 'Легкий', value: lastSleep?.light_hrs || ((lastSleep?.duration_hrs || 0) - (lastSleep?.deep_hrs || 0) - (lastSleep?.rem_hrs || 0)), color: '#93C5FD' },
+    { name: t('deep'), value: lastSleep?.deep_hrs || 0, color: '#1E3A8A' },
+    { name: t('rem'), value: lastSleep?.rem_hrs || 0, color: '#3B82F6' },
+    { name: t('light'), value: lastSleep?.light_hrs || ((lastSleep?.duration_hrs || 0) - (lastSleep?.deep_hrs || 0) - (lastSleep?.rem_hrs || 0)), color: '#93C5FD' },
   ].filter(d => d.value > 0);
 
   // Nutrition Pie Data
@@ -115,9 +119,9 @@ const LifestyleDashboard = ({
     carbs: nutritionToday.reduce((s: number, n: any) => s + Number(n.carbs || 0), 0),
   };
   const nutritionPieData = [
-    { name: 'Белки', value: totalMacros.protein },
-    { name: 'Жиры', value: totalMacros.fat },
-    { name: 'Углеводы', value: totalMacros.carbs },
+    { name: t('proteins'), value: totalMacros.protein },
+    { name: t('fats'), value: totalMacros.fat },
+    { name: t('carbs'), value: totalMacros.carbs },
   ].filter(d => d.value > 0);
 
   // Habit completion (last 7 days - as requested)
@@ -142,10 +146,10 @@ const LifestyleDashboard = ({
   const stabilityPct = Math.round((habitDays.filter(d => d.type === 'clean').length / 7) * 100);
   
   const uniqueHabits = Array.from(new Set(habitsMonth.map((h: any) => h.habit_key?.toLowerCase()))) as (string | undefined)[];
-  const hasAlcohol = uniqueHabits.some(h => h && (h.includes('алкоголь') || h.includes('пиво')));
-  const hasSmoking = uniqueHabits.some(h => h && (h.includes('курение') || h.includes('сигарет')));
+  const hasAlcohol = uniqueHabits.some(h => h && (h.includes('алкоголь') || h.includes('пиво') || h.includes('alcohol') || h.includes('beer')));
+  const hasSmoking = uniqueHabits.some(h => h && (h.includes('курение') || h.includes('сигарет') || h.includes('smoking') || h.includes('cigarette')));
 
-  const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+  const dayNames = locale === 'ru' ? ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
     <div className={`min-h-screen flex transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0F172A] text-white' : 'bg-[#F7F5F0] text-[#2D2D2D]'} font-sans relative`}>
@@ -157,16 +161,16 @@ const LifestyleDashboard = ({
         <section className="space-y-4">
           <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 sm:gap-6">
             <div className="space-y-1">
-              <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">Образ жизни</h1>
+              <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">{t('title')}</h1>
               <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 text-xs sm:text-sm md:text-base pr-2">
                 <CheckCircle2 className="w-4 h-4 text-[#60B76F] shrink-0" />
-                <span className="leading-tight">{totalSteps > 8000 ? "Активный день! Продолжайте в том же духе." : "Хорошее начало дня для восстановления."}</span>
+                <span className="leading-tight">{totalSteps > 8000 ? t('activeDay') : t('goodStart')}</span>
               </p>
             </div>
             
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
               <div className="flex items-center justify-between gap-1 bg-white/50 dark:bg-slate-800/50 p-1 rounded-xl border border-white/20 backdrop-blur-sm overflow-x-auto scrollbar-hide w-full sm:w-auto shrink-0">
-                {['Сегодня', 'Вчера', 'Неделя', 'Месяц'].map((range) => (
+                {[t('today'), t('yesterday'), t('week'), t('month')].map((range) => (
                   <button
                     key={range}
                     onClick={() => {
@@ -198,31 +202,35 @@ const LifestyleDashboard = ({
         <section className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
           <SummaryCard 
             icon={<Droplets className="text-blue-500" />} 
-            label="Вода" 
+            label={t('water')} 
             value={totalWater.toLocaleString()} 
-            unit="мл" 
+            unit={t('ml')} 
             target="/ 2000"
             progress={(totalWater / 2000) * 100}
             color="bg-blue-500"
             history={hydrationWeek}
             userTz={userTz}
+            locale={locale}
+            t={t}
           />
           <SummaryCard 
             icon={<Moon className="text-indigo-500" />} 
-            label="Сон" 
+            label={t('sleep')} 
             value={lastSleep ? Math.floor(lastSleep.duration_hrs).toString() : "0"} 
-            unit={lastSleep ? `ч ${Math.round((lastSleep.duration_hrs % 1) * 60)}м` : "ч"} 
-            target={lastSleep?.deep_hrs ? `Глубокий: ${lastSleep.deep_hrs.toFixed(1)}ч` : "8ч цель"}
+            unit={lastSleep ? `${t('hrs')} ${Math.round((lastSleep.duration_hrs % 1) * 60)}${t('min')}` : t('hrs')} 
+            target={lastSleep?.deep_hrs ? `${t('deep')}: ${lastSleep.deep_hrs.toFixed(1)}${t('hrs')}` : `8${t('hrs')} цель`}
             progress={( (lastSleep?.duration_hrs || 0) / 8) * 100}
             color="bg-indigo-500"
             history={sleepWeek}
             userTz={userTz}
             historyValueKey="duration_hrs"
-            historyUnit="ч"
+            historyUnit={t('hrs')}
+            locale={locale}
+            t={t}
           />
           <SummaryCard 
             icon={<Activity className="text-[#60B76F]" />} 
-            label="Шаги" 
+            label={t('steps')} 
             value={totalSteps.toLocaleString()} 
             unit="" 
             target="/ 10k"
@@ -232,19 +240,23 @@ const LifestyleDashboard = ({
             userTz={userTz}
             historyValueKey="steps"
             historyUnit=""
+            locale={locale}
+            t={t}
           />
           <SummaryCard 
             icon={<Utensils className="text-orange-500" />} 
-            label="Питание" 
+            label={t('nutrition')} 
             value={totalCalories.toLocaleString()} 
-            unit="ккал" 
+            unit={t('kcal')} 
             target="/ 2200"
             progress={(totalCalories / 2200) * 100}
             color="bg-orange-500"
             history={nutritionWeek}
             userTz={userTz}
             historyValueKey="calories"
-            historyUnit="ккал"
+            historyUnit={t('kcal')}
+            locale={locale}
+            t={t}
           />
         </section>
 
@@ -253,7 +265,7 @@ const LifestyleDashboard = ({
           <div className="flex justify-between items-center px-1">
             <h2 className="text-base sm:text-lg md:text-xl font-bold flex items-center gap-1.5 sm:gap-2">
               <Utensils className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
-              Питание и КБЖУ
+              {t('nutrition')}
             </h2>
           </div>
           
@@ -283,22 +295,22 @@ const LifestyleDashboard = ({
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-lg sm:text-xl md:text-2xl font-bold">{totalCalories > 1000 ? (totalCalories/1000).toFixed(1) + 'k' : totalCalories}</span>
-                <span className="text-[9px] sm:text-[10px] md:text-xs text-slate-500">ккал</span>
+                <span className="text-[9px] sm:text-[10px] md:text-xs text-slate-500">{t('kcal')}</span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-6">
-              <MacroItem label="Белки" current={totalMacros.protein} target={nutritionNorms.protein.norm} color={MACRO_COLORS.proteins} unit="г" />
-              <MacroItem label="Жиры" current={totalMacros.fat} target={nutritionNorms.fat.norm} color={MACRO_COLORS.fats} unit="г" />
-              <MacroItem label="Углеводы" current={totalMacros.carbs} target={nutritionNorms.carbs.norm} color={MACRO_COLORS.carbs} unit="г" />
-              <MacroItem label="Клетчатка" current={nutritionToday.reduce((s: number, n: any) => s + Number(n.fiber || 0), 0)} target={nutritionNorms.fiber.norm} color={MACRO_COLORS.fiber} unit="г" />
+              <MacroItem label={t('proteins')} current={totalMacros.protein} target={nutritionNorms.protein.norm} color={MACRO_COLORS.proteins} unit={t('unitGram')} />
+              <MacroItem label={t('fats')} current={totalMacros.fat} target={nutritionNorms.fat.norm} color={MACRO_COLORS.fats} unit={t('unitGram')} />
+              <MacroItem label={t('carbs')} current={totalMacros.carbs} target={nutritionNorms.carbs.norm} color={MACRO_COLORS.carbs} unit={t('unitGram')} />
+              <MacroItem label={t('fiber')} current={nutritionToday.reduce((s: number, n: any) => s + Number(n.fiber || 0), 0)} target={nutritionNorms.fiber.norm} color={MACRO_COLORS.fiber} unit={t('unitGram')} />
             </div>
           </div>
 
           {/* Nutrition Report Dropdown - MOVED HERE */}
           <details className="group pt-2 border-t border-slate-100 dark:border-white/5">
               <summary className="text-xs text-[#60B76F] cursor-pointer list-none flex items-center justify-between font-bold uppercase tracking-wider py-2">
-                  📊 Отчет по всем нутриентам <ChevronDown size={14} className="group-open:rotate-180 transition-transform" />
+                  {t('nutrientsReport')} <ChevronDown size={14} className="group-open:rotate-180 transition-transform" />
               </summary>
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-[10px] text-gray-500 dark:text-slate-400 bg-white/30 dark:bg-black/10 p-3 rounded-2xl border border-white/10">
                   {Object.entries(nutritionNorms).map(([key, config]: any) => {
@@ -319,17 +331,18 @@ const LifestyleDashboard = ({
 
           {/* Meals List */}
           <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-             {nutritionToday.length === 0 ? <p className="text-gray-400 text-sm text-center py-4">Трапез не зафиксировано</p> :
+             {nutritionToday.length === 0 ? <p className="text-gray-400 text-sm text-center py-4">{t('mealsEmpty')}</p> :
               nutritionToday.map((n: any) => (
                 <MealRow 
                   key={n.id}
-                  time={new Date(n.created_at).toLocaleTimeString('ru-RU', { timeZone: userTz, hour: '2-digit', minute:'2-digit' })} 
-                  name={n.dish || "Прием пищи"} 
+                  time={new Date(n.created_at).toLocaleTimeString(locale === 'ru' ? 'ru-RU' : 'en-US', { timeZone: userTz, hour: '2-digit', minute:'2-digit' })} 
+                  name={n.dish || t('mealDefault')} 
                   kcal={n.calories} 
-                  tags={[n.protein > 20 ? 'Белок' : null, n.fiber > 5 ? 'Клетчатка' : null, n.grams ? `${n.grams}г` : null].filter(Boolean)} 
+                  tags={[n.protein > 20 ? t('proteinTag') : null, n.fiber > 5 ? t('fiberTag') : null, n.grams ? `${n.grams}${t('unitGram')}` : null].filter(Boolean)} 
                   hasImage={!!n.image_url}
                   id={n.id}
                   deleteNutritionLog={deleteNutritionLog}
+                  t={t}
                 />
               ))
              }
@@ -387,12 +400,12 @@ const LifestyleDashboard = ({
             
             <div className="flex justify-between items-center px-1 sm:px-2 py-2 sm:py-3 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl sm:rounded-2xl mt-auto">
               <div className="text-center flex-1 min-w-0">
-                <p className="text-[8px] sm:text-[10px] text-indigo-400 uppercase tracking-tight font-bold truncate">HRV</p>
+                <p className="text-[8px] sm:text-[10px] text-indigo-400 uppercase tracking-tight font-bold truncate">{t('hrv')}</p>
                 <p className="text-sm sm:text-base md:text-lg font-bold">{lastSleep?.hrv || '—'}</p>
               </div>
               <div className="w-px h-6 sm:h-8 bg-indigo-200 dark:bg-indigo-800" />
               <div className="text-center flex-1 min-w-0">
-                <p className="text-[8px] sm:text-[10px] text-indigo-400 uppercase tracking-tight font-bold truncate">Пульс покой</p>
+                <p className="text-[8px] sm:text-[10px] text-indigo-400 uppercase tracking-tight font-bold truncate">{t('restingHr')}</p>
                 <p className="text-sm sm:text-base md:text-lg font-bold">{lastSleep?.resting_heart_rate || '—'}</p>
               </div>
             </div>
@@ -403,7 +416,7 @@ const LifestyleDashboard = ({
             <div className="flex justify-between items-center px-1">
               <h2 className="text-base sm:text-lg md:text-xl font-bold flex items-center gap-1.5 sm:gap-2">
                 <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-[#60B76F] shrink-0" />
-                <span className="truncate">Тренд активности</span>
+                <span className="truncate">{t('activityTrend')}</span>
               </h2>
             </div>
             <div className="h-32 sm:h-40 w-full min-w-0">
@@ -423,11 +436,11 @@ const LifestyleDashboard = ({
             </div>
             <div className="flex gap-2 sm:gap-4 mt-auto">
               <div className="flex-1 p-2 sm:p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl sm:rounded-2xl min-w-0">
-                <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-tighter truncate">Шагов (7д)</p>
+                <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-tighter truncate">{t('steps')} (7д)</p>
                 <p className="text-sm sm:text-base md:text-lg font-bold truncate">{activityWeek.reduce((s:number,a:any)=>s+(a.steps||0),0).toLocaleString()}</p>
               </div>
               <div className="flex-1 p-2 sm:p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl sm:rounded-2xl min-w-0">
-                <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-tighter truncate">Активные мин</p>
+                <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-tighter truncate">{t('activeMin')}</p>
                 <p className="text-sm sm:text-base md:text-lg font-bold truncate">{activityToday.reduce((s:number,a:any)=>s+(a.active_minutes||0),0)}</p>
               </div>
             </div>
@@ -439,11 +452,11 @@ const LifestyleDashboard = ({
           <div className="flex justify-between items-center sm:px-1">
             <h2 className="text-base sm:text-lg md:text-xl font-bold flex items-center gap-1.5 sm:gap-2">
               <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500 shrink-0" />
-              <span className="truncate">Привычки и стабильность</span>
+              <span className="truncate">{t('habitsAndStability')}</span>
             </h2>
             <div className="flex gap-1 sm:gap-2 shrink-0">
-               {hasAlcohol && <span className="p-1 px-1.5 sm:px-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[8px] sm:text-xs font-bold uppercase tracking-wider">Алкоголь</span>}
-               {hasSmoking && <span className="p-1 px-1.5 sm:px-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 text-[8px] sm:text-xs font-bold uppercase tracking-wider">Курение</span>}
+               {hasAlcohol && <span className="p-1 px-1.5 sm:px-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[8px] sm:text-xs font-bold uppercase tracking-wider">{t('alcohol')}</span>}
+               {hasSmoking && <span className="p-1 px-1.5 sm:px-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 text-[8px] sm:text-xs font-bold uppercase tracking-wider">{t('smoking')}</span>}
             </div>
           </div>
           
@@ -472,10 +485,10 @@ const LifestyleDashboard = ({
                 <div 
                   key={idx}
                   className={`aspect-square w-full rounded-md md:rounded-xl transition-all cursor-help ${colorClass} ${shadow}`}
-                  title={`${new Date(item.day).toLocaleDateString('ru-RU')}: ${
-                    item.type === 'clean' ? 'Чистый день' : 
-                    item.type === 'alcohol' ? 'Алкоголь' : 
-                    item.type === 'smoking' ? 'Курение' : 'Нарушение'
+                  title={`${new Date(item.day).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')}: ${
+                    item.type === 'clean' ? t('clean') : 
+                    item.type === 'alcohol' ? t('alcohol') : 
+                    item.type === 'smoking' ? t('smoking') : t('combo')
                   }`}
                 />
               );
@@ -484,29 +497,29 @@ const LifestyleDashboard = ({
           
           <div className="flex items-center justify-between text-[10px] sm:text-xs md:text-sm text-slate-500 px-1 border-t border-slate-100 dark:border-white/5 pt-3">
             <div className="flex flex-wrap gap-2">
-                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#60B76F]" /><span>Чисто</span></div>
-                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-slate-400" /><span>Алкоголь</span></div>
-                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-400" /><span>Курение</span></div>
-                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-400" /><span>Комбо</span></div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#60B76F]" /><span>{t('clean')}</span></div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-slate-400" /><span>{t('alcohol')}</span></div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-400" /><span>{t('smoking')}</span></div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-400" /><span>{t('combo')}</span></div>
             </div>
             <div className="shrink-0 text-right">
-                <p className="text-[10px] text-slate-400 leading-none mb-1">Стабильность за 7 дней</p>
+                <p className="text-[10px] text-slate-400 leading-none mb-1">{t('stability7Days')}</p>
                 <span className="font-bold text-[#60B76F] text-sm sm:text-base">{stabilityPct}%</span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-2">
-             {habitsToday.length === 0 ? <p className="text-gray-400 text-[10px] sm:text-xs text-center col-span-full py-2 opacity-50">Нарушений за сегодня не зафиксировано</p> :
+             {habitsToday.length === 0 ? <p className="text-gray-400 text-[10px] sm:text-xs text-center col-span-full py-2 opacity-50">{t('noBreachesToday')}</p> :
               habitsToday.map((h: any) => (
                 <div key={h.id} className="flex gap-2 sm:gap-3 items-center p-2 sm:p-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-white/5">
-                  {h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво') ? (
+                  {(h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво') || h.habit_key?.toLowerCase().includes('alcohol') || h.habit_key?.toLowerCase().includes('beer')) ? (
                       <Wine size={16} className="text-purple-400 flex-shrink-0" />
                   ) : (
                       <Cigarette size={16} className="text-amber-500 flex-shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
                       <p className="text-[10px] sm:text-xs md:text-sm dark:text-slate-300 font-bold truncate">{h.habit_key}</p>
-                      <p className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-400">{new Date(h.created_at).toLocaleTimeString('ru-RU', { timeZone: userTz, hour: '2-digit', minute:'2-digit' })}</p>
+                      <p className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-400">{new Date(h.created_at).toLocaleTimeString(locale === 'ru' ? 'ru-RU' : 'en-US', { timeZone: userTz, hour: '2-digit', minute:'2-digit' })}</p>
                   </div>
                 </div>
               ))
@@ -543,7 +556,7 @@ const LifestyleDashboard = ({
 
 // --- Helper Components ---
 
-const SummaryCard = ({ icon, label, value, unit, target, progress, color, history, userTz, historyValueKey = 'volume_ml', historyUnit = 'мл' }: any) => (
+const SummaryCard = ({ icon, label, value, unit, target, progress, color, history, userTz, historyValueKey = 'volume_ml', historyUnit = 'ml', locale = 'ru', t }: any) => (
   <div className="glass-card p-2 sm:p-3 md:p-4 rounded-2xl sm:rounded-3xl space-y-1.5 sm:space-y-2 md:space-y-3 transition-transform hover:-translate-y-1 flex flex-col justify-between w-full min-w-0">
     <div className="flex justify-between items-start">
       <div className="p-1 sm:p-1.5 md:p-2 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800/80 shrink-0">
@@ -568,15 +581,15 @@ const SummaryCard = ({ icon, label, value, unit, target, progress, color, histor
     {/* Dropdown lists - "За неделю" */}
     <details className="group mt-1 sm:mt-2 pt-1 sm:pt-2 border-t border-slate-100 dark:border-white/5 w-full shrink-0">
         <summary className="text-[8px] md:text-[9px] text-[#60B76F] cursor-pointer list-none flex items-center justify-between font-bold uppercase tracking-wider">
-            <span className="truncate mr-1">🗓️ За неделю</span> <ChevronDown size={10} className="group-open:rotate-180 transition-transform shrink-0" />
+            <span className="truncate mr-1">{t('last7Days')}</span> <ChevronDown size={10} className="group-open:rotate-180 transition-transform shrink-0" />
         </summary>
         <div className="mt-1 sm:mt-2 space-y-1 max-h-24 overflow-y-auto text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 dark:text-slate-400 custom-scrollbar pr-1">
             {history && history.length > 0 ? history.slice(0, 7).map((h: any) => (
                 <div key={h.id} className="flex justify-between pb-0.5 border-b border-slate-50 dark:border-white/5 last:border-0 overflow-hidden gap-1">
-                  <span className="shrink-0">{new Date(h.created_at).toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', timeZone: userTz})}</span>
+                  <span className="shrink-0">{new Date(h.created_at).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US', {day:'2-digit', month:'2-digit', timeZone: userTz})}</span>
                   <span className="font-bold truncate text-right">{h[historyValueKey]?.toFixed(0)} <span className="text-[7px] sm:text-[8px] font-normal">{historyUnit}</span></span>
                 </div>
-            )) : <p className="text-center py-1 opacity-50">Нет данных</p>}
+            )) : <p className="text-center py-1 opacity-50">{t('noData')}</p>}
         </div>
     </details>
   </div>
@@ -597,7 +610,7 @@ const MacroItem = ({ label, current, target, color, unit }: any) => (
   </div>
 );
 
-const MealRow = ({ time, name, kcal, tags, hasImage, id, deleteNutritionLog }: any) => (
+const MealRow = ({ time, name, kcal, tags, hasImage, id, deleteNutritionLog, t }: any) => (
   <div className="flex items-center gap-2 md:gap-4 group cursor-pointer p-2 -mx-1 md:-mx-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all overflow-hidden">
     <div className="text-[10px] md:text-[11px] font-bold text-slate-400 w-8 md:w-10 shrink-0">{time}</div>
     {hasImage ? (
@@ -619,7 +632,7 @@ const MealRow = ({ time, name, kcal, tags, hasImage, id, deleteNutritionLog }: a
     </div>
     <div className="flex items-center gap-2 md:gap-3 shrink-0">
         <div className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300">
-        {kcal} <span className="text-[10px] font-normal text-slate-400">ккал</span>
+        {kcal} <span className="text-[10px] font-normal text-slate-400">{t('kcal')}</span>
         </div>
         <DeleteLogButton id={id} action={deleteNutritionLog} />
     </div>
