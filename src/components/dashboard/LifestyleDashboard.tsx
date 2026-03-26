@@ -114,31 +114,31 @@ const LifestyleDashboard = ({
   // For now, let's just use what we have in habitsToday to show "today" status
   
   return (
-    <div className={`min-h-screen flex transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0F172A] text-white' : 'bg-[#F7F5F0] text-[#2D2D2D]'} font-sans`}>
+    <div className={`min-h-screen flex transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0F172A] text-white' : 'bg-[#F7F5F0] text-[#2D2D2D]'} font-sans relative`}>
       <Sidebar role="client" profileName={userMetadata?.full_name || "Пользователь"} />
 
-      <main className="flex-1 lg:ml-64 px-3 md:px-8 pt-20 lg:pt-8 space-y-6 md:space-y-8 pb-24 lg:pb-12 max-w-7xl overflow-x-hidden">
+      <main className="flex-1 lg:ml-64 px-2 sm:px-4 md:px-8 pt-20 lg:pt-8 space-y-4 sm:space-y-6 md:space-y-8 pb-24 lg:pb-12 w-full max-w-[100vw] sm:max-w-7xl overflow-x-hidden min-w-0">
         
         {/* --- Header Section --- */}
         <section className="space-y-4">
-          <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+          <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 sm:gap-6">
             <div className="space-y-1">
-              <h1 className="font-serif text-3xl md:text-4xl font-bold tracking-tight">Образ жизни</h1>
-              <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 text-sm md:text-base">
+              <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">Образ жизни</h1>
+              <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 text-xs sm:text-sm md:text-base pr-2">
                 <CheckCircle2 className="w-4 h-4 text-[#60B76F] shrink-0" />
                 <span className="leading-tight">{totalSteps > 8000 ? "Активный день! Продолжайте в том же духе." : "Хорошее начало дня для восстановления."}</span>
               </p>
             </div>
             
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-              <div className="flex items-center gap-1 bg-white/50 dark:bg-slate-800/50 p-1 rounded-xl border border-white/20 backdrop-blur-sm overflow-x-auto scrollbar-hide max-w-full">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+              <div className="flex items-center justify-between gap-1 bg-white/50 dark:bg-slate-800/50 p-1 rounded-xl border border-white/20 backdrop-blur-sm overflow-x-auto scrollbar-hide w-full sm:w-auto shrink-0">
                 {['Сегодня', 'Вчера', 'Неделя', 'Месяц'].map((range) => (
                   <button
                     key={range}
                     onClick={() => updateRange(range)}
-                    className={`px-3 md:px-4 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all whitespace-nowrap ${
+                    className={`px-2 sm:px-3 md:px-4 py-1.5 rounded-lg text-[10px] sm:text-xs md:text-sm font-medium transition-all whitespace-nowrap flex-1 text-center ${
                       (range === 'Сегодня' && selectedRange === 'Сегодня') || (range === 'Неделя' && !fromStr && !toStr)
-                      ? 'bg-[#60B76F] text-white shadow-lg shadow-[#60B76F]/20' 
+                      ? 'bg-[#60B76F] text-white shadow-md shadow-[#60B76F]/20' 
                       : 'hover:bg-white/80 dark:hover:bg-slate-700'
                     }`}
                   >
@@ -147,10 +147,10 @@ const LifestyleDashboard = ({
                 ))}
               </div>
               
-              <form action="" method="GET" className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 p-1 rounded-xl border border-white/20 backdrop-blur-sm w-full sm:w-auto">
-                 <input type="date" name="from" defaultValue={fromStr || formatDate(currentFromDate)} className="bg-transparent border-0 text-[10px] md:text-xs p-1 dark:text-white flex-1 focus:ring-0" />
-                 <span className="text-slate-400 text-xs">-</span>
-                 <input type="date" name="to" defaultValue={toStr || formatDate(new Date())} className="bg-transparent border-0 text-[10px] md:text-xs p-1 dark:text-white flex-1 focus:ring-0" />
+              <form action="" method="GET" className="flex items-center gap-1.5 bg-white/50 dark:bg-slate-800/50 p-1 rounded-xl border border-white/20 backdrop-blur-sm w-full sm:w-auto">
+                 <input type="date" name="from" defaultValue={fromStr || formatDate(currentFromDate)} className="bg-transparent border-0 text-[10px] sm:text-xs p-1 dark:text-white w-full min-w-0 focus:ring-0" />
+                 <span className="text-slate-400 text-xs shrink-0">-</span>
+                 <input type="date" name="to" defaultValue={toStr || formatDate(new Date())} className="bg-transparent border-0 text-[10px] sm:text-xs p-1 dark:text-white w-full min-w-0 focus:ring-0" />
                  <button type="submit" className="bg-[#60B76F] text-white p-1.5 rounded-lg shrink-0"><ChevronRight size={14}/></button>
               </form>
             </div>
@@ -158,7 +158,7 @@ const LifestyleDashboard = ({
         </section>
 
         {/* --- Summary Cards --- */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
           <SummaryCard 
             icon={<Droplets className="text-blue-500" />} 
             label="Вода" 
@@ -212,16 +212,16 @@ const LifestyleDashboard = ({
         </section>
 
         {/* --- Detailed Nutrition --- */}
-        <section className="glass-card p-4 md:p-6 rounded-3xl space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg md:text-xl font-bold flex items-center gap-2">
-              <Utensils className="w-5 h-5 text-orange-500" />
+        <section className="glass-card p-3 sm:p-4 md:p-6 rounded-2xl sm:rounded-3xl space-y-4 sm:space-y-6 w-full min-w-0">
+          <div className="flex justify-between items-center px-1">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold flex items-center gap-1.5 sm:gap-2">
+              <Utensils className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
               Питание и КБЖУ
             </h2>
           </div>
           
-          <div className="grid lg:grid-cols-2 gap-8 items-center">
-            <div className="h-40 md:h-48 flex justify-center relative">
+          <div className="grid lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8 items-center w-full min-w-0">
+            <div className="h-40 md:h-48 w-full flex justify-center relative min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -245,8 +245,8 @@ const LifestyleDashboard = ({
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-xl md:text-2xl font-bold">{totalCalories > 1000 ? (totalCalories/1000).toFixed(1) + 'k' : totalCalories}</span>
-                <span className="text-[10px] md:text-xs text-slate-500">ккал</span>
+                <span className="text-lg sm:text-xl md:text-2xl font-bold">{totalCalories > 1000 ? (totalCalories/1000).toFixed(1) + 'k' : totalCalories}</span>
+                <span className="text-[9px] sm:text-[10px] md:text-xs text-slate-500">ккал</span>
               </div>
             </div>
 
@@ -300,23 +300,23 @@ const LifestyleDashboard = ({
         </section>
 
         {/* --- Sleep & Activity Grid --- */}
-        <div className="grid md:grid-cols-2 gap-4 md:gap-6">
+        <div className="grid lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6 w-full min-w-0">
           {/* Sleep Detailed */}
-          <section className="glass-card p-4 md:p-6 rounded-3xl space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg md:text-xl font-bold flex items-center gap-2">
-                <Moon className="w-5 h-5 text-indigo-500" />
-                Сон и HRV
+          <section className="glass-card p-3 sm:p-4 md:p-6 rounded-2xl sm:rounded-3xl space-y-4 sm:space-y-6 w-full min-w-0 flex flex-col">
+            <div className="flex justify-between items-center px-1">
+              <h2 className="text-base sm:text-lg md:text-xl font-bold flex items-center gap-1.5 sm:gap-2">
+                <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500 shrink-0" />
+                <span className="truncate">Сон и HRV</span>
               </h2>
             </div>
-            <div className="h-40">
+            <div className="h-32 sm:h-40 w-full min-w-0">
               {sleepChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sleepChartData} layout="vertical">
+                  <BarChart data={sleepChartData} layout="vertical" margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
                     <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10, fill: '#94A3B8' }} />
-                    <Tooltip cursor={{ fill: 'transparent' }} />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                    <YAxis dataKey="name" type="category" width={70} tick={{ fontSize: 9, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                    <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{fontSize: '10px'}} />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={16}>
                       {sleepChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
@@ -324,53 +324,53 @@ const LifestyleDashboard = ({
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-400 text-sm">Данные сна отсутствуют</div>
+                <div className="h-full flex items-center justify-center text-slate-400 text-xs sm:text-sm">Данные сна отсутствуют</div>
               )}
             </div>
-            <div className="flex justify-between items-center px-2 py-3 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-2xl">
-              <div className="text-center flex-1">
-                <p className="text-[10px] text-indigo-400 uppercase tracking-wider font-bold">HRV (ВСР)</p>
-                <p className="text-base md:text-lg font-bold">—</p>
+            <div className="flex justify-between items-center px-1 sm:px-2 py-2 sm:py-3 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl sm:rounded-2xl mt-auto">
+              <div className="text-center flex-1 min-w-0">
+                <p className="text-[8px] sm:text-[10px] text-indigo-400 uppercase tracking-tight font-bold truncate">HRV</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold">—</p>
               </div>
-              <div className="w-px h-8 bg-indigo-200 dark:bg-indigo-800" />
-              <div className="text-center flex-1">
-                <p className="text-[10px] text-indigo-400 uppercase tracking-wider font-bold">Пульс покой</p>
-                <p className="text-base md:text-lg font-bold">—</p>
+              <div className="w-px h-6 sm:h-8 bg-indigo-200 dark:bg-indigo-800" />
+              <div className="text-center flex-1 min-w-0">
+                <p className="text-[8px] sm:text-[10px] text-indigo-400 uppercase tracking-tight font-bold truncate">Пульс покой</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold">—</p>
               </div>
             </div>
           </section>
 
           {/* Activity Trend */}
-          <section className="glass-card p-4 md:p-6 rounded-3xl space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg md:text-xl font-bold flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-[#60B76F]" />
-                Тренд активности
+          <section className="glass-card p-3 sm:p-4 md:p-6 rounded-2xl sm:rounded-3xl space-y-4 sm:space-y-6 w-full min-w-0 flex flex-col">
+            <div className="flex justify-between items-center px-1">
+              <h2 className="text-base sm:text-lg md:text-xl font-bold flex items-center gap-1.5 sm:gap-2">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-[#60B76F] shrink-0" />
+                <span className="truncate">Тренд активности</span>
               </h2>
             </div>
-            <div className="h-40">
+            <div className="h-32 sm:h-40 w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={activityTrend}>
+                <AreaChart data={activityTrend} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorSteps" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#60B76F" stopOpacity={0.3}/>
                       <stop offset="95%" stopColor="#60B76F" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#94A3B8'}} />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="steps" stroke="#60B76F" fillOpacity={1} fill="url(#colorSteps)" />
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 8, fill: '#94A3B8'}} dy={10} />
+                  <Tooltip contentStyle={{fontSize: '10px'}} />
+                  <Area type="monotone" dataKey="steps" stroke="#60B76F" strokeWidth={2} fillOpacity={1} fill="url(#colorSteps)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex gap-4">
-              <div className="flex-1 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Всего шагов (7д)</p>
-                <p className="text-base md:text-lg font-bold">{activityWeek.reduce((s:number,a:any)=>s+(a.steps||0),0).toLocaleString()}</p>
+            <div className="flex gap-2 sm:gap-4 mt-auto">
+              <div className="flex-1 p-2 sm:p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl sm:rounded-2xl min-w-0">
+                <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-tighter truncate">Шагов (7д)</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold truncate">{activityWeek.reduce((s:number,a:any)=>s+(a.steps||0),0).toLocaleString()}</p>
               </div>
-              <div className="flex-1 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Последний пульс</p>
-                <p className="text-base md:text-lg font-bold">—</p>
+              <div className="flex-1 p-2 sm:p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl sm:rounded-2xl min-w-0">
+                <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-tighter truncate">Посл. пульс</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold truncate">—</p>
               </div>
             </div>
           </section>
@@ -434,21 +434,21 @@ const LifestyleDashboard = ({
 // --- Helper Components ---
 
 const SummaryCard = ({ icon, label, value, unit, target, progress, color, history, userTz, historyValueKey = 'volume_ml', historyUnit = 'мл' }: any) => (
-  <div className="glass-card p-3 md:p-4 rounded-3xl space-y-2 md:space-y-3 transition-transform hover:-translate-y-1">
+  <div className="glass-card p-2 sm:p-3 md:p-4 rounded-2xl sm:rounded-3xl space-y-1.5 sm:space-y-2 md:space-y-3 transition-transform hover:-translate-y-1 flex flex-col justify-between w-full min-w-0">
     <div className="flex justify-between items-start">
-      <div className="p-1.5 md:p-2 rounded-xl bg-slate-50 dark:bg-slate-800/80">
-        {React.cloneElement(icon as React.ReactElement<any>, { size: 18 })}
+      <div className="p-1 sm:p-1.5 md:p-2 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800/80 shrink-0">
+        {React.cloneElement(icon as React.ReactElement<any>, { className: "w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" })}
       </div>
-      <span className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{label}</span>
+      <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-tighter truncate ml-1">{label}</span>
     </div>
-    <div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-lg md:text-xl font-bold dark:text-white">{value}</span>
-        <span className="text-[10px] md:text-xs text-slate-400 font-medium">{unit}</span>
+    <div className="w-full min-w-0">
+      <div className="flex items-baseline gap-0.5 sm:gap-1">
+        <span className="text-sm sm:text-base md:text-xl font-bold dark:text-white truncate">{value}</span>
+        <span className="text-[8px] sm:text-[10px] text-slate-400 font-medium shrink-0">{unit}</span>
       </div>
-      <p className="text-[9px] md:text-[10px] text-slate-500 font-medium truncate">{target}</p>
+      <p className="text-[7.5px] sm:text-[9px] text-slate-500 font-medium truncate w-full">{target}</p>
     </div>
-    <div className="h-1 md:h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+    <div className="h-1 sm:h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shrink-0 mt-auto">
       <div 
         className={`h-full ${color} transition-all duration-1000`} 
         style={{ width: `${Math.min(progress, 100)}%` }} 
@@ -456,15 +456,15 @@ const SummaryCard = ({ icon, label, value, unit, target, progress, color, histor
     </div>
 
     {/* Dropdown lists - "За неделю" */}
-    <details className="group mt-2 pt-2 border-t border-slate-100 dark:border-white/5">
+    <details className="group mt-1 sm:mt-2 pt-1 sm:pt-2 border-t border-slate-100 dark:border-white/5 w-full shrink-0">
         <summary className="text-[8px] md:text-[9px] text-[#60B76F] cursor-pointer list-none flex items-center justify-between font-bold uppercase tracking-wider">
-            🗓️ За неделю <ChevronDown size={10} className="group-open:rotate-180 transition-transform" />
+            <span className="truncate mr-1">🗓️ За неделю</span> <ChevronDown size={10} className="group-open:rotate-180 transition-transform shrink-0" />
         </summary>
-        <div className="mt-2 space-y-1 max-h-24 overflow-y-auto text-[9px] md:text-[10px] text-gray-500 dark:text-slate-400 custom-scrollbar">
+        <div className="mt-1 sm:mt-2 space-y-1 max-h-24 overflow-y-auto text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 dark:text-slate-400 custom-scrollbar pr-1">
             {history && history.length > 0 ? history.slice(0, 7).map((h: any) => (
-                <div key={h.id} className="flex justify-between pb-0.5 border-b border-slate-50 dark:border-white/5 last:border-0">
-                  <span>{new Date(h.created_at).toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', timeZone: userTz})}</span>
-                  <span className="font-bold">{h[historyValueKey]?.toFixed(0)} {historyUnit}</span>
+                <div key={h.id} className="flex justify-between pb-0.5 border-b border-slate-50 dark:border-white/5 last:border-0 overflow-hidden gap-1">
+                  <span className="shrink-0">{new Date(h.created_at).toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', timeZone: userTz})}</span>
+                  <span className="font-bold truncate text-right">{h[historyValueKey]?.toFixed(0)} <span className="text-[7px] sm:text-[8px] font-normal">{historyUnit}</span></span>
                 </div>
             )) : <p className="text-center py-1 opacity-50">Нет данных</p>}
         </div>
