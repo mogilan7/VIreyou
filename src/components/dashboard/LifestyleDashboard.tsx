@@ -345,22 +345,34 @@ const LifestyleDashboard = ({
                 <span className="truncate">Сон и HRV</span>
               </h2>
             </div>
-            <div className="h-32 sm:h-40 w-full min-w-0">
+            <div className="h-40 md:h-48 w-full flex justify-center relative min-w-0">
               {sleepChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sleepChartData} layout="vertical" margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" width={70} tick={{ fontSize: 9, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                    <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{fontSize: '10px'}} />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={16}>
+                  <PieChart>
+                    <Pie
+                      data={sleepChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
                       {sleepChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
-                    </Bar>
-                  </BarChart>
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-slate-400 text-xs sm:text-sm">Данные сна отсутствуют</div>
+              )}
+              {sleepChartData.length > 0 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-lg sm:text-xl md:text-2xl font-bold">{lastSleep?.duration_hrs?.toFixed(1) || '0'}</span>
+                  <span className="text-[9px] sm:text-[10px] md:text-xs text-slate-500">часов</span>
+                </div>
               )}
             </div>
             <div className="flex justify-between items-center px-1 sm:px-2 py-2 sm:py-3 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl sm:rounded-2xl mt-auto">
@@ -425,7 +437,7 @@ const LifestyleDashboard = ({
             </div>
           </div>
           
-          <div className="flex flex-wrap gap-1 md:gap-1.5 justify-start md:justify-between px-1">
+          <div className="grid grid-cols-7 gap-1 md:gap-2 px-1">
             {habitDays.map((item, idx) => {
               let colorClass = 'bg-slate-200 dark:bg-slate-800';
               let shadow = '';
@@ -443,7 +455,7 @@ const LifestyleDashboard = ({
               return (
                 <div 
                   key={idx}
-                  className={`w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 rounded-sm md:rounded-md transition-all cursor-help ${colorClass} ${shadow}`}
+                  className={`aspect-square w-full rounded-md md:rounded-xl transition-all cursor-help ${colorClass} ${shadow}`}
                   title={`${new Date(item.day).toLocaleDateString('ru-RU')}: ${
                     item.type === 'clean' ? 'Чистый день' : 
                     item.type === 'alcohol' ? 'Алкоголь' : 
