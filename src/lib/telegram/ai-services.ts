@@ -70,7 +70,7 @@ export async function analyzeFoodWithAI(imageBase64?: string, description?: stri
 
   // Метаданные для бота (ОБЯЗАТЕЛЬНО)
   "date_offset_days": 0, // СТРОГО ЧИСЛО. 0 для сегодня, -1 для данных за вчера, если пользователь прямо говорит "Вчера", "Позавчера" и т.д.
-  "habit_key": null // Если зафиксированы вредные привычки (курение, алкоголь, сахар), укажи краткую категорию (например: "Алкоголь", "Курение"). Если нет - верни null.
+  "habit_key": "Алкоголь" | "Курение" | "Сахар" | null // Если зафиксированы вредные привычки, укажи краткую категорию. ДЛЯ ЛЮБОГО АЛКОГОЛЯ (пиво, вино и т.д.) ОБЯЗАТЕЛЬНО ставь "Алкоголь".
 }
 
 **Правила приближения и оценки (Граммовка):**
@@ -121,7 +121,7 @@ export async function analyzeScreenshotWithAI(imageBase64: string) {
 {
   "type": "SLEEP" | "ACTIVITY" | "UNKNOWN",
   "metrics": {
-    // Для сна: "duration_hrs", "deep_hrs", "rem_hrs"
+    // Для сна: "duration_hrs", "deep_hrs", "rem_hrs", "light_hrs", "hrv", "resting_heart_rate"
     // Для активности: "steps", "active_minutes", "calories_burned"
   },
   "description": "Краткое описание найденного",
@@ -205,15 +205,15 @@ export async function analyzeTextWithAI(text: string) {
   "date_offset_days": 0,
   "habit_key": "Алкоголь" | "Курение" | "Сахар" | null, // Если это алкогольный напиток или табак, укажи категорию здесь, ДАЖЕ ЕСЛИ ТИП — NUTRITION!
   "data": {
-    // ДЛЯ NUTRITION заполни объект полностью (как для анализа еды):
-    // { dish, grams, calories, protein, carbs, fat, fiber, water... }
-    // ДЛЯ SLEEP: { duration_hrs, deep_hrs, rem_hrs }
+    // ДЛЯ NUTRITION заполни объект полностью (как для анализа еды).
+    // ДЛЯ SLEEP: { duration_hrs, deep_hrs, rem_hrs, light_hrs, hrv, resting_heart_rate }
     // ДЛЯ ACTIVITY: { steps, active_minutes, calories_burned }
     // ДЛЯ HABIT: { habit_key: "Краткое название" }
   }
 }
 
-Правило Оценки Граммовки (для NUTRITION): если указана "порция" или "кусок", сделай адекватное среднее предположение (не сдавайся на FAILED).`;
+Правило Оценки Граммовки (для NUTRITION): если указана "порция" или "кусок", сделай адекватное среднее предположение (не сдавайся на FAILED).
+Для ЛЮБОГО упоминания алкоголя (пиво, бокал вина и т.д.) ОБЯЗАТЕЛЬНО ставь habit_key: "Алкоголь".`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",

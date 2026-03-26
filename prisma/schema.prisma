@@ -756,15 +756,18 @@ model ActivityLog {
 }
 
 model SleepLog {
-  id           String   @id @default(cuid())
-  user_id      String
-  date         DateTime @default(now())
-  duration_hrs Float?
-  deep_hrs     Float?
-  rem_hrs      Float?
-  notes        String?  @db.Text
-  created_at   DateTime @default(now())
-  user         User     @relation(fields: [user_id], references: [id])
+  id                 String   @id @default(cuid())
+  user_id            String
+  date               DateTime @default(now())
+  duration_hrs       Float?
+  deep_hrs           Float?
+  rem_hrs            Float?
+  light_hrs          Float?
+  hrv                Int?
+  resting_heart_rate Int?
+  notes              String?  @db.Text
+  created_at         DateTime @default(now())
+  user               User     @relation(fields: [user_id], references: [id])
 
   @@index([user_id, date])
   @@schema("public")

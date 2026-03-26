@@ -95,7 +95,8 @@ const LifestyleDashboard = ({
   // Format sleep data for chart
   const sleepChartData = [
     { name: 'Глубокий', value: lastSleep?.deep_hrs || 0, color: '#1E3A8A' },
-    { name: 'Легкий', value: (lastSleep?.duration_hrs || 0) - (lastSleep?.deep_hrs || 0), color: '#93C5FD' },
+    { name: 'REМ', value: lastSleep?.rem_hrs || 0, color: '#3B82F6' },
+    { name: 'Легкий', value: lastSleep?.light_hrs || ((lastSleep?.duration_hrs || 0) - (lastSleep?.deep_hrs || 0) - (lastSleep?.rem_hrs || 0)), color: '#93C5FD' },
   ].filter(d => d.value > 0);
 
   // Nutrition Pie Data
@@ -330,12 +331,12 @@ const LifestyleDashboard = ({
             <div className="flex justify-between items-center px-1 sm:px-2 py-2 sm:py-3 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl sm:rounded-2xl mt-auto">
               <div className="text-center flex-1 min-w-0">
                 <p className="text-[8px] sm:text-[10px] text-indigo-400 uppercase tracking-tight font-bold truncate">HRV</p>
-                <p className="text-sm sm:text-base md:text-lg font-bold">—</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold">{lastSleep?.hrv || '—'}</p>
               </div>
               <div className="w-px h-6 sm:h-8 bg-indigo-200 dark:bg-indigo-800" />
               <div className="text-center flex-1 min-w-0">
                 <p className="text-[8px] sm:text-[10px] text-indigo-400 uppercase tracking-tight font-bold truncate">Пульс покой</p>
-                <p className="text-sm sm:text-base md:text-lg font-bold">—</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold">{lastSleep?.resting_heart_rate || '—'}</p>
               </div>
             </div>
           </section>
@@ -369,8 +370,8 @@ const LifestyleDashboard = ({
                 <p className="text-sm sm:text-base md:text-lg font-bold truncate">{activityWeek.reduce((s:number,a:any)=>s+(a.steps||0),0).toLocaleString()}</p>
               </div>
               <div className="flex-1 p-2 sm:p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl sm:rounded-2xl min-w-0">
-                <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-tighter truncate">Посл. пульс</p>
-                <p className="text-sm sm:text-base md:text-lg font-bold truncate">—</p>
+                <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-tighter truncate">Активные мин</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold truncate">{activityToday.reduce((s:number,a:any)=>s+(a.active_minutes||0),0)}</p>
               </div>
             </div>
           </section>

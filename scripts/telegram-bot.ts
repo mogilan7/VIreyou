@@ -278,7 +278,7 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
         text = `🍎 **Питание**: **${d.dish || 'Без названия'}** (${d.grams || '?'}г):\n\n🔥 Калории: ${d.calories} ккал\n🥩 Белки: ${d.protein}г\n🍞 Углеводы: ${d.carbs}г\n🥑 Жиры: ${d.fat}г\n\n📝 ${parsedData.description}`;
     } else if (parsedData.type === "SLEEP") {
         const d = parsedData.data;
-        text = `📊 **Показатели сна**:\n\n💤 Длительность: ${d.duration_hrs || 0}ч\n🔴 Глубокий: ${d.deep_hrs || 0}ч\n🔵 REM: ${d.rem_hrs || 0}ч\n\n📝 ${parsedData.description}`;
+        text = `📊 **Показатели сна**:\n\n💤 Длительность: ${d.duration_hrs || 0}ч\n🔴 Глубокий: ${d.deep_hrs || 0}ч\n🔵 REM: ${d.rem_hrs || 0}ч\n⚪️ Легкий: ${d.light_hrs || 0}ч\n❤️ Пульс покой: ${d.resting_heart_rate || '--'}\n📉 HRV: ${d.hrv || '--'}\n\n📝 ${parsedData.description}`;
     } else if (parsedData.type === "ACTIVITY") {
         const d = parsedData.data;
         text = `🏃‍♂️ **Активность**:\n\n👣 Шаги: ${d.steps || 0}\n🔥 Калории: ${d.calories_burned || 0}\n⏱ Время: ${d.active_minutes || 0} мин\n\n📝 ${parsedData.description}`;
@@ -490,6 +490,9 @@ bot.action('save_log_confirm', async (ctx: any) => {
                     duration_hrs: cached.data.duration_hrs ? Number(cached.data.duration_hrs) : 0,
                     deep_hrs: cached.data.deep_hrs ? Number(cached.data.deep_hrs) : 0,
                     rem_hrs: cached.data.rem_hrs ? Number(cached.data.rem_hrs) : 0,
+                    light_hrs: cached.data.light_hrs ? Number(cached.data.light_hrs) : 0,
+                    hrv: cached.data.hrv ? Number(cached.data.hrv) : null,
+                    resting_heart_rate: cached.data.resting_heart_rate ? Number(cached.data.resting_heart_rate) : null,
                     notes: cached.description,
                     created_at: date
                 }
