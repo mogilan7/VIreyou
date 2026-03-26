@@ -50,7 +50,7 @@ export function DashboardThemeProvider({ children }: { children: React.ReactNode
 
     return (
         <ThemeContext.Provider value={{ theme, toggleTheme }}>
-            <div className={theme}>
+            <div className={`${theme} w-full`}>
                 {children}
             </div>
         </ThemeContext.Provider>
@@ -68,7 +68,7 @@ export const useDashboardTheme = () => {
 export function ThemeWrapper({ children }: { children: React.ReactNode }) {
     const { theme } = useDashboardTheme();
     return (
-        <div className={theme === 'dark' ? 'bg-slate-900 text-slate-50 transition-colors duration-300' : 'bg-brand-bg text-brand-text transition-colors duration-300'}>
+        <div className={`w-full ${theme === 'dark' ? 'bg-slate-900 text-slate-50 transition-colors duration-300' : 'bg-brand-bg text-brand-text transition-colors duration-300'}`}>
             {children}
         </div>
     );

@@ -27,7 +27,7 @@ export default async function RootLayout({
       </head>
       <body className="antialiased">
         <NextIntlClientProvider messages={messages}>
-          <main className="min-h-screen">
+          <main className="min-h-screen w-full">
             {children}
           </main>
         </NextIntlClientProvider>
