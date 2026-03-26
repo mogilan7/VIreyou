@@ -83,9 +83,17 @@ const LifestyleDashboard = ({
     router.push(`?from=${from}&to=${to}`);
   };
 
-  const selectedRange = fromStr === toStr ? 
-    (fromStr === new Date().toISOString().split('T')[0] ? 'Сегодня' : 'Дата') : 
-    'Период';
+  const isToday = !fromStr || fromStr === new Date().toISOString().split('T')[0];
+  const isYesterday = fromStr === new Date(new Date().getTime() - 86400000).toISOString().split('T')[0];
+  const isWeek = fromStr && toStr && (new Date(toStr).getTime() - new Date(fromStr).getTime() > 5 * 86400000 && new Date(toStr).getTime() - new Date(fromStr).getTime() < 10 * 86400000);
+  const isMonth = fromStr && toStr && (new Date(toStr).getTime() - new Date(fromStr).getTime() > 20 * 86400000);
+
+  const selectedRange = (fromStr === toStr || (!fromStr && !toStr)) ? 
+    (isToday ? 'Сегодня' : isYesterday ? 'Вчера' : 'Дата') : 
+    (isMonth ? 'Месяц' : isWeek ? 'Неделя' : 'Период');
+
+  const [optimisticRange, setOptimisticRange] = useState<string | null>(null);
+  const currentRange = optimisticRange || selectedRange;
 
   // Format activity trend for last 7 days
   const activityTrend = activityWeek.slice(0, 7).reverse().map((a: any) => ({
@@ -112,9 +120,9 @@ const LifestyleDashboard = ({
     { name: 'Углеводы', value: totalMacros.carbs },
   ].filter(d => d.value > 0);
 
-  // Habit completion (last 30 days)
-  const habitDays = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date(currentFromDate.getTime() - (29 - i) * 86400000);
+  // Habit completion (last 7 days - as requested)
+  const habitDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(currentFromDate.getTime() - (6 - i) * 86400000);
     const dayStr = d.toISOString().split('T')[0];
     const daysHabits = habitsMonth.filter((h: any) => 
       new Date(h.created_at).toISOString().split('T')[0] === dayStr
@@ -132,7 +140,7 @@ const LifestyleDashboard = ({
     return { day: dayStr, type };
   });
 
-  const stabilityPct = Math.round((habitDays.filter(d => d.type === 'clean').length / 30) * 100);
+  const stabilityPct = Math.round((habitDays.filter(d => d.type === 'clean').length / 7) * 100);
   
   const uniqueHabits = Array.from(new Set(habitsMonth.map((h: any) => h.habit_key?.toLowerCase()))) as (string | undefined)[];
   const hasAlcohol = uniqueHabits.some(h => h && (h.includes('алкоголь') || h.includes('пиво')));
@@ -160,12 +168,15 @@ const LifestyleDashboard = ({
                 {['Сегодня', 'Вчера', 'Неделя', 'Месяц'].map((range) => (
                   <button
                     key={range}
-                    onClick={() => updateRange(range)}
+                    onClick={() => {
+                        setOptimisticRange(range);
+                        updateRange(range);
+                    }}
                     className={`px-2 sm:px-3 md:px-4 py-1.5 rounded-lg text-[10px] sm:text-xs md:text-sm font-medium transition-all whitespace-nowrap flex-1 text-center ${
-                      (range === 'Сегодня' && selectedRange === 'Сегодня') || (range === 'Неделя' && !fromStr && !toStr)
+                      currentRange === range
                       ? 'bg-[#60B76F] text-white shadow-md shadow-[#60B76F]/20' 
                       : 'hover:bg-white/80 dark:hover:bg-slate-700'
-                    }`}
+                    } ${optimisticRange === range && optimisticRange !== selectedRange ? 'animate-pulse' : ''}`}
                   >
                     {range}
                   </button>
@@ -444,7 +455,7 @@ const LifestyleDashboard = ({
           </div>
           
           <div className="flex items-center justify-between text-[10px] sm:text-xs md:text-sm text-slate-500 px-1 border-t border-slate-100 dark:border-white/5 pt-3">
-            <span>Стабильность за 30 дней</span>
+            <span>Стабильность за 7 дней</span>
             <span className="font-bold text-[#60B76F] text-sm sm:text-base">{stabilityPct}%</span>
           </div>
 
