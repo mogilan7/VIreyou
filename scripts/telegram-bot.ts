@@ -269,7 +269,8 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
         type: parsedData.type, 
         data: parsedData.data, 
         description: parsedData.description,
-        date_offset_days: parsedData.date_offset_days 
+        date_offset_days: parsedData.date_offset_days,
+        habit_key: parsedData.habit_key 
     };
 
     let text = "";

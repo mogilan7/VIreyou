@@ -1,11 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
-import Sidebar from "@/components/dashboard/Sidebar";
 import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
-import { Apple, Activity, Bed, GlassWater, Cigarette, Flame, ChevronDown, Trash2, Wine } from 'lucide-react';
 import { deleteNutritionLog } from './actions';
-import DeleteLogButton from '@/components/dashboard/DeleteLogButton';
+import LifestyleDashboard from "@/components/dashboard/LifestyleDashboard";
 
 export const dynamic = 'force-dynamic';
 
@@ -40,8 +38,6 @@ const NUTRIENT_NAMES: any = {
     manganese: 'Марганец', selenium: 'Селен', iodine: 'Йод'
 };
 
-import LifestyleDashboard from "@/components/dashboard/LifestyleDashboard";
-
 export default async function LifestylePage({ searchParams }: { searchParams: Promise<{ from?: string, to?: string }> }) {
     try {
         const resolvedParams = await searchParams;
@@ -75,9 +71,14 @@ export default async function LifestylePage({ searchParams }: { searchParams: Pr
         let fromDate = getTzMidnightUTC(fromStr || null, 0, false);
         let toDate = getTzMidnightUTC(toStr || null, 0, true);
         const weekAgo = getTzMidnightUTC(null, -7, false);
+        const monthAgo = getTzMidnightUTC(null, -30, false);
 
         // Fetch Logs from Prisma
-        const [nutritionToday, activityToday, sleepToday, hydrationToday, habitsToday, nutritionWeek, activityWeek, sleepWeek, hydrationWeek] = await Promise.all([
+        const [
+            nutritionToday, activityToday, sleepToday, hydrationToday, habitsToday, 
+            nutritionWeek, activityWeek, habitsWeek, sleepWeek, hydrationWeek,
+            habitsMonth
+        ] = await Promise.all([
             prisma.nutritionLog.findMany({ where: { user_id: userId, created_at: { gte: fromDate, lte: toDate } }, orderBy: { created_at: 'desc' } }),
             prisma.activityLog.findMany({ where: { user_id: userId, created_at: { gte: fromDate, lte: toDate } }, orderBy: { created_at: 'desc' } }),
             prisma.sleepLog.findMany({ where: { user_id: userId, created_at: { gte: fromDate, lte: toDate } }, orderBy: { created_at: 'desc' } }),
@@ -86,8 +87,11 @@ export default async function LifestylePage({ searchParams }: { searchParams: Pr
             // Списки за 7 дней
             prisma.nutritionLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
             prisma.activityLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
+            prisma.habitLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
             prisma.sleepLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
-            prisma.hydrationLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } })
+            prisma.hydrationLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
+            // Список за 30 дней для тепловой карты
+            prisma.habitLog.findMany({ where: { user_id: userId, created_at: { gte: monthAgo } }, orderBy: { created_at: 'asc' } })
         ]);
 
         // Calculate Aggregates
@@ -99,7 +103,8 @@ export default async function LifestylePage({ searchParams }: { searchParams: Pr
 
         const data = {
             nutritionToday, activityToday, sleepToday, hydrationToday, habitsToday,
-            nutritionWeek, activityWeek, sleepWeek, hydrationWeek,
+            nutritionWeek, activityWeek, habitsWeek, sleepWeek, hydrationWeek,
+            habitsMonth,
             totalWater, lastSleep, lastActivity, totalCalories, totalSteps,
             nutritionNorms: NUTRITION_NORMS,
             nutrientNames: NUTRIENT_NAMES
@@ -120,4 +125,3 @@ export default async function LifestylePage({ searchParams }: { searchParams: Pr
         return <div className="p-8 text-center text-red-500">Ошибка: {err.message}</div>;
     }
 }
-

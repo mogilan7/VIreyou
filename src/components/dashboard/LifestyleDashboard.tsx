@@ -45,7 +45,8 @@ const LifestyleDashboard = ({
 
   const { 
     nutritionToday, activityToday, sleepToday, hydrationToday, habitsToday,
-    nutritionWeek, activityWeek, sleepWeek, hydrationWeek,
+    nutritionWeek, activityWeek, habitsWeek, sleepWeek, hydrationWeek,
+    habitsMonth,
     totalWater, lastSleep, lastActivity, totalCalories, totalSteps,
     nutritionNorms, nutrientNames
   } = data;
@@ -111,9 +112,18 @@ const LifestyleDashboard = ({
     { name: 'Углеводы', value: totalMacros.carbs },
   ].filter(d => d.value > 0);
 
-  // Habit completion (last 30 days dummy or from habitsWeek if available)
-  // For now, let's just use what we have in habitsToday to show "today" status
-  
+  // Habit completion (last 30 days)
+  const habitDays = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(currentFromDate.getTime() - (29 - i) * 86400000);
+    const dayStr = d.toISOString().split('T')[0];
+    const hasBreach = habitsMonth.some((h: any) => 
+      new Date(h.created_at).toISOString().split('T')[0] === dayStr
+    );
+    return { day: dayStr, completed: !hasBreach }; // Green if no bad habits logged
+  });
+
+  const stabilityPct = Math.round((habitDays.filter(d => d.completed).length / 30) * 100);
+
   return (
     <div className={`min-h-screen flex transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0F172A] text-white' : 'bg-[#F7F5F0] text-[#2D2D2D]'} font-sans relative`}>
       <Sidebar role="client" profileName={userMetadata?.full_name || "Пользователь"} />
@@ -377,27 +387,50 @@ const LifestyleDashboard = ({
           </section>
         </div>
 
-        {/* --- Habits --- */}
-        <section className="glass-card p-4 md:p-6 rounded-3xl space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg md:text-xl font-bold flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-purple-500" />
-              Привычки за день
+        {/* --- Habits Heatmap (New requested section) --- */}
+        <section className="glass-card p-4 sm:p-6 rounded-3xl space-y-4 sm:space-y-6">
+          <div className="flex justify-between items-center sm:px-1">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold flex items-center gap-1.5 sm:gap-2">
+              <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500 shrink-0" />
+              <span className="truncate">Привычки и стабильность</span>
             </h2>
+            <div className="flex gap-1 sm:gap-2 shrink-0">
+               <span className="p-1 px-1.5 sm:px-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[8px] sm:text-xs font-bold uppercase tracking-wider">Алкоголь</span>
+               <span className="p-1 px-1.5 sm:px-2 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[8px] sm:text-xs font-bold uppercase tracking-wider">Курение</span>
+            </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-             {habitsToday.length === 0 ? <p className="text-gray-400 text-sm text-center col-span-full py-4">Записей нет</p> :
+          <div className="flex flex-wrap gap-1 md:gap-1.5 justify-start md:justify-between px-1">
+            {habitDays.map((item, idx) => (
+              <div 
+                key={idx}
+                className={`w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 rounded-sm md:rounded-md transition-all cursor-help ${
+                  item.completed 
+                  ? 'bg-[#60B76F] shadow-[0_0_8px_rgba(96,183,111,0.3)]' 
+                  : 'bg-slate-200 dark:bg-slate-800'
+                }`}
+                title={`${new Date(item.day).toLocaleDateString('ru-RU')}: ${item.completed ? 'Чистый день' : 'Были нарушения'}`}
+              />
+            ))}
+          </div>
+          
+          <div className="flex items-center justify-between text-[10px] sm:text-xs md:text-sm text-slate-500 px-1 border-t border-slate-100 dark:border-white/5 pt-3">
+            <span>Стабильность за 30 дней</span>
+            <span className="font-bold text-[#60B76F] text-sm sm:text-base">{stabilityPct}%</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-2">
+             {habitsToday.length === 0 ? <p className="text-gray-400 text-[10px] sm:text-xs text-center col-span-full py-2 opacity-50">Нарушений за сегодня не зафиксировано</p> :
               habitsToday.map((h: any) => (
-                <div key={h.id} className="flex gap-3 items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/30">
+                <div key={h.id} className="flex gap-2 sm:gap-3 items-center p-2 sm:p-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-white/5">
                   {h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво') ? (
-                      <Wine size={18} className="text-purple-400 flex-shrink-0" />
+                      <Wine size={16} className="text-purple-400 flex-shrink-0" />
                   ) : (
-                      <Cigarette size={18} className="text-amber-500 flex-shrink-0" />
+                      <Cigarette size={16} className="text-amber-500 flex-shrink-0" />
                   )}
-                  <div className="flex-1">
-                      <p className="text-xs md:text-sm dark:text-slate-300 font-bold">{h.habit_key}</p>
-                      <p className="text-[10px] text-gray-400">{new Date(h.created_at).toLocaleTimeString('ru-RU', { timeZone: userTz, hour: '2-digit', minute:'2-digit' })}</p>
+                  <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs md:text-sm dark:text-slate-300 font-bold truncate">{h.habit_key}</p>
+                      <p className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-400">{new Date(h.created_at).toLocaleTimeString('ru-RU', { timeZone: userTz, hour: '2-digit', minute:'2-digit' })}</p>
                   </div>
                 </div>
               ))
