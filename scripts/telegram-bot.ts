@@ -52,6 +52,8 @@ if (!botToken) {
   process.exit(1);
 }
 
+const BOT_VERSION = "1.2.1"; // Updated to verify the fix
+console.log(`[START] MemoBot ${BOT_VERSION} starting...`);
 const bot = new Telegraf(botToken);
 
 /**
@@ -383,6 +385,8 @@ async function saveFoodLog(userId: string, foodData: any) {
 async function sendConfirmationMessage(ctx: any, parsedData: any) {
     const user = ctx.state.user;
     if (!user) return;
+
+    console.log(`[DEBUG] parsedData for user ${user.id}:`, JSON.stringify(parsedData, null, 2));
 
     tempLog[user.id] = { 
         type: parsedData.type, 
