@@ -93,8 +93,8 @@ async function downloadTelegramFile(fileId: string, destPath: string) {
 /**
  * Вспомогательный хелпер для конвертации файла в base64.
  */
-function fileToBase64(filePath: string): string {
-  const buffer = fs.readFileSync(filePath);
+async function fileToBase64(filePath: string): Promise<string> {
+  const buffer = await fs.promises.readFile(filePath);
   return buffer.toString("base64");
 }
 
@@ -440,7 +440,7 @@ bot.on('photo', async (ctx: any) => {
 
   try {
     await downloadTelegramFile(photo.file_id, tempPath);
-    const base64 = fileToBase64(tempPath);
+    const base64 = await fileToBase64(tempPath);
 
     // Сначала пробуем распознать как скриншот
     const screenshotData = await analyzeScreenshotWithAI(base64);
@@ -470,7 +470,7 @@ bot.on('photo', async (ctx: any) => {
     console.error("Photo Error:", error);
     await ctx.reply(t(lang, 'Processing.photoError'));
   } finally {
-    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    if (fs.existsSync(tempPath)) await fs.promises.unlink(tempPath);
   }
 });
 
@@ -505,7 +505,7 @@ bot.on('voice', async (ctx: any) => {
     console.error("Voice Error:", error);
     await ctx.reply(t(lang, 'Processing.voiceError'));
   } finally {
-    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    if (fs.existsSync(tempPath)) await fs.promises.unlink(tempPath);
     console.log(`[VOICE] Finished process for ${voice.file_id}`);
   }
 });

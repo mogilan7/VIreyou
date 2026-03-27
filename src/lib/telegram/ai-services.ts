@@ -148,7 +148,9 @@ export async function analyzeScreenshotWithAI(imageBase64: string) {
   return JSON.parse(content);
 }
 
-import { execSync } from "child_process";
+import { exec } from "child_process";
+import { promisify } from "util";
+const execAsync = promisify(exec);
 
 export async function transcribeVoiceWithAI(file_path: string): Promise<string> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
@@ -157,7 +159,7 @@ export async function transcribeVoiceWithAI(file_path: string): Promise<string> 
   console.log(`[VOICE] Converting ${file_path} to ${wavPath} via ffmpeg...`);
   
   try {
-    execSync(`"${ffmpeg}" -i "${file_path}" "${wavPath}" -y -loglevel error`);
+    await execAsync(`"${ffmpeg}" -i "${file_path}" "${wavPath}" -y -loglevel error`);
     console.log(`[VOICE] Conversion successful`);
   } catch (err) {
     console.error(`[VOICE] ffmpeg conversion failed:`, err);
@@ -166,7 +168,7 @@ export async function transcribeVoiceWithAI(file_path: string): Promise<string> 
 
   try {
     console.log(`[VOICE] Preparing file with toFile for Whisper...`);
-    const file = await toFile(fs.readFileSync(wavPath), "voice.wav");
+    const file = await toFile(await fs.promises.readFile(wavPath), "voice.wav");
     console.log(`[VOICE] Submitting to Whisper API...`);
     
     const transcription = await openai.audio.transcriptions.create({
@@ -178,7 +180,7 @@ export async function transcribeVoiceWithAI(file_path: string): Promise<string> 
     return transcription.text;
   } finally {
     if (fs.existsSync(wavPath)) {
-      fs.unlinkSync(wavPath);
+      await fs.promises.unlink(wavPath);
       console.log(`[VOICE] Cleaned up temporary WAV file: ${wavPath}`);
     }
   }

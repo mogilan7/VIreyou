@@ -55,7 +55,14 @@ const LifestyleDashboard = ({
     nutritionNorms, nutrientNames
   } = data;
 
-  const formatDate = (d: Date) => d.toISOString().split('T')[0];
+  // Helper to get local date string yyyy-mm-dd
+  const getLocalDateString = (d: Date) => {
+    return d.toLocaleDateString('sv-SE', { timeZone: userTz });
+  };
+
+  const todayStr = getLocalDateString(new Date());
+  
+  const formatDate = (d: Date) => getLocalDateString(d);
 
   const updateRange = (range: string) => {
     const now = new Date();
@@ -65,7 +72,6 @@ const LifestyleDashboard = ({
     let from = '';
     let to = '';
 
-    const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
     if (range === t('today')) {
         from = formatDate(tzNow);
@@ -87,8 +93,8 @@ const LifestyleDashboard = ({
     router.push(`?from=${from}&to=${to}`);
   };
 
-  const isToday = !fromStr || fromStr === new Date().toISOString().split('T')[0];
-  const isYesterday = fromStr === new Date(new Date().getTime() - 86400000).toISOString().split('T')[0];
+  const isToday = !fromStr || fromStr === todayStr;
+  const isYesterday = fromStr === getLocalDateString(new Date(new Date().getTime() - 86400000));
   const isWeek = fromStr && toStr && (new Date(toStr).getTime() - new Date(fromStr).getTime() > 5 * 86400000 && new Date(toStr).getTime() - new Date(fromStr).getTime() < 10 * 86400000);
   const isMonth = fromStr && toStr && (new Date(toStr).getTime() - new Date(fromStr).getTime() > 20 * 86400000);
 
@@ -126,15 +132,18 @@ const LifestyleDashboard = ({
 
   // Habit completion (last 7 days - as requested)
   const habitDays = Array.from({ length: 7 }, (_, i) => {
+    // We want 7 days ending at currentFromDate (which is usually today or end of period)
     const d = new Date(currentFromDate.getTime() - (6 - i) * 86400000);
-    const dayStr = d.toISOString().split('T')[0];
+    const dayStr = getLocalDateString(d);
+    
+    // Filter habits from habitsMonth for THIS specific day
     const daysHabits = habitsMonth.filter((h: any) => 
-      new Date(h.created_at).toISOString().split('T')[0] === dayStr
+      getLocalDateString(new Date(h.created_at)) === dayStr
     );
     
     let type = 'clean';
-    const holdsAlcohol = daysHabits.some((h: any) => h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво'));
-    const holdsSmoking = daysHabits.some((h: any) => h.habit_key?.toLowerCase().includes('курение') || h.habit_key?.toLowerCase().includes('сигарет'));
+    const holdsAlcohol = daysHabits.some((h: any) => h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво') || h.habit_key?.toLowerCase().includes('alcohol') || h.habit_key?.toLowerCase().includes('beer'));
+    const holdsSmoking = daysHabits.some((h: any) => h.habit_key?.toLowerCase().includes('курение') || h.habit_key?.toLowerCase().includes('сигарет') || h.habit_key?.toLowerCase().includes('smoking') || h.habit_key?.toLowerCase().includes('cigarette'));
 
     if (holdsAlcohol && holdsSmoking) type = 'both';
     else if (holdsSmoking) type = 'smoking';
@@ -142,6 +151,8 @@ const LifestyleDashboard = ({
 
     return { day: dayStr, type };
   });
+
+  const habitsOnlyToday = habitsMonth.filter((h: any) => getLocalDateString(new Date(h.created_at)) === todayStr);
 
   const stabilityPct = Math.round((habitDays.filter(d => d.type === 'clean').length / 7) * 100);
   
@@ -507,8 +518,11 @@ const LifestyleDashboard = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-2">
-             {habitsToday.length === 0 ? <p className="text-gray-400 text-[10px] sm:text-xs text-center col-span-full py-2 opacity-50">{t('noBreachesToday')}</p> :
-              habitsToday.map((h: any) => (
+             <div className="col-span-full border-b border-slate-100 dark:border-white/5 pb-2 mb-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('today')}</p>
+             </div>
+             {habitsOnlyToday.length === 0 ? <p className="text-gray-400 text-[10px] sm:text-xs text-center col-span-full py-2 opacity-50">{t('noBreachesToday')}</p> :
+              habitsOnlyToday.map((h: any) => (
                 <div key={h.id} className="flex gap-2 sm:gap-3 items-center p-2 sm:p-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-white/5">
                   {(h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво') || h.habit_key?.toLowerCase().includes('alcohol') || h.habit_key?.toLowerCase().includes('beer')) ? (
                       <Wine size={16} className="text-purple-400 flex-shrink-0" />
@@ -522,6 +536,33 @@ const LifestyleDashboard = ({
                 </div>
               ))
              }
+
+             {(!isToday && habitsToday.length > 0 && habitsToday.filter((h: any) => getLocalDateString(new Date(h.created_at)) !== todayStr).length > 0) && (
+               <>
+                 <div className="col-span-full border-b border-slate-100 dark:border-white/5 pb-1 mt-4 mb-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('period')}</p>
+                 </div>
+                 {habitsToday
+                  .filter((h: any) => getLocalDateString(new Date(h.created_at)) !== todayStr)
+                  .map((h: any) => (
+                    <div key={h.id} className="flex gap-2 sm:gap-3 items-center p-2 sm:p-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 opacity-70 border border-slate-100 dark:border-white/5">
+                      {(h.habit_key?.toLowerCase().includes('алкоголь') || h.habit_key?.toLowerCase().includes('пиво') || h.habit_key?.toLowerCase().includes('alcohol') || h.habit_key?.toLowerCase().includes('beer')) ? (
+                          <Wine size={16} className="text-purple-300 flex-shrink-0" />
+                      ) : (
+                          <Cigarette size={16} className="text-amber-400 flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                          <p className="text-[10px] sm:text-xs md:text-sm dark:text-slate-400 font-bold truncate">{h.habit_key}</p>
+                          <div className="flex justify-between items-center">
+                            <p className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-400">{new Date(h.created_at).toLocaleTimeString(locale === 'ru' ? 'ru-RU' : 'en-US', { timeZone: userTz, hour: '2-digit', minute:'2-digit' })}</p>
+                            <p className="text-[8px] text-gray-400 italic">{new Date(h.created_at).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US', { timeZone: userTz, day: '2-digit', month: '2-digit' })}</p>
+                          </div>
+                      </div>
+                    </div>
+                  ))
+                 }
+               </>
+             )}
           </div>
         </section>
 

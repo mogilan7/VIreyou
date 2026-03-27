@@ -6,6 +6,28 @@ import { getMessages } from 'next-intl/server';
 export const metadata: Metadata = {
   title: "VI antiage - Longevity Portal",
   description: "Science-backed holistic wellness and longevity specialist.",
+  openGraph: {
+    title: "VI antiage - Longevity Portal",
+    description: "Science-backed holistic wellness and longevity specialist. Discover your biological age and optimize your vitality.",
+    url: "https://vireyou.com",
+    siteName: "VI antiage",
+    images: [
+      {
+        url: "https://vireyou.com/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "VI antiage - Longevity Portal",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "VI antiage - Longevity Portal",
+    description: "Science-backed holistic wellness and longevity specialist.",
+    images: ["https://vireyou.com/og-image.png"],
+  },
 };
 
 export default async function RootLayout({

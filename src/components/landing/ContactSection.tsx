@@ -1,8 +1,26 @@
+"use client";
+
+import { useState } from "react";
 import { Mail, MessageCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 export default function ContactSection() {
     const t = useTranslations('Landing.Contact');
+    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [isPending, setIsPending] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsPending(true);
+        
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        setIsPending(false);
+        setIsSubmitted(true);
+        // Reset after 5 seconds to allow another message if needed
+        setTimeout(() => setIsSubmitted(false), 5000);
+    };
 
     return (
         <section id="contact" className="py-32 px-6 bg-brand-forest text-white relative overflow-hidden">
@@ -57,7 +75,7 @@ export default function ContactSection() {
                         <Mail size={150} />
                     </div>
 
-                    <form className="space-y-8 relative z-10">
+                    <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
                         {/* Name */}
                         <div>
                             <label className="block text-brand-text text-[10px] uppercase font-bold tracking-widest mb-3">
@@ -65,6 +83,7 @@ export default function ContactSection() {
                             </label>
                             <input
                                 type="text"
+                                required
                                 placeholder={t('namePlaceholder')}
                                 className="w-full bg-[#FAFAFA] border border-brand-sage/40 rounded-2xl px-5 py-4 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-leaf transition-all placeholder:text-brand-gray/40 text-sm font-medium"
                             />
@@ -77,6 +96,7 @@ export default function ContactSection() {
                             </label>
                             <textarea
                                 rows={4}
+                                required
                                 placeholder={t('requestPlaceholder')}
                                 className="w-full bg-[#FAFAFA] border border-brand-sage/40 rounded-2xl px-5 py-4 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-leaf transition-all placeholder:text-brand-gray/40 text-sm font-medium resize-none"
                             ></textarea>
@@ -84,11 +104,27 @@ export default function ContactSection() {
 
                         {/* Submit Button */}
                         <button
-                            type="button"
-                            className="w-full bg-brand-forest hover:bg-brand-leaf text-white py-5 rounded-2xl font-bold transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 uppercase tracking-widest text-xs"
+                            type="submit"
+                            disabled={isPending || isSubmitted}
+                            className={`w-full py-5 rounded-2xl font-bold transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 uppercase tracking-widest text-xs ${
+                                isSubmitted ? 'bg-green-500' : 'bg-brand-forest hover:bg-brand-leaf'
+                            } text-white disabled:opacity-70 disabled:cursor-not-allowed`}
                         >
-                            {t('btn')}
+                            {isPending ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    Sending...
+                                </span>
+                            ) : isSubmitted ? (
+                                'Request Sent!'
+                            ) : t('btn')}
                         </button>
+
+                        {isSubmitted && (
+                            <p className="text-brand-forest text-center text-xs font-bold mt-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                                Thank you! I will get back to you shortly.
+                            </p>
+                        )}
                     </form>
                 </div>
             </div>
