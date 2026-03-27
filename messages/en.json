@@ -1399,6 +1399,7 @@
         "Nutrition": {
             "prompt": "🍎 **Nutrition Analysis**\n\nSend me a **photo of your dish**, text, or voice description.\n\nI will calculate calories, macronutrients, fiber, and micronutrients!",
             "saved": "🍎 **Nutrition**: **{dish}** ({grams}g):\n\n🔥 Calories: {cal} kcal\n🥩 Protein: {prot}g\n🍞 Carbs: {carbs}g\n🥑 Fats: {fat}g\n\n📝 {desc}",
+            "detectedHabit": "\n⚠️ **Habit detected**: {habit}",
             "noDataToday": "No data for today yet. Send a food photo or description!",
             "reportTitle": "📊 **Nutrient Report for {date}**\n\n",
             "calLine": "🔥 **Calories**: {cal} kcal\n\n"

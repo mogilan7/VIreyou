@@ -207,14 +207,33 @@ export async function analyzeTextWithAI(text: string) {
   "date_offset_days": 0,
   "habit_key": "Алкоголь" | "Курение" | "Сахар" | null, // Если это алкогольный напиток или табак, укажи категорию здесь, ДАЖЕ ЕСЛИ ТИП — NUTRITION!
   "data": {
-    // ДЛЯ NUTRITION заполни объект полностью (как для анализа еды).
+    // ДЛЯ NUTRITION заполни СЛЕДУЮЩИЕ ПОЛЯ (ОБЯЗАТЕЛЬНО):
+    "dish": "Название еды/напитка",
+    "grams": 300, // Число (оценка веса)
+    "calories": 150.0,
+    "protein": 0.5,
+    "carbs": 12.0,
+    "fat": 0.0,
+    "fiber": 0.0,
+    "sugar_fast": 0.0,
+    "trans_fat": 0.0,
+    "cholesterol": 0.0,
+    "added_sugar": 0.0,
+    "omega_3": 0.0,
+    "omega_6": 0.0,
+    "water": 250,
+
     // ДЛЯ SLEEP: { duration_hrs, deep_hrs, rem_hrs, light_hrs, hrv, resting_heart_rate }
     // ДЛЯ ACTIVITY: { steps, active_minutes, calories_burned }
     // ДЛЯ HABIT: { habit_key: "Краткое название" }
   }
 }
 
-Правило Оценки Граммовки (для NUTRITION): если указана "порция" или "кусок", сделай адекватное среднее предположение (не сдавайся на FAILED).
+Примеры: 
+- "Пиво 330г" -> type: "NUTRITION", habit_key: "Алкоголь", data: { dish: "Пиво", grams: 330, calories: 142, protein: 1.5, carbs: 12, ... }
+- "Я выкурил сигарету" -> type: "HABIT", habit_key: "Курение", data: { habit_key: "Курение" }
+
+Правило Оценки Граммовки (для NUTRITION): если указана "порция" или "кусок", сделай адекватное среднее предположение.
 Для ЛЮБОГО упоминания алкоголя (пиво, бокал вина и т.д.) ОБЯЗАТЕЛЬНО ставь habit_key: "Алкоголь".`;
 
   const response = await openai.chat.completions.create({

@@ -398,8 +398,11 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
         const d = parsedData.data;
         text = t(lang, 'Nutrition.saved', { 
             dish: d.dish || (lang === 'en' ? 'Unknown' : 'Без названия'), 
-            grams: d.grams || '?', cal: d.calories, prot: d.protein, carbs: d.carbs, fat: d.fat, desc: parsedData.description 
+            grams: d.grams || '?', cal: d.calories || 0, prot: d.protein || 0, carbs: d.carbs || 0, fat: d.fat || 0, desc: parsedData.description 
         });
+        if (parsedData.habit_key) {
+            text += t(lang, 'Nutrition.detectedHabit', { habit: parsedData.habit_key });
+        }
     } else if (parsedData.type === "SLEEP") {
         const d = parsedData.data;
         text = t(lang, 'Sleep.saved', {
