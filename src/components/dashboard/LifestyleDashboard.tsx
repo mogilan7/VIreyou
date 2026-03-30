@@ -105,11 +105,22 @@ const LifestyleDashboard = ({
   const [optimisticRange, setOptimisticRange] = useState<string | null>(null);
   const currentRange = optimisticRange || selectedRange;
 
-  // Format activity trend for last 7 days
-  const activityTrend = activityWeek.slice(0, 7).reverse().map((a: any) => ({
-    day: new Date(a.created_at).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short', timeZone: userTz }),
-    steps: a.steps || 0
-  }));
+  // Aggregate activity by date for the last 7 days
+  const activityTrend = Array.from({ length: 7 }, (_, i) => {
+    // Generate each date starting from 6 days ago up to today
+    const d = new Date(currentFromDate.getTime() - (6 - i) * 86400000);
+    const dayStr = getLocalDateString(d);
+    
+    // Sum steps from all logs matching this specific day string
+    const daySteps = activityWeek
+      .filter((a: any) => getLocalDateString(new Date(a.created_at)) === dayStr)
+      .reduce((sum: number, a: any) => sum + (a.steps || 0), 0);
+    
+    return {
+      day: d.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short', timeZone: userTz }),
+      steps: daySteps
+    };
+  });
 
   // Format sleep data for chart
   const sleepChartData = [
