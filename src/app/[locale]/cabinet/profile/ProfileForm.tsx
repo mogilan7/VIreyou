@@ -120,7 +120,7 @@ export default function ProfileForm({ initialProfile }: { initialProfile: any })
                     </div>
 
 
-                    {/* Height (Main Column) */}
+                    {/* Height */}
                     <div>
                         <label className="block text-sm font-semibold text-brand-text mb-2">
                             {t('height')} (см)
@@ -131,6 +131,22 @@ export default function ProfileForm({ initialProfile }: { initialProfile: any })
                             defaultValue={initialProfile?.height || ''}
                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-leaf/50 transition-shadow"
                         />
+                    </div>
+
+                    {/* Gender */}
+                    <div>
+                        <label className="block text-sm font-semibold text-brand-text mb-2">
+                            {t('gender')}
+                        </label>
+                        <select
+                            name="gender"
+                            defaultValue={initialProfile?.gender || ''}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-leaf/50 transition-shadow"
+                        >
+                            <option value="">{t('gender')}...</option>
+                            <option value="male">{t('genderMale')}</option>
+                            <option value="female">{t('genderFemale')}</option>
+                        </select>
                     </div>
                 </div>
 

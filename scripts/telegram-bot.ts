@@ -12,7 +12,7 @@ if (process.env.DATABASE_URL) {
 }
 
 import prisma from "../src/lib/prisma";
-import { analyzeFoodWithAI, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI } from "../src/lib/telegram/ai-services";
+import { analyzeFoodWithAI, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI } from "../src/lib/telegram/ai-services";
 import { generatePeriodicReport } from "../src/lib/reportGenerator";
 
 const ruMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/ru.json'), 'utf8'));
@@ -52,7 +52,7 @@ if (!botToken) {
   process.exit(1);
 }
 
-const BOT_VERSION = "1.2.1"; // Updated to verify the fix
+const BOT_VERSION = "1.2.3"; // Consistent date parsing relative to user local time
 console.log(`[START] MemoBot ${BOT_VERSION} starting...`);
 const bot = new Telegraf(botToken);
 
@@ -240,6 +240,41 @@ function detectTimezoneFromLang(languageCode?: string): string {
     return map[code] || 'Europe/Moscow';
 }
 
+/**
+ * Получает текущую дату пользователя в формате YYYY-MM-DD, DayOfWeek
+ */
+function getUserLocalDate(timezone?: string): string {
+    const tz = timezone || 'Europe/Moscow';
+    const now = new Date();
+    try {
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            timeZone: tz
+        });
+        const dateStr = formatter.format(now); // "YYYY-MM-DD"
+        const weekday = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: tz });
+        return `${dateStr}, ${weekday}`;
+    } catch (e) {
+        return now.toISOString().split('T')[0];
+    }
+}
+
+/**
+ * Рассчитывает целевую дату на основе локальной даты пользователя и смещения.
+ */
+function calculateTargetDate(localTodayStr: string, offset: number): Date {
+    const datePart = localTodayStr.split(',')[0].trim(); // "YYYY-MM-DD"
+    const [year, month, day] = datePart.split('-').map(Number);
+    const date = new Date();
+    // Используем полдень для страховки от сдвигов часовых поясов при расчетах
+    date.setFullYear(year, month - 1, day);
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() + offset);
+    return date;
+}
+
 async function sendLanguagePrompt(ctx: any) {
   const lang = ctx.state.lang || 'ru';
   await ctx.reply(t(lang, 'Auth.langPrompt'), Markup.inlineKeyboard([
@@ -342,7 +377,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
 /**
  * Сохраняет расширенные данные о питании в базу данных.
  */
-async function saveFoodLog(userId: string, foodData: any) {
+async function saveFoodLog(userId: string, foodData: any, localTodayStr?: string) {
   const validKeys = [
     'calories', 'protein', 'carbs', 'fat', 'fiber', 'description',
     'dish', 'grams', 'sugar_fast', 'trans_fat', 'cholesterol', 'added_sugar', 'omega_3', 'omega_6', 'water',
@@ -356,8 +391,8 @@ async function saveFoodLog(userId: string, foodData: any) {
     }
   }
   // Обработка оффсета даты (например, "Вчера")
-  if (foodData.date_offset_days !== undefined && foodData.date_offset_days !== 0) {
-      data.created_at = new Date(Date.now() + Number(foodData.date_offset_days) * 86400000);
+  if (foodData.date_offset_days !== undefined && foodData.date_offset_days !== 0 && localTodayStr) {
+      data.created_at = calculateTargetDate(localTodayStr, Number(foodData.date_offset_days));
   }
 
   const log = await prisma.nutritionLog.create({ data });
@@ -388,12 +423,15 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
 
     console.log(`[DEBUG] parsedData for user ${user.id}:`, JSON.stringify(parsedData, null, 2));
 
+    const localToday = getUserLocalDate(user.timezone);
+
     tempLog[user.id] = { 
         type: parsedData.type, 
         data: parsedData.data, 
         description: parsedData.description,
         date_offset_days: parsedData.date_offset_days,
-        habit_key: parsedData.habit_key 
+        habit_key: parsedData.habit_key,
+        localToday: localToday
     };
 
     const lang = ctx.state.lang || 'ru';
@@ -450,7 +488,7 @@ bot.on('photo', async (ctx: any) => {
     const base64 = await fileToBase64(tempPath);
 
     // Сначала пробуем распознать как скриншот
-    const screenshotData = await analyzeScreenshotWithAI(base64);
+    const screenshotData = await analyzeScreenshotWithAI(base64, getUserLocalDate(ctx.state.user?.timezone));
 
     if (screenshotData.status === "SUCCESS" && screenshotData.type !== "UNKNOWN") {
         await sendConfirmationMessage(ctx, {
@@ -460,7 +498,7 @@ bot.on('photo', async (ctx: any) => {
         });
     } else {
         // Пробуем распознать как еду
-        const foodData = await analyzeFoodWithAI(base64, ctx.message.caption);
+        const foodData = await analyzeFoodWithAI(base64, ctx.message.caption, getUserLocalDate(ctx.state.user?.timezone));
 
         if (foodData.status === "SUCCESS") {
             await sendConfirmationMessage(ctx, {
@@ -500,7 +538,7 @@ bot.on('voice', async (ctx: any) => {
     console.log(`[VOICE] Transcription text: ${text}`);
     await ctx.reply(t(lang, 'Processing.voiceTranscription', { text }));
 
-    const parsedData = await analyzeTextWithAI(text);
+    const parsedData = await analyzeTextWithAI(text, getUserLocalDate(ctx.state.user?.timezone));
     console.log(`[VOICE] AI Analysis status: ${parsedData.status}`);
 
     if (parsedData.status === "SUCCESS") {
@@ -564,7 +602,7 @@ bot.on('text', async (ctx: any) => {
       await ctx.reply(t(lang, 'Processing.editWait'));
       try {
           const previousData = JSON.stringify(tempLog[user.id].data);
-          const parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON.`);
+          const parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON.`, getUserLocalDate(ctx.state.user?.timezone));
 
           if (parsedData.status === "SUCCESS") {
               userStates[user.id] = ''; // Сброс статуса
@@ -581,7 +619,7 @@ bot.on('text', async (ctx: any) => {
   // Обычный анализ
   await ctx.reply(t(lang, 'Processing.textWait'));
   try {
-      const parsedData = await analyzeTextWithAI(text);
+      const parsedData = await analyzeTextWithAI(text, getUserLocalDate(ctx.state.user?.timezone));
       if (parsedData.status === "SUCCESS") {
           await sendConfirmationMessage(ctx, parsedData);
       } else {
@@ -606,12 +644,12 @@ bot.action('save_log_confirm', async (ctx: any) => {
     const cached = tempLog[user.id];
     try {
         let date = new Date();
-        if (cached.date_offset_days) {
-            date = new Date(Date.now() + Number(cached.date_offset_days) * 86400000);
+        if (cached.date_offset_days && cached.localToday) {
+            date = calculateTargetDate(cached.localToday, Number(cached.date_offset_days));
         }
 
         if (cached.type === "NUTRITION") {
-            await saveFoodLog(user.id, cached.data);
+            await saveFoodLog(user.id, cached.data, cached.localToday);
             
             if (cached.habit_key) {
                 await prisma.habitLog.create({
@@ -735,13 +773,21 @@ bot.action('menu_checklist', async (ctx: any) => {
         const aiRecs = results.filter((r: any) => r.test_type === 'ai-recommendation');
         const latestAiRec = aiRecs.length > 0 ? aiRecs[0] : null;
 
+        const keyboard = {
+            inline_keyboard: [
+                [{ text: t(lang, 'Checklist.nutritionReco'), callback_data: 'menu_nutrition_reco' }],
+                [{ text: t(lang, 'Checklist.cabinetBtn'), url: `https://vireyou.com/${lang}/cabinet` }],
+                [{ text: t(lang, 'Settings.back'), callback_data: "main_menu" }]
+            ]
+        };
+
         if (!latestAiRec) {
-            return ctx.reply(t(lang, 'Checklist.emptyTitle'));
+            return ctx.reply(t(lang, 'Checklist.emptyTitle'), { reply_markup: keyboard });
         }
 
         const recommendedTests = (latestAiRec.raw_data as any)?.recommendedTests || [];
         if (recommendedTests.length === 0) {
-             return ctx.reply(t(lang, 'Checklist.emptyTests'));
+             return ctx.reply(t(lang, 'Checklist.emptyTests'), { reply_markup: keyboard });
         }
 
         let text = t(lang, 'Checklist.title');
@@ -767,6 +813,7 @@ bot.action('menu_checklist', async (ctx: any) => {
             disable_web_page_preview: true,
             reply_markup: {
                 inline_keyboard: [
+                    [{ text: t(lang, 'Checklist.nutritionReco'), callback_data: 'menu_nutrition_reco' }],
                     [{ text: t(lang, 'Checklist.cabinetBtn'), url: `https://vireyou.com/${lang}/cabinet` }],
                     [{ text: t(lang, 'Settings.back'), callback_data: "main_menu" }]
                 ]
@@ -775,6 +822,91 @@ bot.action('menu_checklist', async (ctx: any) => {
 
     } catch (e) {
         console.error("Checklist Error:", e);
+        await ctx.reply(t(lang, 'Confirmation.error'));
+    }
+});
+
+bot.action('menu_nutrition_reco', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
+
+    try {
+        await ctx.reply(t(lang, 'Checklist.nutritionWait'));
+
+        // Calculate today's start/end in user's timezone
+        const userTz = user.timezone || 'Europe/Moscow';
+        const now = new Date();
+        const startOfDay = new Date(now.toLocaleString('en-US', { timeZone: userTz }));
+        startOfDay.setHours(0, 0, 0, 0);
+        
+        const endOfDay = new Date(startOfDay);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // Fetch logs for today
+        const logs = await prisma.nutritionLog.findMany({
+            where: {
+                user_id: user.id,
+                created_at: {
+                    gte: startOfDay,
+                    lte: endOfDay
+                }
+            }
+        });
+
+        if (logs.length === 0) {
+            return ctx.reply(t(lang, 'Nutrition.noDataToday'));
+        }
+
+        // Aggregate nutrients
+        const totals: any = {
+            calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0,
+            vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0,
+            vitamin_B1: 0, vitamin_B2: 0, vitamin_B3: 0, vitamin_B5: 0, vitamin_B6: 0,
+            vitamin_B7: 0, vitamin_B9: 0, vitamin_B12: 0, vitamin_C: 0,
+            calcium: 0, iron: 0, magnesium: 0, phosphorus: 0, potassium: 0, sodium: 0,
+            zinc: 0, copper: 0, manganese: 0, selenium: 0, iodine: 0,
+            omega_3: 0, omega_6: 0
+        };
+
+        logs.forEach(log => {
+            Object.keys(totals).forEach(k => {
+                if (typeof (log as any)[k] === 'number') {
+                    totals[k] += (log as any)[k] || 0;
+                }
+            });
+        });
+
+        // Convert totals for easier AI reading (only positive)
+        const activeTotals: any = {};
+        Object.entries(totals).forEach(([k, v]) => {
+            if (v && (v as number) > 0) activeTotals[k] = (v as number).toFixed(2);
+        });
+
+        // Fetch user profile for age/gender
+        const authUser = await (prisma as any).users.findFirst({
+            where: { email: { equals: user.email, mode: 'insensitive' } }
+        });
+        
+        let profile = null;
+        if (authUser) {
+            profile = await (prisma as any).profiles.findUnique({ where: { id: authUser.id } });
+        }
+
+        const userProfile = {
+            gender: profile?.gender === 'male' ? 'Мужской' : (profile?.gender === 'female' ? 'Женский' : 'не указан'),
+            age: profile?.date_of_birth ? Math.floor((new Date().getTime() - new Date(profile.date_of_birth).getTime()) / 31557600000) : 'не указан',
+            weight: (profile as any)?.weight || 'не указан'
+        };
+
+        // Call AI
+        const recommendation = await analyzeDailyNutritionWithAI(activeTotals, userProfile);
+
+        await ctx.reply(recommendation, { parse_mode: 'Markdown' });
+
+    } catch (e) {
+        console.error("Nutrition Reco Error:", e);
         await ctx.reply(t(lang, 'Confirmation.error'));
     }
 });

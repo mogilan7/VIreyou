@@ -18,6 +18,7 @@ export async function updateProfile(formData: FormData): Promise<{ success: bool
         const fullName = formData.get('fullName') as string;
         const dob = formData.get('dob') as string;
         const height = formData.get('height') as string;
+        const gender = formData.get('gender') as string;
         const avatarFile = formData.get('avatar') as File | null;
 
         // Welcome Data fields
@@ -83,6 +84,7 @@ export async function updateProfile(formData: FormData): Promise<{ success: bool
             const { Prisma } = require('@prisma/client');
             updates.height = new Prisma.Decimal(height);
         }
+        if (gender !== null) updates.gender = gender;
         updates.welcome_data = welcome_data;
 
         if (avatarUrl) updates.avatar_url = avatarUrl; // Using avatar_url to match existing schema

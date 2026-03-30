@@ -898,7 +898,10 @@
         "saveChanges": "Save Changes",
         "success": "Profile updated successfully!",
         "error": "Failed to update profile. Please try again.",
-        "saving": "Saving..."
+        "saving": "Saving...",
+        "gender": "Gender",
+        "genderMale": "Male",
+        "genderFemale": "Female"
     },
     "Auth": {
         "title": "Platform Access",
@@ -1445,7 +1448,9 @@
             "instr3": "3. 🏃‍♂️ **Activity**: Send steps/workouts in the evening.\n",
             "instr4": "4. 💧 **Water**: Type volume (e.g., `250ml`).\n\n",
             "instrFooter": "_Data will help the AI prepare the 'Analysis' stage!_",
-            "cabinetBtn": "🖥 Personal Cabinet"
+            "cabinetBtn": "🖥 Personal Cabinet",
+            "nutritionReco": "🥗 Nutrition Recommendation",
+            "nutritionWait": "⏳ Analyzing your diet for today and preparing recommendations based on the knowledge base..."
         },
         "Reminders": {
             "morningGreeting": "☀️ **Good morning, {name}!**\n\nYou haven't completed the following recommended tests yet:\n{tests}\n\nClick **📋 My Recommendations** in the bot menu to see details and links!",
