@@ -901,7 +901,8 @@ bot.action('menu_nutrition_reco', async (ctx: any) => {
         };
 
         // Call AI
-        const recommendation = await analyzeDailyNutritionWithAI(activeTotals, userProfile);
+        console.log(`[NutritionAnalysis] User: ${ctx.from?.id}, Lang: ${lang}, Action: Fetching daily recommendations`);
+        const recommendation = await analyzeDailyNutritionWithAI(activeTotals, userProfile, lang);
 
         await ctx.reply(recommendation, { parse_mode: 'Markdown' });
 

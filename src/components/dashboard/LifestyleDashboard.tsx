@@ -456,12 +456,12 @@ const LifestyleDashboard = ({
             </div>
             <div className="flex gap-2 sm:gap-4 mt-auto">
               <div className="flex-1 p-2 sm:p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl sm:rounded-2xl min-w-0">
-                <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-tighter truncate">{t('steps')} (7д)</p>
+                <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-tighter truncate">{t('steps')} ({locale === 'ru' ? '7д' : '7d'})</p>
                 <p className="text-sm sm:text-base md:text-lg font-bold truncate">{activityWeek.reduce((s:number,a:any)=>s+(a.steps||0),0).toLocaleString()}</p>
               </div>
               <div className="flex-1 p-2 sm:p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl sm:rounded-2xl min-w-0">
-                <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-tighter truncate">{t('activeMin')}</p>
-                <p className="text-sm sm:text-base md:text-lg font-bold truncate">{activityToday.reduce((s:number,a:any)=>s+(a.active_minutes||0),0)}</p>
+                <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-tighter truncate">{t('activeMin')} ({locale === 'ru' ? '7д' : '7d'})</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold truncate">{activityWeek.reduce((s:number,a:any)=>s+(a.active_minutes||0),0)}</p>
               </div>
             </div>
           </section>
