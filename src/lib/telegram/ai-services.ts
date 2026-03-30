@@ -73,8 +73,33 @@ export async function analyzeFoodWithAI(imageBase64?: string, description?: stri
 export async function analyzeScreenshotWithAI(imageBase64: string, referenceDate?: string) {
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
   const todayStr = referenceDate || new Date().toISOString().split('T')[0];
-  const prompt = `Ты — система распознавания медицинских и фитнес-скриншотов.
-Верни СТРОГО JSON: { "type": "SLEEP" | "ACTIVITY" | "UNKNOWN", "metrics": {}, "description": "...", "status": "SUCCESS", "date_offset_days": 0 }`;
+  const prompt = `Ты — система распознавания медицинских и фитнес-скриншотов. Твоя задача — извлечь показатели здоровья и вернуть их в СТРОГО структурированном виде.
+
+Верни СТРОГО JSON:
+{
+  "status": "SUCCESS",
+  "type": "SLEEP" | "ACTIVITY" | "UNKNOWN",
+  "description": "Краткое описание на языке скриншота (например: 'Сон 7 часов 20 минут' или 'Активность за день: 5000 шагов').",
+  "metrics": {},
+  "date_offset_days": 0
+}
+
+**ПРАВИЛА ДЛЯ METRICS (в зависимости от type):**
+
+1. Если type "SLEEP":
+   - "duration_hrs": число (часы),
+   - "deep_hrs": число (часы),
+   - "rem_hrs": число (часы),
+   - "light_hrs": число (часы),
+   - "hrv": число (мс),
+   - "resting_heart_rate": число (уд/мин).
+
+2. Если type "ACTIVITY":
+   - "steps": целое число,
+   - "active_minutes": активные минуты / время тренировки (целое число),
+   - "calories_burned": сожженные калории (число).
+
+Если на скриншоте нет нужных данных, верни type "UNKNOWN".`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -112,8 +137,26 @@ export async function transcribeVoiceWithAI(file_path: string): Promise<string> 
 export async function analyzeTextWithAI(text: string, referenceDate?: string) {
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
   const todayStr = referenceDate || new Date().toISOString().split('T')[0];
-  const prompt = `Ты — ИИ-аналитик здоровья. Определи тип данных: NUTRITION, SLEEP, ACTIVITY, HABIT.
-Верни СТРОГО JSON. Сегодня: ${todayStr}.`;
+  const prompt = `Ты — профессиональный ИИ-аналитик здоровья. Твоя задача — классифицировать сообщение и извлечь показатели в структурированный JSON.
+Сегодняшняя дата: ${todayStr}. Используй её как точку отсчета для "сегодня", "вчера" (date_offset_days: -1) и т.д.
+
+Верни СТРОГО JSON:
+{
+  "status": "SUCCESS" | "ERROR",
+  "type": "NUTRITION" | "SLEEP" | "ACTIVITY" | "HABIT",
+  "description": "Краткое описание на языке пользователя.",
+  "data": { ... },
+  "date_offset_days": 0,
+  "habit_key": "Алкоголь" | "Курение" | null
+}
+
+**ПРАВИЛА ДЛЯ DATA:**
+- NUTRITION: { "dish": "название", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "grams": 0, "fiber": 0 }
+- SLEEP: { "duration_hrs": 0, "deep_hrs": 0, "rem_hrs": 0, "light_hrs": 0, "hrv": 0, "resting_heart_rate": 0 }
+- ACTIVITY: { "steps": 0, "active_minutes": 0, "calories_burned": 0 }
+- HABIT: { "habit_key": "название привычки" }
+
+Если суть сообщения непонятна, верни status "ERROR".`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
