@@ -10,7 +10,7 @@ import SleepPhasesChart from './SleepPhasesChart';
 import { useRouter } from 'next/navigation';
 import { useDashboardTheme } from '../ThemeContext';
 import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Edit2, Trash2, Check, X as CloseIcon, Loader2, ArrowUpRight, ArrowDownRight, Wand2, RefreshCw, Activity } from 'lucide-react';
-import { generateStage2Analysis } from '@/app/actions/analysis-action';
+import { generateStage2Analysis, fetchAnalysisPreData } from '@/app/actions/analysis-action';
 import AnalysisResultCard from './AnalysisResultCard';
 import { useTranslations } from 'next-intl';
 import { toast } from 'react-hot-toast';
@@ -76,7 +76,26 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
 
     // Stage 2 Analysis State
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [isPreparing, setIsPreparing] = useState(false);
+    const [stagedData, setStagedData] = useState<any>(null);
     const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+    const handlePrepareAnalysis = async () => {
+        setIsPreparing(true);
+        setAnalysisError(null);
+        try {
+            const result = await fetchAnalysisPreData();
+            if (result.success) {
+                setStagedData(result.data);
+            } else {
+                setAnalysisError(result.error || 'Failed to prepare data');
+            }
+        } catch (err: any) {
+            setAnalysisError(err.message || 'Error occurred during preparation');
+        } finally {
+            setIsPreparing(false);
+        }
+    };
 
     const handleRunAnalysis = async () => {
         setIsAnalyzing(true);
@@ -85,6 +104,8 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
             const result = await generateStage2Analysis();
             if (result.success) {
                 toast.success(t('saveSuccess'));
+                setStagedData(null);
+                router.refresh();
             } else {
                 setAnalysisError(result.error || 'Failed to run analysis');
             }
@@ -482,13 +503,72 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                     <div className="space-y-4">
                                         <AnalysisResultCard content={latestAnalysis.interpretation} />
                                         <button 
-                                            onClick={handleRunAnalysis}
-                                            disabled={isAnalyzing}
-                                            className="flex items-center gap-2 text-[10px] font-bold text-brand-forest/60 hover:text-brand-forest dark:text-slate-400 dark:hover:text-brand-mint transition-all disabled:opacity-50"
+                                            onClick={handlePrepareAnalysis}
+                                            disabled={isAnalyzing || isPreparing}
+                                            className="w-full mt-2 flex items-center justify-center gap-2 py-3 border border-brand-forest/20 dark:border-brand-mint/20 rounded-xl text-xs font-bold text-brand-forest dark:text-brand-mint hover:bg-brand-sage/10 dark:hover:bg-brand-mint/5 transition-all disabled:opacity-50"
                                         >
-                                            {isAnalyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                                            {t('reRunBtn')}
+                                            {isAnalyzing || isPreparing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                            {isAnalyzing || isPreparing ? t('loading') : t('reRunBtn')}
                                         </button>
+                                    </div>
+                                ) : stagedData ? (
+                                    <div className="space-y-6 p-6 rounded-2xl bg-brand-sage/5 dark:bg-slate-900/40 border border-brand-sage/20 dark:border-white/5 animate-in fade-in zoom-in-95 duration-300">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h5 className="font-bold text-sm dark:text-slate-100">{t('stagedTitle')}</h5>
+                                            <button 
+                                              onClick={() => setStagedData(null)}
+                                              className="text-[10px] text-slate-400 hover:text-red-400"
+                                            >
+                                              {t('cancelBtn')}
+                                            </button>
+                                        </div>
+                                        <p className="text-[10px] opacity-60 mb-6">{t('stagedSubtitle')}</p>
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                          {/* Lifestyle Snapshot */}
+                                          <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl">
+                                            <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase mb-3 tracking-wider">{t('lifestyle')}</p>
+                                            <div className="space-y-2 text-[11px]">
+                                              <div className="flex justify-between"><span className="opacity-50">{t('calories')}</span><span>{Math.round(stagedData.metrics.nutrition.avgCalories)}</span></div>
+                                              <div className="flex justify-between"><span className="opacity-50">{t('protein')}</span><span>{Math.round(stagedData.metrics.nutrition.avgProtein)}г</span></div>
+                                              <div className="flex justify-between"><span className="opacity-50">{t('steps')}</span><span>{Math.round(stagedData.metrics.activity.avgSteps)}</span></div>
+                                              <div className="flex justify-between"><span className="opacity-50">{t('sleep')}</span><span>{stagedData.metrics.sleep.avgHours.toFixed(1)}ч</span></div>
+                                            </div>
+                                          </div>
+                                          {/* Anthropometry */}
+                                          <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl">
+                                            <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase mb-3 tracking-wider">{t('anthropometry')}</p>
+                                            <div className="space-y-2 text-[11px]">
+                                              <div className="flex justify-between"><span className="opacity-50">{t('pAge')}</span><span>{stagedData.age}</span></div>
+                                              <div className="flex justify-between"><span className="opacity-50">Талия</span><span>{stagedData.metrics.anthropometry.waist}см</span></div>
+                                              <div className="flex justify-between"><span className="opacity-50">Вес</span><span>{stagedData.metrics.anthropometry.weight}кг</span></div>
+                                            </div>
+                                          </div>
+                                          {/* Questionnaires */}
+                                          <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl md:col-span-1">
+                                            <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase mb-3 tracking-wider">{t('questionnaires')}</p>
+                                            <div className="space-y-2 text-[11px] max-h-[80px] overflow-y-auto">
+                                              {stagedData.questionnaires.map((q: any, i: number) => (
+                                                <div key={i} className="flex justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-1 last:border-0">
+                                                  <span className="opacity-50 truncate">{q.name}</span>
+                                                  <span>{q.score ?? '—'}</span>
+                                                </div>
+                                              ))}
+                                              {stagedData.questionnaires.length === 0 && <p className="opacity-30 italic">Нет данных</p>}
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <div className="pt-4 flex flex-col gap-3">
+                                          <button 
+                                              onClick={handleRunAnalysis}
+                                              disabled={isAnalyzing}
+                                              className="w-full py-4 bg-brand-forest dark:bg-brand-mint text-white dark:text-brand-forest rounded-2xl font-bold text-sm shadow-xl shadow-brand-forest/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-70"
+                                          >
+                                              {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Activity className="w-5 h-5" />}
+                                              {isAnalyzing ? t('loading') : t('confirmBtn')}
+                                          </button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-2xl border-brand-sage/30 dark:border-white/10 bg-slate-50/30 dark:bg-slate-900/20">
@@ -499,12 +579,12 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                             {t('noData')}
                                         </p>
                                         <button 
-                                            onClick={handleRunAnalysis}
-                                            disabled={isAnalyzing}
+                                            onClick={handlePrepareAnalysis}
+                                            disabled={isPreparing}
                                             className="px-6 py-3 bg-brand-forest dark:bg-brand-mint text-white dark:text-brand-forest rounded-xl font-bold text-sm shadow-lg shadow-brand-forest/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-70"
                                         >
-                                            {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
-                                            {isAnalyzing ? t('loading') : t('runBtn')}
+                                            {isPreparing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
+                                            {isPreparing ? t('loading') : t('runBtn')}
                                         </button>
                                         {analysisError && (
                                             <p className="text-[10px] text-red-500 mt-4 font-medium">{analysisError}</p>

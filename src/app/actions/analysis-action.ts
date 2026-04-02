@@ -25,21 +25,13 @@ const TEST_NAMES: Record<string, string> = {
   'mini-cog': 'Тест Mini-Cog (Память/Когниции)'
 };
 
-export async function generateStage2Analysis() {
-  if (!apiKey) {
-    throw new Error("OpenAI API Key is missing");
-  }
-
+/**
+ * Shared logic for gathering user data context for analysis.
+ */
+async function getAggregatedAnalysisData(userId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    return { success: false, error: "User not authenticated" };
-  }
-
-  const userId = user.id;
-
-  // --- 1. Date Range ---
+  // 1. Date Range
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const yesterday = new Date(today);
@@ -49,7 +41,7 @@ export async function generateStage2Analysis() {
   sevenDaysAgo.setDate(today.getDate() - 7);
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
-  // --- 2. Fetch Data ---
+  // 2. Fetch Data
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).single();
   const { data: testResults } = await supabase.from("test_results").select("*").eq("user_id", userId).order("created_at", { ascending: false });
 
@@ -65,91 +57,122 @@ export async function generateStage2Analysis() {
     prisma.habitLog.findMany(lifestyleQuery),
   ]);
 
-  // --- 3. Process Questionnaire Results DYNAMICALLY ---
+  // 3. Questionnaires
   const latestResultsMap: Record<string, any> = {};
   testResults?.forEach((res) => {
-    // We only keep the LATEST result for each test type except the analysis itself
     if (res.test_type !== "stage-2-analysis" && !latestResultsMap[res.test_type]) {
       latestResultsMap[res.test_type] = res;
     }
   });
 
-  const questionnaireContext = Object.entries(latestResultsMap)
-    .map(([type, res]) => {
-      const name = TEST_NAMES[type] || type;
-      return `- ${name}: Результат ${res.score || "не указан"}, Интерпретация: ${res.interpretation || "отсутствует"}`;
-    })
-    .join("\n");
+  const questionnaires = Object.entries(latestResultsMap).map(([type, res]) => ({
+    type,
+    name: TEST_NAMES[type] || type,
+    score: res.score,
+    interpretation: res.interpretation,
+  }));
 
-  // --- 4. Process Lifestyle Logs ---
+  // 4. Aggregates
   const n = nutritionLogs.length || 1;
-  const nutritionAgg = {
-    avgCalories: nutritionLogs.reduce((acc, l) => acc + (l.calories || 0), 0) / n,
-    avgProtein: nutritionLogs.reduce((acc, l) => acc + (l.protein || 0), 0) / n,
-    avgSugar: nutritionLogs.reduce((acc, l) => acc + (l.added_sugar || 0), 0) / n,
-    avgFiber: nutritionLogs.reduce((acc, l) => acc + (l.fiber || 0), 0) / n,
-  };
-  const activityAgg = {
-    avgSteps: activityLogs.reduce((acc, l) => acc + (l.steps || 0), 0) / (activityLogs.length || 1),
-    avgActiveMin: activityLogs.reduce((acc, l) => acc + (l.active_minutes || 0), 0) / (activityLogs.length || 1),
-  };
-  const sleepAgg = {
-    avgHours: sleepLogs.reduce((acc, l) => acc + (l.duration_hrs || 0), 0) / (sleepLogs.length || 1),
-    avgHRV: sleepLogs.reduce((acc, l) => acc + (l.hrv || 0), 0) / (sleepLogs.length || 1),
+  const metrics = {
+    nutrition: {
+      avgCalories: nutritionLogs.reduce((acc, l) => acc + (l.calories || 0), 0) / n,
+      avgProtein: nutritionLogs.reduce((acc, l) => acc + (l.protein || 0), 0) / n,
+      avgSugar: nutritionLogs.reduce((acc, l) => acc + (l.added_sugar || 0), 0) / n,
+      avgFiber: nutritionLogs.reduce((acc, l) => acc + (l.fiber || 0), 0) / n,
+    },
+    activity: {
+      avgSteps: activityLogs.reduce((acc, l) => acc + (l.steps || 0), 0) / (activityLogs.length || 1),
+      avgActiveMin: activityLogs.reduce((acc, l) => acc + (l.active_minutes || 0), 0) / (activityLogs.length || 1),
+    },
+    sleep: {
+      avgHours: sleepLogs.reduce((acc, l) => acc + (l.duration_hrs || 0), 0) / (sleepLogs.length || 1),
+      avgHRV: sleepLogs.reduce((acc, l) => acc + (l.hrv || 0), 0) / (sleepLogs.length || 1),
+    },
+    anthropometry: {
+      waist: (latestResultsMap["bio-age"]?.raw_data || latestResultsMap["systemic-bio-age"]?.raw_data || profile?.welcome_data || {}).waist || "н/д",
+      weight: (latestResultsMap["bio-age"]?.raw_data || latestResultsMap["systemic-bio-age"]?.raw_data || profile?.welcome_data || {}).weight || "н/д",
+      height: profile?.height || "н/д",
+    }
   };
 
-  // Anthropometry
-  const bioAgeData = latestResultsMap["bio-age"]?.raw_data || latestResultsMap["systemic-bio-age"]?.raw_data || {};
-  const waist = bioAgeData.waist || profile?.welcome_data?.waist || "н/д";
-  const weight = bioAgeData.weight || profile?.welcome_data?.weight || "н/д";
-  
-  let age = "н/д";
-  if (profile?.date_of_birth) {
-    const dob = new Date(profile.date_of_birth);
-    age = String(new Date().getFullYear() - dob.getFullYear());
-  }
+  const age = profile?.date_of_birth ? String(new Date().getFullYear() - new Date(profile.date_of_birth).getFullYear()) : "н/д";
 
-  // --- 5. Data Context for AI ---
+  // Formatted dataContext
   const dataContext = `
 ДАННЫЕ ПРОФИЛЯ:
 - Возраст: ${age}, Пол: ${profile?.gender === "female" ? "Женский" : "Мужской"}
-- Рост: ${profile?.height || "н/д"} см, Вес: ${weight} кг
-- Объем талии: ${waist} см
+- Рост: ${metrics.anthropometry.height} см, Вес: ${metrics.anthropometry.weight} кг
+- Объем талии: ${metrics.anthropometry.waist} см
 
-РЕЗУЛЬТАТЫ ВСЕХ ОПРОСНИКОВ И ТЕСТОВ (КЛИНИЧЕСКИЕ РИСКИ):
-${questionnaireContext || "Данные опросников отсутствуют. Требуется заполнение."}
+РЕЗУЛЬТАТЫ ОПРОСНИКОВ:
+${questionnaires.map(q => `- ${q.name}: Результат ${q.score || "н/д"}, Интерпретация: ${q.interpretation || "н/д"}`).join("\n")}
 
-ОБРАЗ ЖИЗНИ (СРЕДНЕЕ ЗА 7 ДНЕЙ):
-- Калории: ${Math.round(nutritionAgg.avgCalories)} ккал, Белки: ${Math.round(nutritionAgg.avgProtein)} г
-- Добавленный сахар: ${Math.round(nutritionAgg.avgSugar)} г/день
-- Клетчатка: ${Math.round(nutritionAgg.avgFiber)} г/день
-- Активность: ${Math.round(activityAgg.avgSteps)} шагов/день, ${Math.round(activityAgg.avgActiveMin)} мин/день
-- Сон: ${sleepAgg.avgHours.toFixed(1)} ч, HRV: ${Math.round(sleepAgg.avgHRV)} мс
+ОБРАЗ ЖИЗНИ ЗА 7 ДНЕЙ:
+- Калории: ${Math.round(metrics.nutrition.avgCalories)} ккал, Белки: ${Math.round(metrics.nutrition.avgProtein)} г/день
+- Сахар: ${Math.round(metrics.nutrition.avgSugar)} г/день, Клетчатка: ${Math.round(metrics.nutrition.avgFiber)} г/день
+- Активность: ${Math.round(metrics.activity.avgSteps)} шагов/день, ${Math.round(metrics.activity.avgActiveMin)} мин/день
+- Сон: ${metrics.sleep.avgHours.toFixed(1)} ч, HRV: ${Math.round(metrics.sleep.avgHRV)} мс
   `;
 
-  const systemPrompt = `
-Роль: Ты — Эксперт-аналитик Anti-Age медицины и системный врач.
-Задача: Провести комплексную интерпретацию состояния клиента, объединив клинические риски из опросов с текущим образом жизни.
+  return { 
+    userId, 
+    dataContext, 
+    questionnaires, 
+    metrics, 
+    age, 
+    gender: profile?.gender, 
+    fullName: profile?.full_name,
+    period: { from: sevenDaysAgo, to: yesterday } 
+  };
+}
 
-Твои выводы должны быть СИНТЕТИЧЕСКИМИ:
-- Например: "Высокий риск по шкале SCORE (опрос) при низком уровне Омега-3 и высокой доле сахара в рационе (дневник) указывает на необходимость липидограммы с расчетом индекса атерогенности."
-- Или: "Признаки бессонницы (опрос) коррелируют с низким HRV в дневнике, что требует проверки кортизола."
+/**
+ * Fetch stage-2 analysis pre-data for user confirmation.
+ */
+export async function fetchAnalysisPreData() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-ФОРМАТ ОТВЕТА (Строгий, профессиональный, без вводных слов):
-Интерпретация данных:
-(Здесь ты ОБЯЗАТЕЛЬНО должен упомянуть ключевые результаты из РЕЗУЛЬТАТЫ ВСЕХ ОПРОСНИКОВ И ТЕСТОВ и как они связаны с образом жизни)
-
-Список необходимых анализов:
-(Только конкретные позиции)
-
-Обоснование:
-(Почему это назначено, ссылаясь на конкретные цифры из ОПРОСНИКОВ и ДНЕВНИКА)
-
-Дополнительные исследования:
-(Инструментальная диагностика или доп. тесты при необходимости)
-  `;
+  if (!user) return { success: false, error: "User not authenticated" };
 
   try {
+    const data = await getAggregatedAnalysisData(user.id);
+    return { success: true, data };
+  } catch (err: any) {
+    console.error("Fetch Analysis Data Error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Execute AI stage-2 analysis after user confirmation.
+ */
+export async function generateStage2Analysis() {
+  if (!apiKey) throw new Error("OpenAI API Key is missing");
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "User not authenticated" };
+
+  try {
+    const { dataContext, userId, period } = await getAggregatedAnalysisData(user.id);
+
+    const systemPrompt = `
+Роль: Ты — Эксперт-аналитик Anti-Age медицины и системный врач.
+Задача: Провести комплексную синтетическую интерпретацию здоровья на основе данных опросов и 7-дневного дневника.
+
+ФОРМАТ ОТВЕТА:
+Интерпретация данных:
+...
+Список необходимых анализов:
+...
+Обоснование:
+...
+Дополнительные исследования:
+...
+    `;
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -161,7 +184,6 @@ ${questionnaireContext || "Данные опросников отсутству�
 
     const interpretation = response.choices[0]?.message?.content || "";
 
-    // Save result
     const { error: saveError } = await supabase
       .from("test_results")
       .insert({
@@ -169,10 +191,7 @@ ${questionnaireContext || "Данные опросников отсутству�
         test_type: "stage-2-analysis",
         score: 0,
         interpretation: interpretation,
-        raw_data: {
-          dataSnapshot: dataContext,
-          generatedAt: new Date().toISOString()
-        },
+        raw_data: { dataSnapshot: dataContext, generatedAt: new Date().toISOString(), period },
       });
 
     if (saveError) throw new Error(saveError.message);
@@ -180,7 +199,7 @@ ${questionnaireContext || "Данные опросников отсутству�
     revalidatePath("/[locale]/cabinet", "page");
     return { success: true, interpretation };
   } catch (error: any) {
-    console.error("Analysis Action Fatal Error:", error);
+    console.error("Analysis Execution Error:", error);
     return { success: false, error: error.message };
   }
 }

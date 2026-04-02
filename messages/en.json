@@ -720,7 +720,7 @@
         "Analysis": {
             "title": "Stage 02: Analysis",
             "description": "Deep study of lifestyle, habits, and body condition based on TG bot data and questionnaires.",
-            "runBtn": "Run Analysis",
+            "runBtn": "Prepare Report",
             "reRunBtn": "Refresh Analysis",
             "loading": "AI analyzing data...",
             "interpretation": "Data Interpretation",
@@ -731,7 +731,19 @@
             "metabolic": "Metabolic Panel",
             "hormonal": "Hormonal Panel",
             "vitamin": "Vitamin Panel",
-            "saveSuccess": "Result saved to Therapy Plan"
+            "saveSuccess": "Result saved to Therapy Plan",
+            "stagedTitle": "Data Confirmation",
+            "stagedSubtitle": "Review the data that will be sent to the AI for analysis. You can go back to complete missing info if needed.",
+            "confirmBtn": "Confirm & Send to AI",
+            "cancelBtn": "Cancel",
+            "reviewItemTitle": "Data Summary",
+            "lifestyle": "Lifestyle (7-day avg)",
+            "questionnaires": "Survey Results",
+            "anthropometry": "Anthropometry",
+            "calories": "Calories",
+            "protein": "Protein",
+            "steps": "Steps",
+            "sleep": "Sleep"
         }
     },
     "AlcoholCalculator": {
