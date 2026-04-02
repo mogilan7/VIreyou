@@ -150,11 +150,14 @@ export async function analyzeTextWithAI(text: string, referenceDate?: string) {
   "habit_key": "Алкоголь" | "Курение" | null
 }
 
-**ПРАВИЛА ДЛЯ DATA:**
-- NUTRITION: { "dish": "название", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "grams": 0, "fiber": 0 }
-- SLEEP: { "duration_hrs": 0, "deep_hrs": 0, "rem_hrs": 0, "light_hrs": 0, "hrv": 0, "resting_heart_rate": 0 }
-- ACTIVITY: { "steps": 0, "active_minutes": 0, "calories_burned": 0 }
-- HABIT: { "habit_key": "название привычки" }
+**ПРАВИЛА ДЛЯ DATA (обязательно заполни все поля внутри JSON-объекта 'data'):**
+- NUTRITION: { "dish": "название", "calories": 350, "protein": 15, "carbs": 40, "fat": 12, "grams": 250, "fiber": 5 }
+  При типе NUTRITION Обязательно ОЦЕНИВАЙ КБЖУ (калории, белки, жиры, углеводы) на основе описания еды. 
+  Если в еде есть Алкоголь, укажи "habit_key": "Алкоголь" на верхнем уровне.
+- SLEEP: { "duration_hrs": 8, "deep_hrs": 1.5, "rem_hrs": 2, "light_hrs": 4.5, "hrv": 60, "resting_heart_rate": 55 }
+- ACTIVITY: { "steps": 5000, "active_minutes": 30, "calories_burned": 250 }
+- HABIT: { "habit_key": "Алкоголь" | "Курение" | "Сахар" }
+  ВНИМАНИЕ: Если type: "HABIT", поле 'habit_key' должно быть ОБЯЗАТЕЛЬНО заполнено и в корневом объекте, и внутри объекта 'data'.
 
 Если суть сообщения непонятна, верни status "ERROR".`;
 

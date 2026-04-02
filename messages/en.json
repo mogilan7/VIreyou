@@ -716,6 +716,22 @@
             "rec4": "Schedule Follow-up",
             "recBtn": "FINALIZE & SEND",
             "footer": "Encrypted Practitioner Portal"
+        },
+        "Analysis": {
+            "title": "Stage 02: Analysis",
+            "description": "Deep study of lifestyle, habits, and body condition based on TG bot data and questionnaires.",
+            "runBtn": "Run Analysis",
+            "reRunBtn": "Refresh Analysis",
+            "loading": "AI analyzing data...",
+            "interpretation": "Data Interpretation",
+            "labTests": "Required Lab Tests",
+            "justification": "Justification",
+            "additional": "Additional Research",
+            "noData": "Insufficient data for full analysis. Please complete questionnaires and maintain your TG bot diary.",
+            "metabolic": "Metabolic Panel",
+            "hormonal": "Hormonal Panel",
+            "vitamin": "Vitamin Panel",
+            "saveSuccess": "Result saved to Therapy Plan"
         }
     },
     "AlcoholCalculator": {

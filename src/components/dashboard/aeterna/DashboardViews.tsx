@@ -9,7 +9,11 @@ import HabitHeatmap from './HabitHeatmap';
 import SleepPhasesChart from './SleepPhasesChart';
 import { useRouter } from 'next/navigation';
 import { useDashboardTheme } from '../ThemeContext';
-import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Edit2, Trash2, Check, X as CloseIcon, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Edit2, Trash2, Check, X as CloseIcon, Loader2, ArrowUpRight, ArrowDownRight, Wand2, RefreshCw, Activity } from 'lucide-react';
+import { generateStage2Analysis } from '@/app/actions/analysis-action';
+import AnalysisResultCard from './AnalysisResultCard';
+import { useTranslations } from 'next-intl';
+import { toast } from 'react-hot-toast';
 
 const biomarkersConfig: Record<string, { name: string; unit: string; opt: string; min?: number; max?: number }> = {
     glucose: { name: 'Глюкоза', unit: 'ммоль/л', opt: '4.2–5.1', min: 4.2, max: 5.1 },
@@ -63,6 +67,35 @@ const renderTextWithLinks = (text: string) => {
 export default function DashboardViews({ profile, testResults, healthData, biomarkerResults = [], nutritionLogs = [], sleepLogs = [], activityLogs = [], habitLogs = [], hydrationLogs = [] }: DashboardViewsProps) {
     const router = useRouter();
     const { theme } = useDashboardTheme();
+    const t = useTranslations('Dashboard.Analysis');
+    
+    // Theme-based variables
+    const accentColor = theme === 'dark' ? 'text-teal-400' : 'text-brand-leaf';
+    const accentBg = theme === 'dark' ? 'bg-teal-400' : 'bg-brand-leaf';
+    const activeNavBorder = theme === 'dark' ? 'after:bg-teal-400' : 'after:bg-brand-leaf';
+
+    // Stage 2 Analysis State
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+    const handleRunAnalysis = async () => {
+        setIsAnalyzing(true);
+        setAnalysisError(null);
+        try {
+            const result = await generateStage2Analysis();
+            if (result.success) {
+                toast.success(t('saveSuccess'));
+            } else {
+                setAnalysisError(result.error || 'Failed to run analysis');
+            }
+        } catch (err: any) {
+            console.error(err);
+            setAnalysisError(err.message || 'Error occurred during analysis');
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
     const [activeView, setActiveView] = useState<'overview' | 'diagnostics' | 'recommendations'>('overview');
     const [showAllMarkers, setShowAllMarkers] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
@@ -237,10 +270,6 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
         { subject: 'Суставы', A: bioAgeRaw.joints || 37, fullMark: 65 },
     ];
 
-    const accentColor = theme === 'dark' ? 'text-teal-400' : 'text-brand-leaf';
-    const accentBg = theme === 'dark' ? 'bg-teal-400' : 'bg-brand-leaf';
-    const activeNavBorder = theme === 'dark' ? 'after:bg-teal-400' : 'after:bg-brand-leaf';
-
     const toggleMarkerSelection = (key: string) => {
         setSelectedMarkers(prev =>
             prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
@@ -277,8 +306,8 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
     };
 
     const renderRecommendations = () => {
-        const aiRecs = testResults.filter((r: any) => r.test_type === 'ai-recommendation');
-        const latestAiRec = aiRecs.length > 0 ? aiRecs[0] : null;
+        const latestAiRec = testResults?.find((r: any) => r.test_type === 'ai-recommendation');
+        const latestAnalysis = testResults?.find((r: any) => r.test_type === 'stage-2-analysis');
         const recommendedTests = latestAiRec?.rawData?.recommendedTests || [];
         const TEST_ALIASES: Record<string, string[]> = {
             'alcohol': ['RU-AUDIT', 'alcohol'],
@@ -445,10 +474,43 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                     <div className="p-6 dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl shadow-md flex flex-col md:flex-row gap-6 items-start transition-all hover:shadow-lg">
                         <div className="text-5xl font-serif text-brand-sage/30 dark:text-slate-700/40 font-bold md:w-20 pt-1">02</div>
                         <div className="flex-1 w-full">
-                            <h4 className="text-lg font-bold mb-1 dark:text-slate-100 text-brand-text">Анализ</h4>
-                            <p className="text-xs opacity-60 mb-2">Глубокое изучение образа жизни, привычек и состояния тела.</p>
-                            <div className="mt-3 flex">
-                                <span className="text-[10px] uppercase tracking-wider text-amber-500 font-medium bg-amber-500/10 px-2 py-1 rounded">Настроим позже</span>
+                            <h4 className="text-lg font-bold mb-1 dark:text-slate-100 text-brand-text">{t('title')}</h4>
+                            <p className="text-xs opacity-60 mb-4">{t('description')}</p>
+                            
+                            <div className="mt-4">
+                                {latestAnalysis ? (
+                                    <div className="space-y-4">
+                                        <AnalysisResultCard content={latestAnalysis.interpretation} />
+                                        <button 
+                                            onClick={handleRunAnalysis}
+                                            disabled={isAnalyzing}
+                                            className="flex items-center gap-2 text-[10px] font-bold text-brand-forest/60 hover:text-brand-forest dark:text-slate-400 dark:hover:text-brand-mint transition-all disabled:opacity-50"
+                                        >
+                                            {isAnalyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                                            {t('reRunBtn')}
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-2xl border-brand-sage/30 dark:border-white/10 bg-slate-50/30 dark:bg-slate-900/20">
+                                        <div className="p-3 bg-brand-sage/10 rounded-full mb-3">
+                                            <Wand2 className="w-6 h-6 text-brand-forest/40" />
+                                        </div>
+                                        <p className="text-xs text-slate-400 text-center mb-6 max-w-[240px]">
+                                            {t('noData')}
+                                        </p>
+                                        <button 
+                                            onClick={handleRunAnalysis}
+                                            disabled={isAnalyzing}
+                                            className="px-6 py-3 bg-brand-forest dark:bg-brand-mint text-white dark:text-brand-forest rounded-xl font-bold text-sm shadow-lg shadow-brand-forest/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-70"
+                                        >
+                                            {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
+                                            {isAnalyzing ? t('loading') : t('runBtn')}
+                                        </button>
+                                        {analysisError && (
+                                            <p className="text-[10px] text-red-500 mt-4 font-medium">{analysisError}</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
