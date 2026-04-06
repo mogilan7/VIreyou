@@ -14,6 +14,8 @@ import { generateStage2Analysis, fetchAnalysisPreData } from '@/app/actions/anal
 import AnalysisResultCard from './AnalysisResultCard';
 import { useTranslations } from 'next-intl';
 import { toast } from 'react-hot-toast';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const biomarkersConfig: Record<string, { name: string; unit: string; opt: string; min?: number; max?: number }> = {
     glucose: { name: 'Глюкоза', unit: 'ммоль/л', opt: '4.2–5.1', min: 4.2, max: 5.1 },
@@ -472,14 +474,10 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                 {latestAiRec ? (
                                     <div className="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border dark:border-white/5 border-brand-sage/10 shadow-sm overflow-y-auto max-h-[300px]">
                                         <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 mb-2">Последняя консультация ИИ</p>
-                                        <div className="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 space-y-1.5 text-xs">
-                                            {report.split('\n').map((line: string, i: number) => {
-                                                if (line.startsWith('###')) return <h4 key={i} className="text-xs font-bold mt-2 mb-1 text-slate-800 dark:text-slate-200">{line.replace('###', '').trim()}</h4>;
-                                                if (line.startsWith('##')) return <h3 key={i} className="text-sm font-bold mt-3 mb-1 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-700 pb-0.5">{line.replace('##', '').trim()}</h3>;
-                                                if (line.startsWith('-') || line.startsWith('*')) return <li key={i} className="ml-3 mb-0.5 text-xs">{renderTextWithLinks(line.replace(/^[*-]\s*/, '').trim())}</li>;
-                                                if (line.trim() === '') return <div key={i} className="h-0.5" />;
-                                                return <p key={i} className="text-xs leading-relaxed">{renderTextWithLinks(line)}</p>;
-                                            })}
+                                        <div className="prose prose-xs sm:prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300">
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                {report}
+                                            </ReactMarkdown>
                                         </div>
                                     </div>
                                 ) : (
