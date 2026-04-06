@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { createClient } from "@/utils/supabase/server";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { QUESTIONNAIRE_INTERPRETATIONS } from "@/lib/clinical/interpretations";
 
 const apiKey = process.env.OPENAI_API_KEY;
 const openai = new OpenAI({ apiKey });
@@ -44,6 +45,7 @@ async function getAggregatedAnalysisData(userId: string) {
   // 2. Fetch Data
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).single();
   const { data: testResults } = await supabase.from("test_results").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+  const { data: healthData } = await supabase.from("HealthData").select("*").eq("user_id", userId).single();
 
   const lifestyleQuery = {
     where: { user_id: userId, date: { gte: sevenDaysAgo, lte: yesterday } },
@@ -65,29 +67,59 @@ async function getAggregatedAnalysisData(userId: string) {
     }
   });
 
-  const questionnaires = Object.entries(latestResultsMap).map(([type, res]) => ({
-    type,
-    name: TEST_NAMES[type] || type,
-    score: res.score,
-    interpretation: res.interpretation,
-  }));
+  const questionnaires = Object.entries(latestResultsMap).map(([type, res]) => {
+    const interpretationData = QUESTIONNAIRE_INTERPRETATIONS[type];
+    let clinicalLabel = res.interpretation;
+    
+    if (interpretationData && res.score !== null) {
+      const score = Number(res.score);
+      const matched = interpretationData.thresholds.find((t: any) => {
+        const minOk = t.min === undefined || score >= t.min;
+        const maxOk = t.max === undefined || score <= t.max;
+        return minOk && maxOk;
+      });
+      if (matched) clinicalLabel = `${matched.label} (Риск: ${matched.risk})`;
+    }
 
-  // 4. Aggregates
-  const n = nutritionLogs.length || 1;
+    return {
+      type,
+      name: TEST_NAMES[type] || type,
+      score: res.score,
+      interpretation: clinicalLabel,
+    };
+  });
+
+  // 4. Aggregates with Filtering (Only Active Days)
+  const activeNutrition = nutritionLogs.filter(l => (l.calories || 0) > 0);
+  const activeActivity = activityLogs.filter(l => (l.steps || 0) > 0 || (l.active_minutes || 0) > 0);
+  const activeSleep = sleepLogs.filter(l => (l.duration_hrs || 0) > 0);
+
+  const nNutri = activeNutrition.length || 1;
+  const nActiv = activeActivity.length || 1;
+  const nSleep = activeSleep.length || 1;
+
   const metrics = {
     nutrition: {
-      avgCalories: nutritionLogs.reduce((acc, l) => acc + (l.calories || 0), 0) / n,
-      avgProtein: nutritionLogs.reduce((acc, l) => acc + (l.protein || 0), 0) / n,
-      avgSugar: nutritionLogs.reduce((acc, l) => acc + (l.added_sugar || 0), 0) / n,
-      avgFiber: nutritionLogs.reduce((acc, l) => acc + (l.fiber || 0), 0) / n,
+      avgCalories: activeNutrition.reduce((acc, l) => acc + (l.calories || 0), 0) / nNutri,
+      avgProtein: activeNutrition.reduce((acc, l) => acc + (l.protein || 0), 0) / nNutri,
+      avgSugar: activeNutrition.reduce((acc, l) => acc + (l.added_sugar || 0), 0) / nNutri,
+      avgFiber: activeNutrition.reduce((acc, l) => acc + (l.fiber || 0), 0) / nNutri,
+      vitamins: activeNutrition.reduce((acc: any, l) => {
+        // Collect all non-zero vitamins
+        const vits = ['vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K', 'vitamin_B12', 'vitamin_C', 'magnesium', 'zinc', 'iron', 'calcium'];
+        vits.forEach(v => {
+          if ((l as any)[v]) acc[v] = (acc[v] || 0) + (l as any)[v];
+        });
+        return acc;
+      }, {})
     },
     activity: {
-      avgSteps: activityLogs.reduce((acc, l) => acc + (l.steps || 0), 0) / (activityLogs.length || 1),
-      avgActiveMin: activityLogs.reduce((acc, l) => acc + (l.active_minutes || 0), 0) / (activityLogs.length || 1),
+      avgSteps: activeActivity.reduce((acc, l) => acc + (l.steps || 0), 0) / nActiv,
+      avgActiveMin: activeActivity.reduce((acc, l) => acc + (l.active_minutes || 0), 0) / nActiv,
     },
     sleep: {
-      avgHours: sleepLogs.reduce((acc, l) => acc + (l.duration_hrs || 0), 0) / (sleepLogs.length || 1),
-      avgHRV: sleepLogs.reduce((acc, l) => acc + (l.hrv || 0), 0) / (sleepLogs.length || 1),
+      avgHours: activeSleep.reduce((acc, l) => acc + (l.duration_hrs || 0), 0) / nSleep,
+      avgHRV: activeSleep.reduce((acc, l) => acc + (l.hrv || 0), 0) / nSleep,
     },
     anthropometry: {
       waist: (latestResultsMap["bio-age"]?.raw_data || latestResultsMap["systemic-bio-age"]?.raw_data || profile?.welcome_data || {}).waist || "н/д",
@@ -96,21 +128,35 @@ async function getAggregatedAnalysisData(userId: string) {
     }
   };
 
-  const age = profile?.date_of_birth ? String(new Date().getFullYear() - new Date(profile.date_of_birth).getFullYear()) : "н/д";
+  // Detailed Vitamin List for Prompt
+  const vitaminSummary = Object.entries(metrics.nutrition.vitamins)
+    .map(([key, val]) => `${key}: ${(Number(val) / nNutri).toFixed(2)}`)
+    .join(", ");
+
+  // Age calculation fix
+  let ageValue = "н/д";
+  if (profile?.date_of_birth) {
+    ageValue = String(new Date().getFullYear() - new Date(profile.date_of_birth).getFullYear());
+  } else if ((profile?.welcome_data as any)?.age) {
+    ageValue = String((profile?.welcome_data as any).age);
+  } else if (healthData?.biological_age_actual) {
+    ageValue = String(healthData.biological_age_actual);
+  }
 
   // Formatted dataContext
   const dataContext = `
 ДАННЫЕ ПРОФИЛЯ:
-- Возраст: ${age}, Пол: ${profile?.gender === "female" ? "Женский" : "Мужской"}
+- Возраст: ${ageValue}, Пол: ${profile?.gender === "female" ? "Женский" : "Мужской"}
 - Рост: ${metrics.anthropometry.height} см, Вес: ${metrics.anthropometry.weight} кг
 - Объем талии: ${metrics.anthropometry.waist} см
 
-РЕЗУЛЬТАТЫ ОПРОСНИКОВ:
-${questionnaires.map(q => `- ${q.name}: Результат ${q.score || "н/д"}, Интерпретация: ${q.interpretation || "н/д"}`).join("\n")}
+РЕЗУЛЬТАТЫ ОПРОСНИКОВ (с клинической интерпретацией):
+${questionnaires.map(q => `- ${q.name}: ${q.score || "н/д"} баллов. Интерпретация: ${q.interpretation || "н/д"}`).join("\n")}
 
-ОБРАЗ ЖИЗНИ ЗА 7 ДНЕЙ:
+ОБРАЗ ЖИЗНИ ЗА 7 ДНЕЙ (среднее только по заполненным дням: питание ${activeNutrition.length} дн, активность ${activeActivity.length} дн, сон ${activeSleep.length} дн):
 - Калории: ${Math.round(metrics.nutrition.avgCalories)} ккал, Белки: ${Math.round(metrics.nutrition.avgProtein)} г/день
 - Сахар: ${Math.round(metrics.nutrition.avgSugar)} г/день, Клетчатка: ${Math.round(metrics.nutrition.avgFiber)} г/день
+- Микронутриенты (среднее): ${vitaminSummary || "данные отсутствуют"}
 - Активность: ${Math.round(metrics.activity.avgSteps)} шагов/день, ${Math.round(metrics.activity.avgActiveMin)} мин/день
 - Сон: ${metrics.sleep.avgHours.toFixed(1)} ч, HRV: ${Math.round(metrics.sleep.avgHRV)} мс
   `;
@@ -120,7 +166,7 @@ ${questionnaires.map(q => `- ${q.name}: Результат ${q.score || "н/д"}
     dataContext, 
     questionnaires, 
     metrics, 
-    age, 
+    age: ageValue, 
     gender: profile?.gender, 
     fullName: profile?.full_name,
     period: { from: sevenDaysAgo, to: yesterday } 
@@ -162,6 +208,14 @@ export async function generateStage2Analysis() {
 Роль: Вы — ведущий ИИ-аналитик платформы vireyou.com, специализирующийся на системной медицине долголетия и функциональной диагностике. Ваша миссия — трансформировать данные образа жизни пользователя в персонализированную стратегию лабораторного скрининга, используя внутреннюю базу знаний и стандарты превентивной медицины 2025–2026 годов.
 
 Философский фундамент: Вы рассматриваете тело пользователя как «главный актив». Ваша цель — помочь организму перейти из состояния «выживания» (дефицит ресурсов) в состояние «развития» (оптимизация и рост). Вы не ставите медицинские диагнозы, а оцениваете «биологические ресурсы» и риски.
+
+РУКОВОДСТВО ПО ИНТЕРПРЕТАЦИИ ОПРОСНИКОВ (Знания 2025):
+- SARC-F: >=4 — высокий риск саркопении.
+- IPSS: 8-19 умеренная, >=20 тяжелая патология простаты.
+- МИЭФ-5: <21 — наличие ЭД.
+- SCORE: >5% — высокий риск ССЗ.
+- Mini-Cog: <=2 — высокий риск когнитивных нарушений.
+- ISI: >=15 — клиническая бессонница.
 
 Инструкции по анализу данных:
 1. Дневник питания: Оценивайте гликемическую нагрузку, плотность нутриентов и наличие провоспалительных факторов (трансжиры, избыток соли).
