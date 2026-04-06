@@ -217,7 +217,14 @@ ${dailyLogContext}
     userId, 
     dataContext, 
     questionnaires, 
-    metrics, 
+    metrics: {
+        ...metrics,
+        counts: {
+            nutrition: activeNutrition.length,
+            activity: activeActivity.length,
+            sleep: activeSleep.length
+        }
+    }, 
     age: ageValue, 
     gender: profile?.gender, 
     fullName: profile?.full_name,

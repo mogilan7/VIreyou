@@ -517,10 +517,10 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                           <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl">
                                             <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase mb-3 tracking-wider">{t('lifestyle')}</p>
                                             <div className="space-y-2 text-[11px]">
-                                              <div className="flex justify-between"><span className="opacity-50">{t('calories')}</span><span>{Math.round(stagedData.metrics.nutrition.avgCalories)}</span></div>
-                                              <div className="flex justify-between"><span className="opacity-50">{t('protein')}</span><span>{Math.round(stagedData.metrics.nutrition.avgProtein)}г</span></div>
-                                              <div className="flex justify-between"><span className="opacity-50">{t('steps')}</span><span>{Math.round(stagedData.metrics.activity.avgSteps)}</span></div>
-                                              <div className="flex justify-between"><span className="opacity-50">{t('sleep')}</span><span>{stagedData.metrics.sleep.avgHours.toFixed(1)}ч</span></div>
+                                              <div className="flex justify-between items-center"><span className="opacity-50">{t('calories')}</span><span className="flex items-center gap-1.5">{Math.round(stagedData.metrics.nutrition.avgCalories)} <span className="text-[9px] px-1 bg-brand-forest/10 rounded">{stagedData.metrics.counts.nutrition}дн</span></span></div>
+                                              <div className="flex justify-between items-center"><span className="opacity-50">{t('protein')}</span><span>{Math.round(stagedData.metrics.nutrition.avgProtein)}г</span></div>
+                                              <div className="flex justify-between items-center"><span className="opacity-50">{t('steps')}</span><span className="flex items-center gap-1.5">{Math.round(stagedData.metrics.activity.avgSteps)} <span className="text-[9px] px-1 bg-brand-forest/10 rounded">{stagedData.metrics.counts.activity}дн</span></span></div>
+                                              <div className="flex justify-between items-center"><span className="opacity-50">{t('sleep')}</span><span className="flex items-center gap-1.5">{stagedData.metrics.sleep.avgHours.toFixed(1)}ч <span className="text-[9px] px-1 bg-brand-forest/10 rounded">{stagedData.metrics.counts.sleep}дн</span></span></div>
                                             </div>
                                           </div>
                                           {/* Anthropometry */}
@@ -545,6 +545,13 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                               {stagedData.questionnaires.length === 0 && <p className="opacity-30 italic">Нет данных</p>}
                                             </div>
                                           </div>
+                                        </div>
+
+                                        <div className="px-4 py-2 bg-brand-mint/10 border border-brand-mint/20 rounded-xl flex items-center gap-2">
+                                          <div className="w-2 h-2 rounded-full bg-brand-mint animate-pulse" />
+                                          <p className="text-[10px] font-medium text-brand-forest dark:text-brand-mint">
+                                            ИИ проанализирует не только средние, но и **полную структуру вашего сна и активности** за все 7 дней.
+                                          </p>
                                         </div>
 
                                         <div className="pt-4 flex flex-col gap-3">
