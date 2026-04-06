@@ -92,6 +92,7 @@ export async function POST(req: Request) {
             content: `
             Review the following current client status JSON. 
             Provide actionable diagnostic recommendations and justifying quotes from your Knowledge Base.
+            IMPORTANT: You MUST also mention the names of all the PDF/Knowledge Base files you referenced, preferably as part of the "justificationQuote" or next to the recommendation.
             
             Client Context:
             ${JSON.stringify(triggersContext, null, 2)}

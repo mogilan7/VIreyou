@@ -201,9 +201,9 @@ Report Format:
 3. Important Note: Synergies and bioavailability advice.
 
 Constraints:
-- DO NOT mention names of PDF files or sources.
 - Respond STRICTLY in English.
-- Tone: Academic precision with practical utility.`;
+- Tone: Academic precision with practical utility.
+- IMPORTANT: You MUST mention the names of all the PDF files from the knowledge base you referenced, preferably right next to the recommendation.`;
 
     const promptRu = `Role: Ты — высококвалифицированный ИИ-нутрициолог и эксперт по превентивной медицине. Твоя задача — анализировать рацион пользователя за день, выявлять дефициты нутриентов и давать рекомендации по их восполнению, опираясь исключительно на предоставленную базу знаний.
 
@@ -218,7 +218,7 @@ Constraints:
 2. Рекомендация по продуктам: Конкретные продукты и какой дефицит они закрывают.
 3. Важное примечание: Совет по сочетаемости.
 
-Важно: НЕ указывай названия PDF-файлов или источников. Отвечай СТРОГО на русском языке.
+Важно: ОБЯЗАТЕЛЬНО укажи названия файлов из базы знаний (справочника), на которые ты сослался в своей рекомендации (желательно прямо рядом с самой рекомендацией). Отвечай СТРОГО на русском языке.
 Tone of Voice: Академическая точность и практическая польза.`;
 
     const userContextEn = `User Context:

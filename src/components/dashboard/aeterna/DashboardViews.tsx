@@ -32,6 +32,7 @@ interface DashboardViewsProps {
     profile: {
         full_name: string;
         id: string;
+        email?: string;
     };
     testResults: any[];
     healthData: any;
@@ -128,6 +129,20 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(true);
     const [scrollRatio, setScrollRatio] = useState(0);
+
+    const handleDownloadAIContext = () => {
+        if (!stagedData) return;
+        const dataStr = JSON.stringify(stagedData, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ai-context-${profile.id.substring(0,6)}-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
 
     const handleScroll = () => {
         if (!diaryScrollRef.current) return;
@@ -501,12 +516,23 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                     <div className="space-y-6 p-6 rounded-2xl bg-brand-sage/5 dark:bg-slate-900/40 border border-brand-sage/20 dark:border-white/5 animate-in fade-in zoom-in-95 duration-300">
                                         <div className="flex justify-between items-center mb-2">
                                             <h5 className="font-bold text-sm dark:text-slate-100">{t('stagedTitle')}</h5>
-                                            <button 
-                                              onClick={() => setStagedData(null)}
-                                              className="text-[10px] text-slate-400 hover:text-red-400"
-                                            >
-                                              {t('cancelBtn')}
-                                            </button>
+                                            <div className="flex gap-4 items-center">
+                                                {profile.email === 'mogilev.andrey@gmail.com' && (
+                                                    <button 
+                                                        onClick={handleDownloadAIContext} 
+                                                        className="text-[10px] text-brand-forest dark:text-teal-400 font-bold border border-brand-sage/40 dark:border-teal-400/30 px-2 py-0.5 rounded hover:bg-brand-sage/10 dark:hover:bg-teal-400/10 transition-colors"
+                                                        title="Admin Only: Download AI Context Payload"
+                                                    >
+                                                        Скачать AI Контекст
+                                                    </button>
+                                                )}
+                                                <button 
+                                                  onClick={() => setStagedData(null)}
+                                                  className="text-[10px] text-slate-400 hover:text-red-400"
+                                                >
+                                                  {t('cancelBtn')}
+                                                </button>
+                                            </div>
                                         </div>
                                         <p className="text-[10px] opacity-60 mb-6">{t('stagedSubtitle')}</p>
                                         

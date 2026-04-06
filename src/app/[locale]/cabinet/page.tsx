@@ -66,7 +66,8 @@ export default async function ClientDashboardPage() {
 
         let profile = {
             full_name: resolvedName,
-            id: userId
+            id: userId,
+            email: user?.email // Added to support admin-only features
         };
 
         // 4. Resolve Health Data
