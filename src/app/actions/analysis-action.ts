@@ -136,6 +136,11 @@ async function getAggregatedAnalysisData(userId: string) {
   const activeActivity = activityLogs.filter(l => (l.steps || 0) > 0 || (l.active_minutes || 0) > 0);
   const activeSleep = sleepLogs.filter(l => (l.duration_hrs || 0) > 0);
 
+  // COUNT UNIQUE DAYS (to avoid '21дн' if multiple logs per day)
+  const nutriDays = new Set(activeNutrition.map(l => l.date.toISOString().split('T')[0])).size;
+  const activityDays = new Set(activeActivity.map(l => l.date.toISOString().split('T')[0])).size;
+  const sleepDays = new Set(activeSleep.map(l => l.date.toISOString().split('T')[0])).size;
+
   const nNutri = activeNutrition.length || 1;
   const nActiv = activeActivity.length || 1;
   const nSleep = activeSleep.length || 1;
@@ -176,12 +181,18 @@ async function getAggregatedAnalysisData(userId: string) {
 
   // Age calculation fix
   let ageValue = "н/д";
-  if (profile?.date_of_birth) {
-    ageValue = String(new Date().getFullYear() - new Date(profile.date_of_birth).getFullYear());
-  } else if ((profile?.welcome_data as any)?.age) {
-    ageValue = String((profile?.welcome_data as any).age);
-  } else if (healthData?.biological_age_actual) {
-    ageValue = String(healthData.biological_age_actual);
+  try {
+    if (profile?.date_of_birth) {
+      ageValue = String(new Date().getFullYear() - new Date(profile.date_of_birth).getFullYear());
+    } else if (profile?.welcome_data && (profile.welcome_data as any).age) {
+      ageValue = String((profile.welcome_data as any).age);
+    } else if (profile?.welcome_data && (profile.welcome_data as any).years) {
+      ageValue = String((profile.welcome_data as any).years);
+    } else if (healthData?.biological_age_actual) {
+      ageValue = String(healthData.biological_age_actual);
+    }
+  } catch (e) {
+    console.error("Age calculation error:", e);
   }
 
   // Daily Log Context String
@@ -220,10 +231,11 @@ ${dailyLogContext}
     metrics: {
         ...metrics,
         counts: {
-            nutrition: activeNutrition.length,
-            activity: activeActivity.length,
-            sleep: activeSleep.length
-        }
+            nutrition: nutriDays,
+            activity: activityDays,
+            sleep: sleepDays
+        },
+        vitaminSummary: Object.keys(metrics.nutrition.vitamins).map(v => v.replace('vitamin_', '')).join(', ')
     }, 
     age: ageValue, 
     gender: profile?.gender, 

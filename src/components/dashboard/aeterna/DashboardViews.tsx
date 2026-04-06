@@ -521,6 +521,9 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                               <div className="flex justify-between items-center"><span className="opacity-50">{t('protein')}</span><span>{Math.round(stagedData.metrics.nutrition.avgProtein)}г</span></div>
                                               <div className="flex justify-between items-center"><span className="opacity-50">{t('steps')}</span><span className="flex items-center gap-1.5">{Math.round(stagedData.metrics.activity.avgSteps)} <span className="text-[9px] px-1 bg-brand-forest/10 rounded">{stagedData.metrics.counts.activity}дн</span></span></div>
                                               <div className="flex justify-between items-center"><span className="opacity-50">{t('sleep')}</span><span className="flex items-center gap-1.5">{stagedData.metrics.sleep.avgHours.toFixed(1)}ч <span className="text-[9px] px-1 bg-brand-forest/10 rounded">{stagedData.metrics.counts.sleep}дн</span></span></div>
+                                              {stagedData.metrics.vitaminSummary && (
+                                                <div className="flex justify-between items-center pt-1 border-t border-brand-sage/10"><span className="opacity-50">Нутриенты</span><span className="text-[9px] truncate max-w-[100px] text-brand-forest/70">{stagedData.metrics.vitaminSummary}</span></div>
+                                              )}
                                             </div>
                                           </div>
                                           {/* Anthropometry */}
