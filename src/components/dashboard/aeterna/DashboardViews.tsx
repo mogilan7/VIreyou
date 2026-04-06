@@ -499,19 +499,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                             <p className="text-xs opacity-60 mb-4">{t('description')}</p>
                             
                             <div className="mt-4">
-                                {latestAnalysis ? (
-                                    <div className="space-y-4">
-                                        <AnalysisResultCard content={latestAnalysis.interpretation} />
-                                        <button 
-                                            onClick={handlePrepareAnalysis}
-                                            disabled={isAnalyzing || isPreparing}
-                                            className="w-full mt-2 flex items-center justify-center gap-2 py-3 border border-brand-forest/20 dark:border-brand-mint/20 rounded-xl text-xs font-bold text-brand-forest dark:text-brand-mint hover:bg-brand-sage/10 dark:hover:bg-brand-mint/5 transition-all disabled:opacity-50"
-                                        >
-                                            {isAnalyzing || isPreparing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                                            {isAnalyzing || isPreparing ? t('loading') : t('reRunBtn')}
-                                        </button>
-                                    </div>
-                                ) : stagedData ? (
+                                {stagedData ? (
                                     <div className="space-y-6 p-6 rounded-2xl bg-brand-sage/5 dark:bg-slate-900/40 border border-brand-sage/20 dark:border-white/5 animate-in fade-in zoom-in-95 duration-300">
                                         <div className="flex justify-between items-center mb-2">
                                             <h5 className="font-bold text-sm dark:text-slate-100">{t('stagedTitle')}</h5>
@@ -539,7 +527,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                           <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl">
                                             <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase mb-3 tracking-wider">{t('anthropometry')}</p>
                                             <div className="space-y-2 text-[11px]">
-                                              <div className="flex justify-between"><span className="opacity-50">{t('pAge')}</span><span>{stagedData.age}</span></div>
+                                              <div className="flex justify-between"><span className="opacity-50">Возраст</span><span>{stagedData.age}</span></div>
                                               <div className="flex justify-between"><span className="opacity-50">Талия</span><span>{stagedData.metrics.anthropometry.waist}см</span></div>
                                               <div className="flex justify-between"><span className="opacity-50">Вес</span><span>{stagedData.metrics.anthropometry.weight}кг</span></div>
                                             </div>
@@ -569,6 +557,18 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                               {isAnalyzing ? t('loading') : t('confirmBtn')}
                                           </button>
                                         </div>
+                                    </div>
+                                ) : latestAnalysis ? (
+                                    <div className="space-y-4">
+                                        <AnalysisResultCard content={latestAnalysis.interpretation} />
+                                        <button 
+                                            onClick={handlePrepareAnalysis}
+                                            disabled={isAnalyzing || isPreparing}
+                                            className="w-full mt-2 flex items-center justify-center gap-2 py-3 border border-brand-forest/20 dark:border-brand-mint/20 rounded-xl text-xs font-bold text-brand-forest dark:text-brand-mint hover:bg-brand-sage/10 dark:hover:bg-brand-mint/5 transition-all disabled:opacity-50"
+                                        >
+                                            {isAnalyzing || isPreparing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                            {isAnalyzing || isPreparing ? t('loading') : t('reRunBtn')}
+                                        </button>
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-2xl border-brand-sage/30 dark:border-white/10 bg-slate-50/30 dark:bg-slate-900/20">
