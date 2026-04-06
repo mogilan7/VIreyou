@@ -89,7 +89,49 @@ async function getAggregatedAnalysisData(userId: string) {
     };
   });
 
-  // 4. Aggregates with Filtering (Only Active Days)
+  // 4. Daily Logs Structure (7 days)
+  const dailyLogs: any[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(sevenDaysAgo);
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+
+    const dayNutri = nutritionLogs.filter(l => l.date.toISOString().split('T')[0] === dateStr);
+    const dayActiv = activityLogs.find(l => l.date.toISOString().split('T')[0] === dateStr);
+    const daySleep = sleepLogs.find(l => l.date.toISOString().split('T')[0] === dateStr);
+    const dayWater = hydrationLogs.filter(l => l.date.toISOString().split('T')[0] === dateStr).reduce((acc, l) => acc + l.volume_ml, 0);
+    const dayHabits = habitLogs.filter(l => l.date.toISOString().split('T')[0] === dateStr);
+
+    dailyLogs.push({
+      date: dateStr,
+      nutrition: {
+        calories: dayNutri.reduce((acc, l) => acc + (l.calories || 0), 0),
+        protein: dayNutri.reduce((acc, l) => acc + (l.protein || 0), 0),
+        vits: dayNutri.reduce((acc: any, l) => {
+          ['vitamin_D', 'magnesium', 'zinc', 'vitamin_B12'].forEach(v => {
+             if ((l as any)[v]) acc[v] = (acc[v] || 0) + (l as any)[v];
+          });
+          return acc;
+        }, {})
+      },
+      activity: {
+        steps: dayActiv?.steps || 0,
+        activeMin: dayActiv?.active_minutes || 0,
+      },
+      sleep: {
+        duration: daySleep?.duration_hrs || 0,
+        deep: daySleep?.deep_hrs || 0,
+        rem: daySleep?.rem_hrs || 0,
+        light: daySleep?.light_hrs || 0,
+        hrv: daySleep?.hrv || 0,
+        rhr: daySleep?.resting_heart_rate || 0
+      },
+      water: dayWater,
+      habits: dayHabits.map(h => `${h.habit_key}: ${h.completed ? '✅' : '❌'}`).join(', ')
+    });
+  }
+
+  // 5. Aggregates with Filtering (Only Active Days)
   const activeNutrition = nutritionLogs.filter(l => (l.calories || 0) > 0);
   const activeActivity = activityLogs.filter(l => (l.steps || 0) > 0 || (l.active_minutes || 0) > 0);
   const activeSleep = sleepLogs.filter(l => (l.duration_hrs || 0) > 0);
@@ -105,7 +147,6 @@ async function getAggregatedAnalysisData(userId: string) {
       avgSugar: activeNutrition.reduce((acc, l) => acc + (l.added_sugar || 0), 0) / nNutri,
       avgFiber: activeNutrition.reduce((acc, l) => acc + (l.fiber || 0), 0) / nNutri,
       vitamins: activeNutrition.reduce((acc: any, l) => {
-        // Collect all non-zero vitamins
         const vits = ['vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K', 'vitamin_B12', 'vitamin_C', 'magnesium', 'zinc', 'iron', 'calcium'];
         vits.forEach(v => {
           if ((l as any)[v]) acc[v] = (acc[v] || 0) + (l as any)[v];
@@ -143,6 +184,16 @@ async function getAggregatedAnalysisData(userId: string) {
     ageValue = String(healthData.biological_age_actual);
   }
 
+  // Daily Log Context String
+  const dailyLogContext = dailyLogs.map(day => `
+[${day.date}]
+- Питание: ${day.nutrition.calories} ккал, Белок: ${day.nutrition.protein}г. Витамины: ${JSON.stringify(day.nutrition.vits)}
+- Активность: ${day.activity.steps} шагов, ${day.activity.activeMin} мин активн.
+- Сон: ${day.sleep.duration}ч (Глуб: ${day.sleep.deep}ч, REM: ${day.sleep.rem}ч, HRV: ${day.sleep.hrv}мс, ЧСС: ${day.sleep.rhr})
+- Вода: ${day.water} мл
+- Привычки: ${day.habits || 'нет данных'}
+  `).join("\n");
+
   // Formatted dataContext
   const dataContext = `
 ДАННЫЕ ПРОФИЛЯ:
@@ -153,12 +204,13 @@ async function getAggregatedAnalysisData(userId: string) {
 РЕЗУЛЬТАТЫ ОПРОСНИКОВ (с клинической интерпретацией):
 ${questionnaires.map(q => `- ${q.name}: ${q.score || "н/д"} баллов. Интерпретация: ${q.interpretation || "н/д"}`).join("\n")}
 
-ОБРАЗ ЖИЗНИ ЗА 7 ДНЕЙ (среднее только по заполненным дням: питание ${activeNutrition.length} дн, активность ${activeActivity.length} дн, сон ${activeSleep.length} дн):
+ДЕТАЛЬНАЯ СТРУКТУРА ОБРАЗА ЖИЗНИ ЗА 7 ДНЕЙ:
+${dailyLogContext}
+
+МАКРОНУТРИЕНТЫ (среднее):
 - Калории: ${Math.round(metrics.nutrition.avgCalories)} ккал, Белки: ${Math.round(metrics.nutrition.avgProtein)} г/день
 - Сахар: ${Math.round(metrics.nutrition.avgSugar)} г/день, Клетчатка: ${Math.round(metrics.nutrition.avgFiber)} г/день
-- Микронутриенты (среднее): ${vitaminSummary || "данные отсутствуют"}
-- Активность: ${Math.round(metrics.activity.avgSteps)} шагов/день, ${Math.round(metrics.activity.avgActiveMin)} мин/день
-- Сон: ${metrics.sleep.avgHours.toFixed(1)} ч, HRV: ${Math.round(metrics.sleep.avgHRV)} мс
+- Витамины/Минералы (среднее): ${vitaminSummary || "данные отсутствуют"}
   `;
 
   return { 
