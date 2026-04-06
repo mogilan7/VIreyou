@@ -298,52 +298,48 @@ export async function generateStage2Analysis() {
   try {
     const { dataContext, userId, period } = await getAggregatedAnalysisData(user.id);
 
-    const systemPrompt = `
-Роль: Вы — ведущий ИИ-аналитик платформы vireyou.com, специализирующийся на системной медицине долголетия и функциональной диагностике. Ваша миссия — трансформировать данные образа жизни пользователя в персонализированную стратегию лабораторного скрининга.
+    const assistantId = process.env.OPENAI_ASSISTANT_ID;
+    if (!assistantId) throw new Error("OPENAI_ASSISTANT_ID is missing in .env.local");
 
-ФИЛОСОФИЯ:
-Вы рассматриваете тело как «главный актив». Ваша цель — помочь организму перейти из состояния «выживания» в состояние «развития». Вы не ставите медицинские диагнозы, а оцениваете «биологические ресурсы» и риски.
+    // 1. Create a Thread
+    const thread = await openai.beta.threads.create();
 
-ОБЯЗАТЕЛЬНАЯ СТРУКТУРА ОТВЕТА (строго соблюдайте заголовки):
-
-### 1. Сводный анализ ресурсов
-Краткое резюме текущего состояния на основе дневников питания, сна и активности. Четко укажите, где именно «теряется энергия» пользователя (например, из-за пиков сахара, недостатка глубокого сна или осевого переутомления). Используйте **жирный шрифт** для подчеркивания ключевых выводов.
-
-### 2. Таблица рекомендованных анализов
-Выведите таблицу строго в формате Markdown. 
-
-**ВАЖНО:** Оставьте ровно одну ПУСТУЮ СТРОКУ до и после таблицы.
-
-| Название теста | Обоснование на основе вашего образа жизни | Целевая зона долголетия |
-| :--- | :--- | :--- |
-| **ОАК (Общий анализ крови)** | Базовый маркер системного воспаления и снабжения тканей кислородом | (Обязательный базовый тест) |
-| ... | ... | ... |
-
-*Примечание: ОАК (Общий анализ крови) должен быть в списке ВСЕГДА.*
-
-### 3. Стратегия и приоритетность
-Разделите анализы на две категории:
-- **Критические (базовый чек-ап):** Тесты первого порядка, которые дадут 80% понимания текущих дефицитов (включая ОАК).
-- **Углубленные (для тонкой настройки):** Тесты для детального изучения обнаруженных рисков.
-
-ИНСТРУКЦИИ ПО ТЕСТАМ:
-- Мини-симптомы (усталость, плохой сон) -> hs-CRP, Ферритин, Витамин D.
-- Низкая активность / Питание -> HbA1c, Инсулин, Липидный профиль.
-- Риски по опросникам -> Специфические маркеры.
-
-Тон: Профессиональный, научно обоснованный, но доступный. Используйте Markdown для структуры.
-    `;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: dataContext },
-      ],
-      temperature: 0.2,
+    // 2. Add User Message (Data Context)
+    await openai.beta.threads.messages.create(thread.id, {
+      role: "user",
+      content: `
+      Вот данные моего профиля и образа жизни за последние 7 дней:
+      ${dataContext}
+      
+      Проведи углубленный анализ согласно твоим инструкциям и базе знаний.
+      
+      **ВАЖНО:** 
+      1. В своих рекомендациях ОБЯЗАТЕЛЬНО указывай названия PDF/Knowledge Base файлов, на которые ты ссылаешься (например, рядом с описанием анализа или суперфуда).
+      2. Строго соблюдай структуру ответа с заголовками (Сводный анализ, Таблица анализов, Стратегия).
+      `
     });
 
-    const interpretation = response.choices[0]?.message?.content || "";
+    // 3. Create and Poll a Run
+    const run = await openai.beta.threads.runs.createAndPoll(thread.id, {
+      assistant_id: assistantId,
+      additional_instructions: "Используй базу знаний для формирования персонализированной стратегии долголетия. Ссылайся на названия файлов из базы знаний."
+    });
+
+    if (run.status !== "completed") {
+      throw new Error(`AI Run failed with status: ${run.status}`);
+    }
+
+    // 4. Retrieve the Assistant's Response
+    const messages = await openai.beta.threads.messages.list(thread.id);
+    const lastMessage = messages.data.find(m => m.role === "assistant");
+    const content = lastMessage?.content[0];
+    
+    let interpretation = "";
+    if (content?.type === "text") {
+      interpretation = content.text.value;
+    } else {
+      throw new Error("No text content returned from AI Assistant.");
+    }
 
     const { error: saveError } = await supabase
       .from("test_results")

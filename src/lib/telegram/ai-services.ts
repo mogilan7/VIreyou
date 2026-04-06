@@ -178,10 +178,7 @@ export async function analyzeDailyNutritionWithAI(nutrients: any, userProfile: a
     if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
 
     const isEn = lang === 'en';
-    const responseLang = isEn ? 'English' : 'Russian';
     
-    console.log(`[AI Nutrition] Status: Generating recommendation. Language: ${responseLang}`);
-
     const promptEn = `Role: You are a highly qualified AI nutritionist and expert in preventive medicine. Your task is to analyze the user's daily diet, identify nutrient deficiencies, and provide recommendations for replenishment, based exclusively on the provided knowledge base (PDF documents attached to your system context).
 
 Knowledge Base Instructions:
@@ -237,17 +234,33 @@ ${JSON.stringify(nutrients, null, 2)}`;
 Дневной рацион (КБЖУ и нутриенты):
 ${JSON.stringify(nutrients, null, 2)}`;
 
-    const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-            { role: "system", content: isEn ? promptEn : promptRu },
-            { role: "user", content: isEn ? userContextEn : userContextRu }
-        ],
-        temperature: 0.3,
+    const assistantId = process.env.OPENAI_ASSISTANT_ID;
+    if (!assistantId) throw new Error("OPENAI_ASSISTANT_ID is missing");
+
+    // 1. Create a Thread
+    const thread = await openai.beta.threads.create();
+
+    // 2. Add Message
+    await openai.beta.threads.messages.create(thread.id, {
+        role: "user",
+        content: isEn ? userContextEn : userContextRu
     });
 
-    const result = response.choices[0]?.message?.content;
-    if (!result) return isEn ? "Failed to generate recommendations." : "Не удалось сгенерировать рекомендации.";
+    // 3. Run and Poll
+    const run = await openai.beta.threads.runs.createAndPoll(thread.id, {
+        assistant_id: assistantId,
+        additional_instructions: isEn ? promptEn : promptRu
+    });
 
-    return result;
+    if (run.status === "completed") {
+        const messages = await openai.beta.threads.messages.list(thread.id);
+        const lastMessage = messages.data.find(m => m.role === "assistant");
+        const content = lastMessage?.content[0];
+        
+        if (content?.type === "text") {
+            return content.text.value;
+        }
+    }
+
+    return isEn ? "Failed to generate recommendations." : "Не удалось сгенерировать рекомендации.";
 }
