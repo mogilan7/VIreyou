@@ -512,40 +512,128 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                         </div>
                                         <p className="text-[10px] opacity-60 mb-6">{t('stagedSubtitle')}</p>
                                         
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                          {/* Lifestyle Snapshot */}
-                                          <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl">
-                                            <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase mb-3 tracking-wider">{t('lifestyle')}</p>
-                                            <div className="space-y-2 text-[11px]">
-                                              <div className="flex justify-between items-center"><span className="opacity-50">{t('calories')}</span><span className="flex items-center gap-1.5">{Math.round(stagedData.metrics.nutrition.avgCalories)} <span className="text-[9px] px-1 bg-brand-forest/10 rounded">{stagedData.metrics.counts.nutrition}дн</span></span></div>
-                                              <div className="flex justify-between items-center"><span className="opacity-50">{t('protein')}</span><span>{Math.round(stagedData.metrics.nutrition.avgProtein)}г</span></div>
-                                              <div className="flex justify-between items-center"><span className="opacity-50">{t('steps')}</span><span className="flex items-center gap-1.5">{Math.round(stagedData.metrics.activity.avgSteps)} <span className="text-[9px] px-1 bg-brand-forest/10 rounded">{stagedData.metrics.counts.activity}дн</span></span></div>
-                                              <div className="flex justify-between items-center"><span className="opacity-50">{t('sleep')}</span><span className="flex items-center gap-1.5">{stagedData.metrics.sleep.avgHours.toFixed(1)}ч <span className="text-[9px] px-1 bg-brand-forest/10 rounded">{stagedData.metrics.counts.sleep}дн</span></span></div>
-                                              {stagedData.metrics.vitaminSummary && (
-                                                <div className="flex justify-between items-center pt-1 border-t border-brand-sage/10"><span className="opacity-50">Нутриенты</span><span className="text-[9px] truncate max-w-[100px] text-brand-forest/70">{stagedData.metrics.vitaminSummary}</span></div>
-                                              )}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                          {/* Nutrition Pillar */}
+                                          <div className="p-4 bg-white/50 dark:bg-slate-800/80 rounded-2xl border border-brand-sage/10 shadow-sm flex flex-col">
+                                            <div className="flex items-center gap-2 mb-3">
+                                              <span className="text-lg">🥗</span>
+                                              <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase tracking-wider">{t('nutrition')}</p>
+                                              <span className="ml-auto text-[9px] px-1.5 py-0.5 bg-brand-sage/10 rounded">{stagedData.metrics.nutrition.days}дн</span>
                                             </div>
-                                          </div>
-                                          {/* Anthropometry */}
-                                          <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl">
-                                            <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase mb-3 tracking-wider">{t('anthropometry')}</p>
-                                            <div className="space-y-2 text-[11px]">
-                                              <div className="flex justify-between"><span className="opacity-50">Возраст</span><span>{stagedData.age}</span></div>
-                                              <div className="flex justify-between"><span className="opacity-50">Талия</span><span>{stagedData.metrics.anthropometry.waist}см</span></div>
-                                              <div className="flex justify-between"><span className="opacity-50">Вес</span><span>{stagedData.metrics.anthropometry.weight}кг</span></div>
+                                            <div className="flex justify-between items-center mb-2 px-1">
+                                              <span className="text-[12px] font-medium">{stagedData.metrics.nutrition.avgCalories} ккал</span>
+                                              <span className="text-[10px] opacity-40">в день</span>
                                             </div>
-                                          </div>
-                                          {/* Questionnaires */}
-                                          <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl md:col-span-1">
-                                            <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase mb-3 tracking-wider">{t('questionnaires')}</p>
-                                            <div className="space-y-2 text-[11px] max-h-[80px] overflow-y-auto">
-                                              {stagedData.questionnaires.map((q: any, i: number) => (
-                                                <div key={i} className="flex justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-1 last:border-0">
-                                                  <span className="opacity-50 truncate">{q.name}</span>
-                                                  <span>{q.score ?? '—'}</span>
+                                            <div className="flex-1 max-h-[140px] overflow-y-auto pr-1 space-y-1 custom-scrollbar">
+                                              {stagedData.metrics.nutrition.nutrients.map((n: any, idx: number) => (
+                                                <div key={idx} className="flex justify-between items-center text-[11px] py-1 border-b border-brand-sage/5 last:border-0 hover:bg-brand-sage/5 px-1 rounded transition-colors">
+                                                  <span className="opacity-60">{n.name}</span>
+                                                  <span className="font-medium">{n.val} {n.unit}</span>
                                                 </div>
                                               ))}
-                                              {stagedData.questionnaires.length === 0 && <p className="opacity-30 italic">Нет данных</p>}
+                                            </div>
+                                          </div>
+
+                                          <div className="space-y-4">
+                                            {/* Sleep Pillar */}
+                                            <div className="p-4 bg-white/50 dark:bg-slate-800/80 rounded-2xl border border-brand-sage/10 shadow-sm">
+                                              <div className="flex items-center gap-2 mb-3">
+                                                <span className="text-lg">🌙</span>
+                                                <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase tracking-wider">{t('sleep')}</p>
+                                                <span className="ml-auto text-[9px] px-1.5 py-0.5 bg-brand-sage/10 rounded">{stagedData.metrics.sleep.days}дн</span>
+                                              </div>
+                                              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                                <div className="p-2 bg-brand-sage/5 rounded-lg flex flex-col">
+                                                  <span className="opacity-50 text-[9px] mb-1">Всего</span>
+                                                  <span className="font-bold">{stagedData.metrics.sleep.avgHours.toFixed(1)}ч</span>
+                                                </div>
+                                                <div className="p-2 bg-brand-sage/5 rounded-lg flex flex-col">
+                                                  <span className="opacity-50 text-[9px] mb-1">Глубокий</span>
+                                                  <span className="font-bold">{stagedData.metrics.sleep.avgDeep.toFixed(1)}ч</span>
+                                                </div>
+                                                <div className="p-2 bg-brand-sage/5 rounded-lg flex flex-col">
+                                                  <span className="opacity-50 text-[9px] mb-1">HRV (ср)</span>
+                                                  <span className="font-bold">{Math.round(stagedData.metrics.sleep.avgHRV)} мс</span>
+                                                </div>
+                                                <div className="p-2 bg-brand-sage/5 rounded-lg flex flex-col">
+                                                  <span className="opacity-50 text-[9px] mb-1">ЧСС</span>
+                                                  <span className="font-bold">{Math.round(stagedData.metrics.sleep.avgRHR || 60)} уд</span>
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            {/* Activity Pillar */}
+                                            <div className="p-4 bg-white/50 dark:bg-slate-800/80 rounded-2xl border border-brand-sage/10 shadow-sm">
+                                              <div className="flex items-center gap-2 mb-2">
+                                                <span className="text-lg">🏃</span>
+                                                <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase tracking-wider">Физ-активность</p>
+                                                <span className="ml-auto text-[9px] px-1.5 py-0.5 bg-brand-sage/10 rounded">{stagedData.metrics.activity.days}дн</span>
+                                              </div>
+                                              <div className="flex justify-between items-center py-1">
+                                                <span className="text-[11px] opacity-60">Шаги (среднее)</span>
+                                                <span className="text-[12px] font-bold">{Math.round(stagedData.metrics.activity.avgSteps)}</span>
+                                              </div>
+                                              <div className="flex justify-between items-center py-1">
+                                                <span className="text-[11px] opacity-60">Активные мин.</span>
+                                                <span className="text-[12px] font-bold">{stagedData.metrics.activity.avgActiveMin}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {/* Hydration Pillar */}
+                                          <div className="p-4 bg-white/50 dark:bg-slate-800/80 rounded-2xl border border-brand-sage/10 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-3">
+                                              <span className="text-lg">💧</span>
+                                              <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase tracking-wider">Гидратация</p>
+                                              <span className="ml-auto text-[9px] px-1.5 py-0.5 bg-brand-sage/10 rounded">{stagedData.metrics.hydration.days}дн</span>
+                                            </div>
+                                            <div className="flex items-end gap-1 mb-2">
+                                              <span className="text-xl font-bold">{stagedData.metrics.hydration.avgVolume}</span>
+                                              <span className="text-[10px] opacity-50 mb-1">мл / день</span>
+                                            </div>
+                                            <div className="w-full bg-brand-sage/10 h-1.5 rounded-full overflow-hidden">
+                                              <div 
+                                                className="bg-teal-500 h-full transition-all duration-1000" 
+                                                style={{ width: `${Math.min(100, (stagedData.metrics.hydration.avgVolume / 2000) * 100)}%` }}
+                                              />
+                                            </div>
+                                          </div>
+
+                                          {/* Habits Pillar */}
+                                          <div className="p-4 bg-white/50 dark:bg-slate-800/80 rounded-2xl border border-brand-sage/10 shadow-sm flex flex-col">
+                                            <div className="flex items-center gap-2 mb-3">
+                                              <span className="text-lg">⚡</span>
+                                              <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase tracking-wider">Вредные привычки / План</p>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1.5 mb-2">
+                                              {stagedData.metrics.habits.list.length > 0 ? (
+                                                stagedData.metrics.habits.list.map((habit: string, i: number) => (
+                                                  <span key={i} className="text-[9px] px-2 py-0.5 bg-brand-forest text-white rounded-full">
+                                                    {habit}
+                                                  </span>
+                                                ))
+                                              ) : (
+                                                <p className="text-[10px] opacity-30 italic">Привычки не отмечены</p>
+                                              )}
+                                            </div>
+                                            <p className="text-[10px] opacity-50 mt-auto">Всего выполнений: {stagedData.metrics.habits.completedCount}</p>
+                                          </div>
+                                        </div>
+
+                                        {/* Profile summary banner */}
+                                        <div className="mt-4 p-4 bg-brand-sage/5 rounded-2xl border border-brand-sage/10 flex justify-between items-center">
+                                          <div className="flex gap-6">
+                                            <div>
+                                              <p className="text-[10px] uppercase opacity-50 mb-1">Возраст</p>
+                                              <p className="text-sm font-bold text-brand-forest dark:text-teal-400">{stagedData.age} лет</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-[10px] uppercase opacity-50 mb-1">Вес</p>
+                                              <p className="text-sm font-bold text-brand-forest dark:text-teal-400">{stagedData.metrics.anthropometry.weight} кг</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-[10px] uppercase opacity-50 mb-1">Талия</p>
+                                              <p className="text-sm font-bold text-brand-forest dark:text-teal-400">{stagedData.metrics.anthropometry.waist} см</p>
                                             </div>
                                           </div>
                                         </div>

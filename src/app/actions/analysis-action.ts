@@ -43,9 +43,11 @@ async function getAggregatedAnalysisData(userId: string) {
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
   // 2. Fetch Data
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).single();
-  const { data: testResults } = await supabase.from("test_results").select("*").eq("user_id", userId).order("created_at", { ascending: false });
-  const { data: healthData } = await supabase.from("HealthData").select("*").eq("user_id", userId).single();
+  const [profile, testResults, healthData] = await Promise.all([
+    prisma.profiles.findUnique({ where: { id: userId } }),
+    prisma.test_results.findMany({ where: { user_id: userId }, orderBy: { created_at: 'desc' } }),
+    prisma.healthData.findUnique({ where: { user_id: userId } }),
+  ]);
 
   const lifestyleQuery = {
     where: { user_id: userId, date: { gte: sevenDaysAgo, lte: yesterday } },
@@ -145,27 +147,57 @@ async function getAggregatedAnalysisData(userId: string) {
   const nActiv = activeActivity.length || 1;
   const nSleep = activeSleep.length || 1;
 
+  const activeHydration = hydrationLogs.filter(l => (l.volume_ml || 0) > 0);
+  const hydrationDays = new Set(activeHydration.map(l => l.date.toISOString().split('T')[0])).size;
+
+  const nutrientKeys = [
+    'calories', 'protein', 'carbs', 'fat', 'fiber', 'added_sugar', 'vitamin_D', 'vitamin_B12', 
+    'magnesium', 'zinc', 'omega_3', 'omega_6', 'calcium', 'iron', 'vitamin_A', 'vitamin_C', 
+    'vitamin_E', 'vitamin_K', 'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B6', 
+    'sodium', 'potassium', 'cholesterol'
+  ];
+
+  const nutrientTotals = activeNutrition.reduce((acc: any, l) => {
+    nutrientKeys.forEach(k => {
+      if ((l as any)[k]) acc[k] = (acc[k] || 0) + (l as any)[k];
+    });
+    return acc;
+  }, {});
+
+  const structuredNutrients = nutrientKeys
+    .filter(k => (nutrientTotals[k] || 0) > 0)
+    .map(k => ({
+      name: k.replace('vitamin_', 'Вит. ').replace('calories', 'Калории').replace('protein', 'Белок').replace('carbs', 'Углеводы').replace('fat', 'Жиры').replace('fiber', 'Клетчатка').replace('added_sugar', 'Сахар (доб.)').replace('magnesium', 'Магний').replace('zinc', 'Цинк').replace('omega_3', 'Омега-3').replace('omega_6', 'Омега-6').replace('calcium', 'Кальций').replace('iron', 'Железо').replace('sodium', 'Натрий').replace('potassium', 'Калий').replace('cholesterol', 'Холестерин'),
+      val: Math.round(nutrientTotals[k] / (nutriDays || 1)),
+      unit: k === 'calories' ? 'ккал' : (k.includes('vitamin') || ['magnesium', 'zinc', 'iron', 'calcium', 'sodium', 'potassium', 'cholesterol'].includes(k) ? 'мг' : 'г')
+    }));
+
   const metrics = {
     nutrition: {
-      avgCalories: activeNutrition.reduce((acc, l) => acc + (l.calories || 0), 0) / nNutri,
-      avgProtein: activeNutrition.reduce((acc, l) => acc + (l.protein || 0), 0) / nNutri,
-      avgSugar: activeNutrition.reduce((acc, l) => acc + (l.added_sugar || 0), 0) / nNutri,
-      avgFiber: activeNutrition.reduce((acc, l) => acc + (l.fiber || 0), 0) / nNutri,
-      vitamins: activeNutrition.reduce((acc: any, l) => {
-        const vits = ['vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K', 'vitamin_B12', 'vitamin_C', 'magnesium', 'zinc', 'iron', 'calcium'];
-        vits.forEach(v => {
-          if ((l as any)[v]) acc[v] = (acc[v] || 0) + (l as any)[v];
-        });
-        return acc;
-      }, {})
+      days: nutriDays,
+      avgCalories: Math.round(nutrientTotals['calories'] / (nutriDays || 1)),
+      avgProtein: Math.round(nutrientTotals['protein'] / (nutriDays || 1)),
+      nutrients: structuredNutrients
     },
     activity: {
-      avgSteps: activeActivity.reduce((acc, l) => acc + (l.steps || 0), 0) / nActiv,
-      avgActiveMin: activeActivity.reduce((acc, l) => acc + (l.active_minutes || 0), 0) / nActiv,
+      days: activityDays,
+      avgSteps: Math.round(activeActivity.reduce((acc, l) => acc + (l.steps || 0), 0) / (activityDays || 1)),
+      avgActiveMin: Math.round(activeActivity.reduce((acc, l) => acc + (l.active_minutes || 0), 0) / (activityDays || 1)),
     },
     sleep: {
-      avgHours: activeSleep.reduce((acc, l) => acc + (l.duration_hrs || 0), 0) / nSleep,
-      avgHRV: activeSleep.reduce((acc, l) => acc + (l.hrv || 0), 0) / nSleep,
+      days: sleepDays,
+      avgHours: activeSleep.reduce((acc, l) => acc + (l.duration_hrs || 0), 0) / (sleepDays || 1),
+      avgDeep: activeSleep.reduce((acc, l) => acc + (l.deep_hrs || 0), 0) / (sleepDays || 1),
+      avgHRV: activeSleep.reduce((acc, l) => acc + (l.hrv || 0), 0) / (sleepDays || 1),
+      avgRHR: activeSleep.reduce((acc, l) => acc + (l.resting_heart_rate || 0), 0) / (sleepDays || 1),
+    },
+    hydration: {
+      days: hydrationDays,
+      avgVolume: Math.round(activeHydration.reduce((acc, l) => acc + (l.volume_ml || 0), 0) / (hydrationDays || 1)),
+    },
+    habits: {
+      completedCount: habitLogs.filter(h => h.completed).length,
+      list: Array.from(new Set(habitLogs.filter(h => h.completed).map(h => h.habit_key)))
     },
     anthropometry: {
       waist: (latestResultsMap["bio-age"]?.raw_data || latestResultsMap["systemic-bio-age"]?.raw_data || profile?.welcome_data || {}).waist || "н/д",
@@ -174,20 +206,20 @@ async function getAggregatedAnalysisData(userId: string) {
     }
   };
 
-  // Detailed Vitamin List for Prompt
-  const vitaminSummary = Object.entries(metrics.nutrition.vitamins)
-    .map(([key, val]) => `${key}: ${(Number(val) / nNutri).toFixed(2)}`)
-    .join(", ");
 
   // Age calculation fix
   let ageValue = "н/д";
   try {
-    if (profile?.date_of_birth) {
-      ageValue = String(new Date().getFullYear() - new Date(profile.date_of_birth).getFullYear());
+    const dob = profile?.date_of_birth;
+    if (dob) {
+      const birthDate = dob instanceof Date ? dob : new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+      ageValue = String(age);
     } else if (profile?.welcome_data && (profile.welcome_data as any).age) {
       ageValue = String((profile.welcome_data as any).age);
-    } else if (profile?.welcome_data && (profile.welcome_data as any).years) {
-      ageValue = String((profile.welcome_data as any).years);
     } else if (healthData?.biological_age_actual) {
       ageValue = String(healthData.biological_age_actual);
     }
@@ -219,24 +251,15 @@ ${questionnaires.map(q => `- ${q.name}: ${q.score || "н/д"} баллов. Ин
 ${dailyLogContext}
 
 МАКРОНУТРИЕНТЫ (среднее):
-- Калории: ${Math.round(metrics.nutrition.avgCalories)} ккал, Белки: ${Math.round(metrics.nutrition.avgProtein)} г/день
-- Сахар: ${Math.round(metrics.nutrition.avgSugar)} г/день, Клетчатка: ${Math.round(metrics.nutrition.avgFiber)} г/день
-- Витамины/Минералы (среднее): ${vitaminSummary || "данные отсутствуют"}
+- Калории: ${metrics.nutrition.avgCalories} ккал, Белки: ${metrics.nutrition.avgProtein} г/день
+- Нутриенты: ${structuredNutrients.map(n => `${n.name}: ${n.val}${n.unit}`).join(", ")}
   `;
 
   return { 
     userId, 
     dataContext, 
     questionnaires, 
-    metrics: {
-        ...metrics,
-        counts: {
-            nutrition: nutriDays,
-            activity: activityDays,
-            sleep: sleepDays
-        },
-        vitaminSummary: Object.keys(metrics.nutrition.vitamins).map(v => v.replace('vitamin_', '')).join(', ')
-    }, 
+    metrics, 
     age: ageValue, 
     gender: profile?.gender, 
     fullName: profile?.full_name,
