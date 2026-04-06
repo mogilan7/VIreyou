@@ -598,15 +598,15 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                           </div>
 
                                           {/* Habits Pillar */}
-                                          <div className="p-4 bg-white/50 dark:bg-slate-800/80 rounded-2xl border border-brand-sage/10 shadow-sm flex flex-col">
+                                          <div className="p-4 bg-white/50 dark:bg-slate-800/80 rounded-2xl border border-brand-sage/10 shadow-sm flex flex-col group hover:border-brand-mint/50 transition-all">
                                             <div className="flex items-center gap-2 mb-3">
-                                              <span className="text-lg">⚡</span>
-                                              <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase tracking-wider">Вредные привычки / План</p>
+                                              <span className="text-lg group-hover:scale-110 transition-transform">⚡</span>
+                                              <p className="text-[10px] font-bold text-brand-forest dark:text-teal-400 uppercase tracking-wider">Привычки / Фокус</p>
                                             </div>
                                             <div className="flex flex-wrap gap-1.5 mb-2">
                                               {stagedData.metrics.habits.list.length > 0 ? (
                                                 stagedData.metrics.habits.list.map((habit: string, i: number) => (
-                                                  <span key={i} className="text-[9px] px-2 py-0.5 bg-brand-forest text-white rounded-full">
+                                                  <span key={i} className="text-[9px] px-2 py-0.5 bg-brand-forest/80 dark:bg-brand-mint/20 text-white dark:text-brand-mint rounded-full border border-transparent dark:border-brand-mint/30 transition-all hover:bg-brand-forest dark:hover:bg-brand-mint/40">
                                                     {habit}
                                                   </span>
                                                 ))
@@ -614,24 +614,36 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                                 <p className="text-[10px] opacity-30 italic">Привычки не отмечены</p>
                                               )}
                                             </div>
-                                            <p className="text-[10px] opacity-50 mt-auto">Всего выполнений: {stagedData.metrics.habits.completedCount}</p>
+                                            <div className="mt-auto pt-2 border-t border-brand-sage/5">
+                                                <p className="text-[9px] opacity-50 flex justify-between">
+                                                    <span>Всего выполнений:</span>
+                                                    <span className="font-bold text-brand-forest dark:text-teal-400">{stagedData.metrics.habits.completedCount}</span>
+                                                </p>
+                                            </div>
                                           </div>
                                         </div>
 
                                         {/* Profile summary banner */}
-                                        <div className="mt-4 p-4 bg-brand-sage/5 rounded-2xl border border-brand-sage/10 flex justify-between items-center">
-                                          <div className="flex gap-6">
-                                            <div>
-                                              <p className="text-[10px] uppercase opacity-50 mb-1">Возраст</p>
-                                              <p className="text-sm font-bold text-brand-forest dark:text-teal-400">{stagedData.age} лет</p>
+                                        <div className="mt-4 p-5 bg-gradient-to-r from-brand-forest/5 to-transparent dark:from-brand-mint/5 dark:to-transparent rounded-2xl border border-brand-sage/20 dark:border-white/5 flex flex-wrap gap-8 items-center">
+                                          <div>
+                                            <p className="text-[9px] uppercase font-bold opacity-40 mb-1 tracking-widest">Возраст</p>
+                                            <div className="flex items-baseline gap-1">
+                                                <p className="text-xl font-bold text-brand-forest dark:text-brand-mint">{stagedData.age}</p>
+                                                <span className="text-[10px] opacity-40">лет</span>
                                             </div>
-                                            <div>
-                                              <p className="text-[10px] uppercase opacity-50 mb-1">Вес</p>
-                                              <p className="text-sm font-bold text-brand-forest dark:text-teal-400">{stagedData.metrics.anthropometry.weight} кг</p>
+                                          </div>
+                                          <div>
+                                            <p className="text-[9px] uppercase font-bold opacity-40 mb-1 tracking-widest">Текущий вес</p>
+                                            <div className="flex items-baseline gap-1">
+                                                <p className="text-xl font-bold text-brand-forest dark:text-brand-mint">{stagedData.metrics.anthropometry.weight}</p>
+                                                <span className="text-[10px] opacity-40">кг</span>
                                             </div>
-                                            <div>
-                                              <p className="text-[10px] uppercase opacity-50 mb-1">Талия</p>
-                                              <p className="text-sm font-bold text-brand-forest dark:text-teal-400">{stagedData.metrics.anthropometry.waist} см</p>
+                                          </div>
+                                          <div>
+                                            <p className="text-[9px] uppercase font-bold opacity-40 mb-1 tracking-widest">Обхват талии</p>
+                                            <div className="flex items-baseline gap-1">
+                                                <p className="text-xl font-bold text-brand-forest dark:text-brand-mint">{stagedData.metrics.anthropometry.waist}</p>
+                                                <span className="text-[10px] opacity-40">см</span>
                                             </div>
                                           </div>
                                         </div>

@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 @plugin "tailwindcss-animate";
+@plugin "@tailwindcss/typography";
 
 :root {
   color-scheme: light dark;
@@ -60,5 +61,78 @@ body {
 }
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(20, 184, 166, 0.4);
+  background: rgba(107, 114, 128, 0.4);
+}
+
+/* Premium Typography & Table Styles */
+.prose {
+    max-width: none;
+}
+
+.prose table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 1rem;
+    overflow: hidden;
+    border: 1px solid var(--color-brand-sage);
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+}
+
+.dark .prose table {
+    border-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(15, 23, 42, 0.3);
+}
+
+.prose thead {
+    background-color: var(--color-brand-sage);
+}
+
+.dark .prose thead {
+    background-color: rgba(20, 184, 166, 0.1);
+}
+
+.prose thead th {
+    color: var(--color-brand-forest);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 1rem;
+    text-align: left;
+}
+
+.dark .prose thead th {
+    color: #2dd4bf; /* teal-400 */
+}
+
+.prose tbody td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--color-brand-sage);
+}
+
+.dark .prose tbody td {
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+.prose tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.prose tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.dark .prose tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.prose strong {
+    color: var(--color-brand-forest);
+    font-weight: 700;
+}
+
+.dark .prose strong {
+    color: #2dd4bf; /* teal-400 */
 }

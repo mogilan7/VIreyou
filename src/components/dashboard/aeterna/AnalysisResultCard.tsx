@@ -43,7 +43,7 @@ export default function AnalysisResultCard({ content, isNew }: AnalysisResultCar
         </div>
       </div>
 
-      <div className="prose prose-xs sm:prose-sm dark:prose-invert max-w-none dark:text-slate-200 text-slate-800 overflow-x-auto selection:bg-brand-mint/20">
+      <div className="prose prose-xs sm:prose-sm dark:prose-invert max-w-none dark:text-slate-200 text-slate-800 overflow-x-auto selection:bg-brand-mint/20 animate-in fade-in slide-in-from-top-4 duration-1000 delay-300">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>
           {content}
         </ReactMarkdown>
