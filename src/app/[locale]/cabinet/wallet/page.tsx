@@ -69,15 +69,17 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                         {/* Base Tier */}
                         <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm flex flex-col justify-between">
                             <div>
-                                <h4 className="font-bold text-lg text-slate-700 dark:text-slate-300">Базовая</h4>
+                                <h4 className="font-bold text-lg text-slate-700 dark:text-slate-300">VIReyou Standard</h4>
                                 <p className="text-2xl font-bold my-2">0 ₽ <span className="text-sm font-normal text-slate-400">/ навсегда</span></p>
                                 <ul className="text-sm space-y-2 mt-4 text-slate-600 dark:text-slate-400">
-                                    <li className="flex items-center gap-2">✔️ Трекинг воды и сна</li>
-                                    <li className="flex items-center gap-2">✔️ Дневник питания</li>
-                                    <li className="flex items-center gap-2">✔️ Участие в Марафонах</li>
-                                    <li className="flex items-center gap-2 opacity-50">❌ ИИ-помощник в магазине</li>
-                                    <li className="flex items-center gap-2 opacity-50">❌ Проактивный ИИ-коуч</li>
-                                    <li className="flex items-center gap-2 opacity-50">❌ 5% бонус со 2-й линии</li>
+                                    <li className="flex items-center gap-2">✔️ Логгирование по фото и голосу</li>
+                                    <li className="flex items-center gap-2">✔️ Личный кабинет с графиками</li>
+                                    <li className="flex items-center gap-2">✔️ Участие в марафонах и рейтингах</li>
+                                    <li className="flex items-center gap-2">✔️ Контроль 26+ витаминов и минералов</li>
+                                    <li className="flex items-center gap-2 opacity-50">❌ Организация марафонов (+5% бонус)</li>
+                                    <li className="flex items-center gap-2 opacity-50">❌ Советы «Что съесть на ужин?»</li>
+                                    <li className="flex items-center gap-2 opacity-50">❌ Анализ продуктов в магазине</li>
+                                    <li className="flex items-center gap-2 opacity-50">❌ Приоритетный доступ к мощным ИИ</li>
                                 </ul>
                             </div>
                             <button className="mt-6 w-full py-2.5 rounded-xl font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 cursor-default">
@@ -89,14 +91,17 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                         <div className="bg-gradient-to-b from-[#60B76F]/10 to-transparent dark:from-emerald-900/20 p-5 rounded-3xl border-2 border-[#60B76F] shadow-md flex flex-col justify-between relative overflow-hidden">
                             <div className="absolute top-0 right-0 bg-[#60B76F] text-white text-[10px] font-bold uppercase py-1 px-3 rounded-bl-xl">Хит</div>
                             <div>
-                                <h4 className="font-bold text-lg text-[#60B76F]">PRO</h4>
+                                <h4 className="font-bold text-lg text-[#60B76F]">VIReyou PRO</h4>
                                 <p className="text-2xl font-bold my-2">990 ₽ <span className="text-sm font-normal text-slate-400">/ месяц</span></p>
                                 <ul className="text-sm space-y-2 mt-4 text-slate-700 dark:text-slate-300">
-                                    <li className="flex items-center gap-2">✔️ <span className="font-bold">ИИ-помощник в магазине</span></li>
-                                    <li className="flex items-center gap-2">✔️ <span className="font-bold">Проактивный ИИ-коуч</span></li>
-                                    <li className="flex items-center gap-2">✔️ Доступ к подробной аналитике</li>
-                                    <li className="flex items-center gap-2">✔️ Создание своих Марафонов</li>
-                                    <li className="flex items-center gap-2">✔️ <span className="text-[#60B76F] font-bold">+5% бонус со 2-й линии</span></li>
+                                    <li className="flex items-center gap-2">✔️ Логгирование по фото и голосу</li>
+                                    <li className="flex items-center gap-2">✔️ Личный кабинет с графиками</li>
+                                    <li className="flex items-center gap-2">✔️ Участие в марафонах и рейтингах</li>
+                                    <li className="flex items-center gap-2">✔️ Контроль 26+ витаминов и минералов</li>
+                                    <li className="flex items-center gap-2">✔️ <span className="font-bold">Организация марафонов (+5% бонус)</span> <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded">NEW</span></li>
+                                    <li className="flex items-center gap-2">✔️ <span className="font-bold">Советы «Что съесть на ужин?»</span> <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded">NEW</span></li>
+                                    <li className="flex items-center gap-2">✔️ <span className="font-bold">Анализ продуктов в магазине</span> <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded">NEW</span></li>
+                                    <li className="flex items-center gap-2">✔️ <span className="text-[#60B76F] font-bold">Приоритетный доступ к мощным ИИ</span></li>
                                 </ul>
                             </div>
                             <button className="mt-6 w-full py-2.5 rounded-xl font-bold text-white bg-[#60B76F] hover:bg-emerald-600 transition-colors shadow-lg shadow-[#60B76F]/30">
