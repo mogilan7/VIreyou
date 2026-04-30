@@ -586,6 +586,23 @@ model User {
   sleepLogs           SleepLog[]
   hydrationLogs       HydrationLog[]
   habitLogs           HabitLog[]
+  is_marathon_participant Boolean            @default(false)
+  
+  balance                 Decimal            @default(0) @db.Decimal(10, 2)
+  referrer_id             String?
+  referrer                User?              @relation("ReferralHistory", fields: [referrer_id], references: [id])
+  referees                User[]             @relation("ReferralHistory")
+  subscription_expires_at DateTime?
+  transactions            Transaction[]
+  created_squads          Squad[]            @relation("SquadCreator")
+  squad_participations    SquadParticipant[]
+
+  @@schema("public")
+}
+
+model SystemSetting {
+  key   String @id
+  value String
 
   @@schema("public")
 }
@@ -797,5 +814,47 @@ model HabitLog {
   user       User     @relation(fields: [user_id], references: [id])
 
   @@index([user_id, date])
+  @@schema("public")
+}
+
+model Transaction {
+  id            String   @id @default(cuid())
+  user_id       String
+  amount        Decimal  @db.Decimal(10, 2)
+  type          String   // EARNED_REF_L1, EARNED_REF_L2, SPENT_SUB, GIFT_SENT, GIFT_RECEIVED
+  description   String?
+  created_at    DateTime @default(now())
+  user          User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, created_at])
+  @@schema("public")
+}
+
+model Squad {
+  id          String   @id @default(cuid())
+  creator_id  String
+  name        String
+  start_date  DateTime @default(now())
+  end_date    DateTime
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  
+  creator     User     @relation("SquadCreator", fields: [creator_id], references: [id])
+  participants SquadParticipant[]
+
+  @@schema("public")
+}
+
+model SquadParticipant {
+  id          String   @id @default(cuid())
+  squad_id    String
+  user_id     String
+  score       Int      @default(0)
+  joined_at   DateTime @default(now())
+
+  squad       Squad    @relation(fields: [squad_id], references: [id])
+  user        User     @relation(fields: [user_id], references: [id])
+
+  @@unique([squad_id, user_id])
   @@schema("public")
 }

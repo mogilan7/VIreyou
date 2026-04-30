@@ -13,7 +13,7 @@ if (process.env.DATABASE_URL) {
 
 import prisma from "../src/lib/prisma";
 import { analyzeFoodWithAI, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI } from "../src/lib/telegram/ai-services";
-import { generatePeriodicReport } from "../src/lib/reportGenerator";
+import { generatePeriodicReport, NUTRITION_NORMS, NUTRIENT_NAMES } from "../src/lib/reportGenerator";
 
 const ruMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/ru.json'), 'utf8'));
 const enMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/en.json'), 'utf8'));
@@ -140,17 +140,82 @@ bot.use(async (ctx: any, next) => {
 });
 
 // ----------------------------------------------------
+// Перехват форвардов для настройки канала марафона
+// ----------------------------------------------------
+bot.on('message', async (ctx: any, next) => {
+    const user = ctx.state.user;
+    if (user && userStates[user.id] === 'WAITING_FOR_CHANNEL_FORWARD') {
+        if (ctx.message.forward_from_chat && ctx.message.forward_from_chat.type === 'channel') {
+            const channelId = ctx.message.forward_from_chat.id.toString();
+            const lang = ctx.state.lang || 'ru';
+            await prisma.systemSetting.upsert({
+                where: { key: 'marathon_channel_id' },
+                update: { value: channelId },
+                create: { key: 'marathon_channel_id', value: channelId }
+            });
+            userStates[user.id] = '';
+            return ctx.reply(t(lang, 'Marathon.channelLinked', { id: channelId }), { parse_mode: 'Markdown' });
+        }
+    }
+    return next();
+});
+
+// ----------------------------------------------------
 // Команды
 // ----------------------------------------------------
 bot.command('start', async (ctx: any) => {
   const args = ctx.message.text.split(' ');
   const payload = args[1];
 
-  let email = payload;
-  if (payload) {
+  // 1. Сначала проверяем специальные команды ссылки
+  if (payload === 'marathon') {
+      const user = ctx.state.user;
+      const lang = ctx.state.lang || 'ru';
+      if (!user) {
+          return ctx.reply(t(lang, 'Marathon.startInviteNeedLink'));
+      }
+      return await handleMarathonJoinLogic(ctx, user, lang);
+  }
+
+  let refId = null;
+  let squadId = null;
+
+  if (payload?.startsWith('ref_')) {
+      refId = payload.replace('ref_', '');
+  } else if (payload?.startsWith('sq_')) {
+      squadId = payload.replace('sq_', '');
+      // If joining a squad, the squad creator is the referrer
+      const squad = await prisma.squad.findUnique({ where: { id: squadId } });
+      if (squad) refId = squad.creator_id;
+  }
+
+  // Automatic user creation for seamless Telegram onboarding
+  if (!ctx.state.user && (refId || squadId)) {
+      const autoEmail = `tg_${ctx.from.id}@vireyou.com`;
+      let newUser = await prisma.user.findUnique({ where: { email: autoEmail } });
+      
+      if (!newUser) {
+          newUser = await prisma.user.create({
+              data: {
+                  email: autoEmail,
+                  telegram_id: ctx.from.id.toString(),
+                  role: 'client',
+                  full_name: ctx.from.first_name || 'Спортсмен',
+                  language: detectTimezoneFromLang(ctx.from.language_code) === 'Europe/Moscow' ? 'ru' : 'en',
+                  timezone: detectTimezoneFromLang(ctx.from.language_code),
+                  referrer_id: refId || null
+              }
+          });
+      }
+      ctx.state.user = newUser;
+      ctx.state.lang = newUser.language || 'ru';
+  }
+
+  // 2. Иначе интерпретируем payload как email (для связки аккаунтов)
+  let email = null;
+  if (payload && !refId && !squadId && payload !== 'marathon') {
+      email = payload;
       try {
-          // Telegram Deep Link (start=...) не поддерживает символ @ и точки.
-          // Поэтому мы ожидаем email в base64 от платформы.
           const decoded = Buffer.from(payload, 'base64').toString('utf8');
           if (decoded.includes('@')) {
               email = decoded;
@@ -160,10 +225,28 @@ bot.command('start', async (ctx: any) => {
       }
   }
 
+  // Helper to join squad if ID exists
+  const joinSquadIfNeeded = async (user: any) => {
+      if (squadId) {
+          try {
+              const { joinSquad } = await import('../lib/squads/squadService');
+              const joined = await joinSquad(squadId, user.id);
+              if (joined) {
+                  await ctx.reply(ctx.state.lang === 'en' ? "✅ You successfully joined the Squad!" : "✅ Вы успешно присоединились к марафону (Скваду)!");
+              } else {
+                  await ctx.reply(ctx.state.lang === 'en' ? "ℹ️ You are already in this Squad." : "ℹ️ Вы уже участвуете в этом марафоне.");
+              }
+          } catch (e) {
+              console.error(e);
+          }
+      }
+  };
+
   if (!email) {
-    // Проверяем авторизацию еще раз (для запуска без аргументов)
+    // Проверяем авторизацию еще раз (для запуска без аргументов или после авторегистрации)
     const user = ctx.state.user;
     if (user) {
+         await joinSquadIfNeeded(user);
          if (!user.language) {
              return sendLanguagePrompt(ctx);
          }
@@ -195,6 +278,8 @@ bot.command('start', async (ctx: any) => {
 
     ctx.reply(t(ctx.state.lang, 'Auth.linkSuccess'));
     
+    await joinSquadIfNeeded(updatedUser);
+
     if (!(updatedUser as any).language) {
       return sendLanguagePrompt(ctx);
     }
@@ -203,6 +288,242 @@ bot.command('start', async (ctx: any) => {
     console.error("Start command error:", error);
     ctx.reply(t(ctx.state.lang, 'Auth.linkError'));
   }
+});
+
+// --- Marathon Commands ---
+
+async function handleMarathonJoinLogic(ctx: any, user: any, lang: string) {
+    if (user.is_marathon_participant) {
+        return ctx.reply(t(lang, 'Marathon.alreadyJoined'));
+    }
+
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+            const count = await tx.user.count({ where: { is_marathon_participant: true } });
+            
+            let limit = 10; 
+            const limitSetting = await tx.systemSetting.findUnique({ where: { key: 'marathon_limit' } });
+            if (limitSetting) limit = parseInt(limitSetting.value);
+
+            if (count >= limit) return { success: false, reason: 'full', limit };
+
+            const updated = await tx.user.update({
+                where: { id: user.id },
+                data: { is_marathon_participant: true }
+            });
+
+            return { success: true, newCount: count + 1, limit };
+        });
+
+        if (!result.success) {
+            return ctx.reply(t(lang, 'Marathon.joinLimitReached'));
+        }
+
+        ctx.reply(t(lang, 'Marathon.joinSuccess'));
+
+        // If limit reached, update the channel post
+        if (result.newCount >= result.limit) {
+            const channelIdSetting = await prisma.systemSetting.findUnique({ where: { key: 'marathon_channel_id' } });
+            const msgIdSetting = await prisma.systemSetting.findUnique({ where: { key: 'marathon_broadcast_msg_id' } });
+            
+            if (channelIdSetting && msgIdSetting) {
+                try {
+                    await bot.telegram.editMessageText(
+                        channelIdSetting.value,
+                        parseInt(msgIdSetting.value),
+                        undefined,
+                        t(lang, 'Marathon.broadcastFullText', { limit: result.limit }),
+                        { parse_mode: 'Markdown' }
+                    );
+                } catch (e) {
+                    console.error("Failed to edit channel message:", e);
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Marathon join error:", e);
+        ctx.reply(t(lang, 'Confirmation.error'));
+    }
+}
+
+bot.command('marathon_join', async (ctx: any) => {
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
+    await handleMarathonJoinLogic(ctx, user, lang);
+});
+
+bot.command('marathon_leave', async (ctx: any) => {
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (!user) return;
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { is_marathon_participant: false }
+    });
+    ctx.reply(t(lang, 'Marathon.leaveSuccess'));
+});
+
+bot.command('marathon_setup', async (ctx: any) => {
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (!user || user.role !== 'admin') return;
+
+    userStates[user.id] = 'WAITING_FOR_CHANNEL_FORWARD';
+    ctx.reply(t(lang, 'Marathon.setupIntro'), { parse_mode: 'Markdown' });
+});
+
+bot.command('marathon_set_channel', async (ctx: any) => {
+    const user = ctx.state.user;
+    if (!user || user.role !== 'admin') return;
+    const args = ctx.message.text.split(' ');
+    if (args.length < 2) return ctx.reply("Использование: /marathon_set_channel <ID>");
+    
+    const channelId = args[1];
+    await prisma.systemSetting.upsert({
+        where: { key: 'marathon_channel_id' },
+        update: { value: channelId },
+        create: { key: 'marathon_channel_id', value: channelId }
+    });
+    ctx.reply(`✅ Канал марафона установлен вручную: \`${channelId}\``, { parse_mode: 'Markdown' });
+});
+
+bot.command('marathon_id', async (ctx: any) => {
+    ctx.reply(`ID этого чата: \`${ctx.chat.id}\``, { parse_mode: 'Markdown' });
+});
+
+bot.command('marathon_status', async (ctx: any) => {
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (!user) return;
+
+    try {
+        const count = await prisma.user.count({ where: { is_marathon_participant: true } });
+        const limitSetting = await prisma.systemSetting.findUnique({ where: { key: 'marathon_limit' } });
+        const channelSetting = await prisma.systemSetting.findUnique({ where: { key: 'marathon_channel_id' } });
+        
+        const limit = limitSetting ? limitSetting.value : '2';
+        const channelId = channelSetting ? channelSetting.value : 'не настроен';
+
+        ctx.reply(t(lang, 'Marathon.stats', { count, limit, channelId }), { parse_mode: 'Markdown' });
+    } catch (e) {
+        ctx.reply("Ошибка получения статистики.");
+    }
+});
+
+bot.command('marathon_test', async (ctx: any) => {
+    const lang = ctx.state.lang || 'ru';
+    const report = await generateMarathonDailyReport();
+    if (!report) return ctx.reply("Нет данных для отчета или участников.");
+    ctx.reply(report, { parse_mode: 'Markdown' });
+});
+
+bot.command('marathon_invite', async (ctx: any) => {
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (!user || user.role !== 'admin') return;
+
+    try {
+        const usersToInvite = await prisma.user.findMany({
+            where: {
+                is_marathon_participant: false,
+                telegram_id: { not: null }
+            },
+            take: 20
+        });
+
+        if (usersToInvite.length === 0) {
+            return ctx.reply("Все пользователи уже участвуют в марафоне или не привязали Telegram.");
+        }
+
+        const buttons = usersToInvite.map(u => {
+            const displayName = u.full_name && u.full_name !== 'клиент' 
+                ? `${u.full_name} (${u.email})` 
+                : u.email;
+            return [
+                Markup.button.callback(t(lang, 'Marathon.adminInviteBtn', { name: displayName }), `invite_user:${u.id}`)
+            ];
+        });
+
+        ctx.reply(t(lang, 'Marathon.adminUsersTitle'), Markup.inlineKeyboard(buttons));
+    } catch (e) {
+        console.error("Marathon invite list error:", e);
+        ctx.reply("Ошибка получения списка пользователей.");
+    }
+});
+
+bot.action(/^invite_user:(.+)$/, async (ctx: any) => {
+    const userId = ctx.match[1];
+    const admin = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    
+    if (!admin || admin.role !== 'admin') return ctx.answerCbQuery("Доступ запрещен");
+
+    try {
+        const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+        if (!targetUser || !targetUser.telegram_id) return ctx.answerCbQuery("Пользователь не найден");
+
+        // Send personal invite to target user
+        await bot.telegram.sendMessage(targetUser.telegram_id, t(targetUser.language || 'ru', 'Marathon.invitationText'), 
+            Markup.inlineKeyboard([
+                [Markup.button.callback(t(targetUser.language || 'ru', 'Marathon.invitePersonal'), 'marathon_join_confirmed')]
+            ])
+        );
+
+        ctx.answerCbQuery(t(lang, 'Marathon.adminInviteSent', { name: targetUser.full_name || targetUser.email }));
+        ctx.editMessageText(t(lang, 'Marathon.adminInviteSent', { name: targetUser.full_name || targetUser.email }));
+    } catch (e) {
+        console.error("Invite send error:", e);
+        ctx.answerCbQuery("Ошибка при отправке приглашения");
+    }
+});
+
+bot.action('marathon_join_confirmed', async (ctx: any) => {
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (!user) return ctx.answerCbQuery(t(lang, 'Auth.notLinked'));
+    await handleMarathonJoinLogic(ctx, user, lang);
+    await ctx.answerCbQuery().catch(() => {});
+});
+
+bot.command('marathon_broadcast', async (ctx: any) => {
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (!user || user.role !== 'admin') return;
+
+    try {
+        const channelSetting = await prisma.systemSetting.findUnique({ where: { key: 'marathon_channel_id' } });
+        if (!channelSetting) return ctx.reply("Канал для марафона не настроен. Используйте /marathon_setup");
+
+        const limitSetting = await prisma.systemSetting.findUnique({ where: { key: 'marathon_limit' } });
+        const limit = limitSetting ? limitSetting.value : '10';
+
+        const me = await bot.telegram.getMe();
+        const joinLink = `https://t.me/${me.username}?start=marathon`;
+
+        const sentMsg = await bot.telegram.sendMessage(
+            channelSetting.value,
+            t(lang, 'Marathon.broadcastTitle') + "\n\n" + t(lang, 'Marathon.broadcastText', { limit }),
+            {
+                parse_mode: 'Markdown',
+                ...Markup.inlineKeyboard([
+                    [Markup.button.url(t(lang, 'Marathon.broadcastBtn'), joinLink)]
+                ])
+            }
+        );
+
+        await prisma.systemSetting.upsert({
+            where: { key: 'marathon_broadcast_msg_id' },
+            update: { value: sentMsg.message_id.toString() },
+            create: { key: 'marathon_broadcast_msg_id', value: sentMsg.message_id.toString() }
+        });
+
+        ctx.reply("✅ Пост с приглашением опубликован в канале.");
+    } catch (e) {
+        console.error("Broadcast error:", e);
+        ctx.reply("Ошибка при публикации в канал.");
+    }
 });
 
 // Auto-detect timezone from Telegram language_code
@@ -350,6 +671,9 @@ async function sendWelcomeMenu(ctx: any, user: any) {
                   [Markup.button.callback(t(lang, 'Menu.sleep'), 'menu_sleep')],
                   [Markup.button.callback(t(lang, 'Menu.water'), 'menu_water')],
                   [Markup.button.callback(t(lang, 'Menu.habits'), 'menu_habits')],
+                  [Markup.button.callback(lang === 'en' ? '👥 My Squad' : '👥 Мой Squad', 'menu_my_squad')],
+                  [Markup.button.callback(lang === 'en' ? '🛒 Shop Assistant' : '🛒 Помощник в магазине', 'menu_shop_assistant')],
+                  [Markup.button.callback(lang === 'en' ? '🍽️ What to eat next?' : '🍽️ Что съесть дальше?', 'menu_what_to_eat')],
                   [Markup.button.webApp(t(lang, 'Menu.dashboard'), lang === 'en' ? 'https://vireyou.com/en/cabinet/lifestyle' : 'https://vireyou.com/ru/cabinet/lifestyle')],
                   [Markup.button.callback(t(lang, 'Menu.settings'), 'menu_settings')]
               ])
@@ -364,6 +688,9 @@ async function sendWelcomeMenu(ctx: any, user: any) {
                   [Markup.button.callback(t(lang, 'Menu.sleep'), 'menu_sleep')],
                   [Markup.button.callback(t(lang, 'Menu.water'), 'menu_water')],
                   [Markup.button.callback(t(lang, 'Menu.habits'), 'menu_habits')],
+                  [Markup.button.callback(lang === 'en' ? '👥 My Squad' : '👥 Мой Squad', 'menu_my_squad')],
+                  [Markup.button.callback(lang === 'en' ? '🛒 Shop Assistant' : '🛒 Помощник в магазине', 'menu_shop_assistant')],
+                  [Markup.button.callback(lang === 'en' ? '🍽️ What to eat next?' : '🍽️ Что съесть дальше?', 'menu_what_to_eat')],
                   [Markup.button.webApp(t(lang, 'Menu.dashboard'), lang === 'en' ? 'https://vireyou.com/en/cabinet/lifestyle' : 'https://vireyou.com/ru/cabinet/lifestyle')],
                   [Markup.button.callback(t(lang, 'Menu.settings'), 'menu_settings')]
               ])
@@ -474,9 +801,10 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
 
 
 // ----------------------------------------------------
-// Обработка ФОТО (Еда или Скриншоты)
+// Обработка ФОТО (Еда или Скриншоты или Товары)
 // ----------------------------------------------------
 bot.on('photo', async (ctx: any) => {
+  const user = ctx.state.user;
   const photo = ctx.message.photo[ctx.message.photo.length - 1]; // Самое большое
   const tempPath = path.join('/tmp', `photo_${photo.file_id}.jpg`);
   const lang = ctx.state.lang || 'ru';
@@ -486,6 +814,44 @@ bot.on('photo', async (ctx: any) => {
   try {
     await downloadTelegramFile(photo.file_id, tempPath);
     const base64 = await fileToBase64(tempPath);
+
+    if (user && userStates[user.id] === 'WAITING_FOR_PRODUCT_PHOTO') {
+        userStates[user.id] = ''; // Сброс состояния
+        
+        // Получаем съеденное за сегодня
+        const localTodayStr = getUserLocalDate(user.timezone);
+        const datePart = localTodayStr.split(',')[0].trim();
+        const startOfDay = new Date(`${datePart}T00:00:00Z`); // Упрощенно
+        const endOfDay = new Date(`${datePart}T23:59:59Z`);
+        
+        const logs = await prisma.nutritionLog.findMany({
+            where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
+        });
+        const currentNutrients = logs.reduce((acc: any, log: any) => {
+            acc.calories += Number(log.calories || 0);
+            acc.protein += Number(log.protein || 0);
+            acc.fat += Number(log.fat || 0);
+            acc.carbs += Number(log.carbs || 0);
+            return acc;
+        }, { calories: 0, protein: 0, fat: 0, carbs: 0 });
+
+        const result = await analyzeProductLabelWithAI(base64, currentNutrients, lang);
+        
+        if (result.status === "SUCCESS") {
+            let icon = "✅";
+            if (result.verdict === "LIMIT") icon = "⚠️";
+            if (result.verdict === "AVOID") icon = "❌";
+            
+            let replyText = `${icon} **${result.title}**\n\n${result.reason}`;
+            if (result.hidden_nasties && result.hidden_nasties.length > 0) {
+                replyText += `\n\n🚨 Скрытые угрозы: ${result.hidden_nasties.join(', ')}`;
+            }
+            await ctx.reply(replyText, { parse_mode: 'Markdown' });
+        } else {
+            await ctx.reply(lang === 'en' ? "Couldn't read the label clearly." : "Не удалось распознать этикетку.");
+        }
+        return;
+    }
 
     // Сначала пробуем распознать как скриншот
     const screenshotData = await analyzeScreenshotWithAI(base64, getUserLocalDate(ctx.state.user?.timezone));
@@ -579,6 +945,8 @@ bot.on('text', async (ctx: any) => {
   const lang = ctx.state.lang || 'ru';
 
   if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
+
+  // Настройка Канала Марафона (через Forward) - Перенесено выше в основной bot.on('message')
 
   // Выбор Часового Пояса
   if (userStates[user.id] === 'WAITING_FOR_TIMEZONE') {
@@ -721,6 +1089,113 @@ bot.action('edit_log_prompt', async (ctx: any) => {
 // ----------------------------------------------------
 // Чек-лист Рекомендаций и Утреннее напоминание
 // ----------------------------------------------------
+
+bot.action('menu_shop_assistant', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    const lang = ctx.state.lang || 'ru';
+    
+    userStates[user.id] = 'WAITING_FOR_PRODUCT_PHOTO';
+    await ctx.reply(lang === 'en' 
+        ? "📸 Send me a photo of a product label or nutrition facts from the store." 
+        : "📸 Пришлите фото этикетки продукта или его состава из магазина, и я скажу, стоит ли его брать.");
+});
+
+bot.action('menu_what_to_eat', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    const lang = ctx.state.lang || 'ru';
+    
+    await ctx.reply(lang === 'en' ? "⏳ Analyzing your day..." : "⏳ Анализирую ваш рацион за сегодня...");
+
+    try {
+        const localTodayStr = getUserLocalDate(user.timezone);
+        const datePart = localTodayStr.split(',')[0].trim();
+        const startOfDay = new Date(`${datePart}T00:00:00Z`);
+        const endOfDay = new Date(`${datePart}T23:59:59Z`);
+        
+        const logs = await prisma.nutritionLog.findMany({
+            where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
+        });
+        
+        const currentNutrients = logs.reduce((acc: any, log: any) => {
+            acc.calories += Number(log.calories || 0);
+            acc.protein += Number(log.protein || 0);
+            acc.fat += Number(log.fat || 0);
+            acc.carbs += Number(log.carbs || 0);
+            return acc;
+        }, { calories: 0, protein: 0, fat: 0, carbs: 0 });
+
+        const profile = await prisma.profiles.findUnique({ where: { id: user.id } }) || { gender: 'unknown', age: 30 };
+        
+        const advice = await getProactiveNutritionAdvice(currentNutrients, profile, lang);
+        await ctx.reply(advice, { parse_mode: 'Markdown' });
+    } catch (e) {
+        console.error("Proactive AI Error:", e);
+        await ctx.reply(lang === 'en' ? "Failed to analyze." : "Ошибка анализа.");
+    }
+});
+
+bot.action('menu_my_squad', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    const lang = ctx.state.lang || 'ru';
+    
+    try {
+        const { getSquadLeaderboard } = await import('../lib/squads/squadService');
+        
+        // Find if user is in an active squad
+        const participant = await prisma.squadParticipant.findFirst({
+            where: { user_id: user.id },
+            include: { squad: true },
+            orderBy: { joined_at: 'desc' }
+        });
+        
+        if (participant && participant.squad.is_active) {
+            const leaderboard = await getSquadLeaderboard(participant.squad_id);
+            const inviteLink = `https://t.me/vireyou_bot?start=sq_${participant.squad_id}`;
+            await ctx.reply(`${leaderboard}\n\n🔗 Пригласить друзей: \`${inviteLink}\``, { parse_mode: 'Markdown' });
+        } else {
+            await ctx.reply(lang === 'en' 
+                ? "You don't have an active Squad. Do you want to create one?" 
+                : "У вас нет активного марафона (Сквада). Хотите создать?",
+                Markup.inlineKeyboard([
+                    [Markup.button.callback(lang === 'en' ? "➕ Create Squad" : "➕ Создать Сквад", 'create_squad')]
+                ])
+            );
+        }
+    } catch (e) {
+        console.error(e);
+        await ctx.reply(lang === 'en' ? "Error loading squad." : "Ошибка загрузки сквада.");
+    }
+});
+
+bot.action('create_squad', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    const lang = ctx.state.lang || 'ru';
+
+    try {
+        const { createSquad } = await import('../lib/squads/squadService');
+        const squadName = `Squad of ${user.full_name || 'User'}`;
+        const newSquad = await createSquad(user.id, squadName);
+        
+        const inviteLink = `https://t.me/vireyou_bot?start=sq_${newSquad.id}`;
+        
+        await ctx.reply(lang === 'en' 
+            ? `✅ Squad created!\n\nInvite link:\n\`${inviteLink}\`` 
+            : `✅ Марафон успешно создан!\n\nОтправьте эту ссылку друзьям:\n\`${inviteLink}\``, 
+            { parse_mode: 'Markdown' });
+            
+    } catch (e) {
+        console.error(e);
+        await ctx.reply(lang === 'en' ? "Failed to create." : "Ошибка создания.");
+    }
+});
 
 const TEST_NAMES: Record<string, Record<string, string>> = {
     'systemic-bio-age': { ru: 'Системный Биовозраст', en: 'Systemic Biological Age' },
@@ -981,6 +1456,28 @@ cron.schedule('0 * * * *', async () => {
 // ----------------------------------------------------
 cron.schedule('* * * * *', async () => {
     const now = new Date();
+    
+    // --- Marathon Daily Report (22:00 MSK) ---
+    const mskTime = now.toLocaleTimeString('ru-RU', { 
+        timeZone: 'Europe/Moscow', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+
+    if (mskTime === '03:00') {
+        try {
+            const report = await generateMarathonDailyReport();
+            if (report) {
+                const setting = await prisma.systemSetting.findUnique({ where: { key: 'marathon_channel_id' } });
+                if (setting && setting.value) {
+                    await bot.telegram.sendMessage(setting.value, report, { parse_mode: 'Markdown' });
+                    console.log("[CRON] Marathon report sent to channel:", setting.value);
+                }
+            }
+        } catch (err) {
+            console.error("[CRON] Marathon report error:", err);
+        }
+    }
 
     try {
         const users = await prisma.user.findMany({
@@ -1219,6 +1716,117 @@ async function generateDailyReport(userId: string, lang: string = 'ru') {
     }
 
     return report;
+}
+
+/**
+ * Генерирует анонимный отчет по марафону для канала.
+ */
+export async function generateMarathonDailyReport() {
+    console.log("[MARATHON] Generating daily report...");
+    try {
+        const participants = await prisma.user.findMany({
+            where: { is_marathon_participant: true }
+        });
+
+        if (participants.length === 0) return null;
+
+        const now = new Date();
+        const yest = new Date(now);
+        yest.setDate(yest.getDate() - 1);
+        const startOfDay = new Date(yest.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(yest.setHours(23, 59, 59, 999));
+
+        let countDiaries = 0;
+        let countWater2L = 0;
+        let countSleep7_8 = 0;
+        let countSteps10kActive30 = 0;
+
+        const participantSummaries = await Promise.all(participants.map(async (p) => {
+            // 1. Check all 5 diaries
+            const [nutrition, sleep, water, activity, habits] = await Promise.all([
+                prisma.nutritionLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } }),
+                prisma.sleepLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } }),
+                prisma.hydrationLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } }),
+                prisma.activityLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } }),
+                prisma.habitLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } })
+            ]);
+
+            if (nutrition && sleep && water && activity && habits) countDiaries++;
+
+            // 2. Water 2L
+            const hydrationLogs = await prisma.hydrationLog.findMany({
+                where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } }
+            });
+            const totalWater = hydrationLogs.reduce((s, l) => s + l.volume_ml, 0);
+            if (totalWater >= 2000) countWater2L++;
+
+            // 3. Sleep 7-8h
+            const sleepLogs = await prisma.sleepLog.findMany({
+                where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } }
+            });
+            // Берем либо среднее, либо максимальное. Пользователь обычно присылает один лог утром за прошлую ночь.
+            const totalSleep = sleepLogs.reduce((s, l) => s + (l.duration_hrs || 0), 0);
+            if (totalSleep >= 7 && totalSleep <= 8) countSleep7_8++;
+
+            // 4. Steps 10k + Active 30m
+            const activityLogs = await prisma.activityLog.findMany({
+                where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } }
+            });
+            const totalSteps = activityLogs.reduce((s, l) => s + (l.steps || 0), 0);
+            const totalActive = activityLogs.reduce((s, l) => s + (l.active_minutes || 0), 0);
+            if (totalSteps >= 10000 && totalActive >= 30) countSteps10kActive30++;
+
+            // 5. Nutrients (for deficiencies calculation)
+            const nutritionLogs = await prisma.nutritionLog.findMany({
+                where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } }
+            });
+            const nutSum: any = {};
+            for (const key of Object.keys(NUTRITION_NORMS)) {
+                nutSum[key] = nutritionLogs.reduce((s, log: any) => s + Number(log[key] || 0), 0);
+            }
+            return nutSum;
+        }));
+
+        // Nutrient deficiency calculation (existing logic)
+        const avgScores: { key: string, name: string, pct: number }[] = [];
+        for (const [key, config] of Object.entries(NUTRITION_NORMS) as any) {
+            const totalSum = participantSummaries.reduce((s, pSum) => s + (pSum[key] || 0), 0);
+            const avgVal = totalSum / participants.length;
+            const pct = (avgVal / config.norm) * 100;
+            avgScores.push({
+                key,
+                name: (ruMessages as any).Bot?.NUTRIENT_NAMES?.[key] || (NUTRIENT_NAMES as any)[key] || key,
+                pct: Math.min(pct, 200)
+            });
+        }
+        avgScores.sort((a, b) => a.pct - b.pct);
+        const top5Deficiencies = avgScores.slice(0, 5);
+
+        const dateStr = yest.toLocaleDateString('ru-RU');
+        let report = t('ru', 'Marathon.reportHeader', { date: dateStr }) + "\n";
+        
+        // Add new metrics
+        report += t('ru', 'Marathon.metricDiaries', { count: countDiaries }) + "\n";
+        report += t('ru', 'Marathon.metricActivity', { count: countSteps10kActive30 }) + "\n";
+        report += t('ru', 'Marathon.metricWater', { count: countWater2L }) + "\n";
+        report += t('ru', 'Marathon.metricSleep', { count: countSleep7_8 }) + "\n";
+
+        // Add deficiencies
+        report += t('ru', 'Marathon.topDeficiencies');
+        top5Deficiencies.forEach((item, index) => {
+            let emoji = '🔴';
+            if (item.pct >= 50) emoji = '🟡';
+            if (item.pct >= 80) emoji = '🟢';
+            report += `${index + 1}. ${emoji} **${item.name}**: ~${item.pct.toFixed(0)}% от нормы\n`;
+        });
+
+        report += t('ru', 'Marathon.reportFooter');
+
+        return report;
+    } catch (error) {
+        console.error("[MARATHON] Report generation error:", error);
+        return null;
+    }
 }
 
 bot.action('menu_nutrition', async (ctx: any) => {

@@ -9,7 +9,7 @@ import { getSidebarProfile } from "@/actions/profile";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
-
+import BottomNav from "./BottomNav";
 
 export default function Sidebar({ role, profileName }: { role: "client" | "specialist", profileName?: string }) {
     const pathname = usePathname();
@@ -220,6 +220,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
 
                 </div>
             </aside>
+            {role === "client" && <BottomNav />}
         </>
     );
 }
