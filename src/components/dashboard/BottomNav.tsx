@@ -13,7 +13,7 @@ export default function BottomNav() {
     const links = [
         { name: "Дневник", href: "/cabinet/lifestyle", icon: <Heart size={20} /> },
         { name: "Кошелек", href: "/cabinet/wallet", icon: <Wallet size={20} /> },
-        { name: "Squad", href: "/cabinet/squads", icon: <Users size={20} /> },
+        { name: "Марафоны", href: "/cabinet/squads", icon: <Users size={20} /> },
     ];
 
     return (
