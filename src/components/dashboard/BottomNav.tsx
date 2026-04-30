@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from "react";
 import { Link as IntlLink, usePathname } from "@/i18n/routing";
 import { Heart, Wallet, Users } from "lucide-react";
 import { useDashboardTheme } from "./ThemeContext";
@@ -7,8 +8,13 @@ import { useTranslations } from "next-intl";
 export default function BottomNav() {
     const pathname = usePathname();
     const { theme } = useDashboardTheme();
-    // In a real app we might want to localize these strings
+    const [pendingHref, setPendingHref] = useState<string | null>(null);
     const t = useTranslations('Dashboard.Sidebar');
+
+    // Reset pendingHref when pathname changes
+    useEffect(() => {
+        setPendingHref(null);
+    }, [pathname]);
 
     const links = [
         { name: "Дневник", href: "/cabinet/lifestyle", icon: <Heart size={20} /> },
@@ -23,21 +29,22 @@ export default function BottomNav() {
             : 'bg-white/90 border-slate-200 text-slate-500'
         }`}>
             {links.map((link) => {
-                const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+                const isActive = (pendingHref ? pendingHref === link.href : (pathname === link.href || pathname.startsWith(link.href + '/')));
                 return (
                     <IntlLink
                         key={link.name}
                         href={link.href as any}
-                        className={`flex flex-col items-center gap-1 min-w-[64px] transition-colors ${
+                        onClick={() => setPendingHref(link.href)}
+                        className={`flex flex-col items-center gap-1 min-w-[64px] transition-all active:scale-90 ${
                             isActive 
                             ? (theme === 'dark' ? 'text-teal-400' : 'text-[#60B76F]') 
                             : 'hover:opacity-70'
                         }`}
                     >
-                        <div className={`p-1.5 rounded-full ${isActive ? (theme === 'dark' ? 'bg-teal-400/10' : 'bg-[#60B76F]/10') : ''}`}>
+                        <div className={`p-1.5 rounded-full transition-all duration-300 ${isActive ? (theme === 'dark' ? 'bg-teal-400/10 scale-110' : 'bg-[#60B76F]/10 scale-110') : ''}`}>
                             {link.icon}
                         </div>
-                        <span className="text-[10px] font-medium tracking-tight">
+                        <span className={`text-[10px] font-medium tracking-tight transition-all ${isActive ? 'opacity-100 font-bold' : 'opacity-70'}`}>
                             {link.name}
                         </span>
                     </IntlLink>
