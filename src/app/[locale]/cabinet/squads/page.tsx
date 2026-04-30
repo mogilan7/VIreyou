@@ -2,6 +2,7 @@ import React from 'react';
 import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
 import Sidebar from '@/components/dashboard/Sidebar';
+import { Users, Trophy, Flame, Share2, Plus } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import SquadInviteButton from '@/components/dashboard/SquadInviteButton';
 
