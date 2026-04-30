@@ -70,10 +70,10 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                         <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm flex flex-col justify-between">
                             <div>
                                 <h4 className="font-bold text-lg text-slate-700 dark:text-slate-300">VIReyou Standard</h4>
-                                <p className="text-2xl font-bold my-2">0 ₽ <span className="text-sm font-normal text-slate-400">/ навсегда</span></p>
+                                <p className="text-2xl font-bold my-2">990 ₽ <span className="text-sm font-normal text-slate-400">/ месяц</span></p>
                                 <ul className="text-sm space-y-2 mt-4 text-slate-600 dark:text-slate-400">
                                     <li className="flex items-center gap-2">✔️ Логгирование по фото и голосу</li>
-                                    <li className="flex items-center gap-2">✔️ Личный кабинет с графиками</li>
+                                    <li className="flex items-center gap-2">✔️ Личный кабинет (Дашборд долголетия)</li>
                                     <li className="flex items-center gap-2">✔️ Участие в марафонах и рейтингах</li>
                                     <li className="flex items-center gap-2">✔️ Контроль 26+ витаминов и минералов</li>
                                     <li className="flex items-center gap-2 opacity-50">❌ Организация марафонов (+5% бонус)</li>
@@ -92,10 +92,10 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                             <div className="absolute top-0 right-0 bg-[#60B76F] text-white text-[10px] font-bold uppercase py-1 px-3 rounded-bl-xl">Хит</div>
                             <div>
                                 <h4 className="font-bold text-lg text-[#60B76F]">VIReyou PRO</h4>
-                                <p className="text-2xl font-bold my-2">990 ₽ <span className="text-sm font-normal text-slate-400">/ месяц</span></p>
+                                <p className="text-2xl font-bold my-2">1490 ₽ <span className="text-sm font-normal text-slate-400">/ месяц</span></p>
                                 <ul className="text-sm space-y-2 mt-4 text-slate-700 dark:text-slate-300">
                                     <li className="flex items-center gap-2">✔️ Логгирование по фото и голосу</li>
-                                    <li className="flex items-center gap-2">✔️ Личный кабинет с графиками</li>
+                                    <li className="flex items-center gap-2">✔️ Личный кабинет (Дашборд долголетия)</li>
                                     <li className="flex items-center gap-2">✔️ Участие в марафонах и рейтингах</li>
                                     <li className="flex items-center gap-2">✔️ Контроль 26+ витаминов и минералов</li>
                                     <li className="flex items-center gap-2">✔️ <span className="font-bold">Организация марафонов (+5% бонус)</span> <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded">NEW</span></li>
@@ -117,11 +117,21 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                         <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-2xl text-blue-500">
                             <Users size={24} />
                         </div>
-                        <div>
+                        <div className="flex-1">
                             <h3 className="font-bold text-lg">Реферальная система</h3>
-                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 mb-4">
                                 Приглашайте друзей через марафоны и получайте 10% от их оплат на свой баланс навсегда! Пользователи с подпиской PRO получают еще 5% с друзей их друзей.
                             </p>
+                            <button 
+                                onClick={() => {
+                                    navigator.clipboard.writeText(`https://t.me/vireyou_bot?start=ref_${user.id}`);
+                                    alert('Ссылка скопирована!');
+                                }}
+                                className="w-full sm:w-auto bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 transition-colors py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-bold shadow-sm"
+                            >
+                                <Copy size={18} />
+                                <span>Пригласить друга (Скопировать скидку)</span>
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -164,4 +174,4 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
     );
 }
 
-import { ArrowDownLeft, ArrowUpRight, Users } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Users, Copy } from 'lucide-react';

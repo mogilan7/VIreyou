@@ -100,10 +100,10 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
 
     return (
         <>
-            {/* Mobile Header Menu Button - Floating */}
+            {/* Mobile Header Menu Button - Floating (HIDDEN FOR NOW) */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`lg:hidden fixed top-6 right-6 z-50 p-3 rounded-full shadow-lg border transition-all active:scale-95 ${theme === 'dark' ? 'bg-slate-800 border-white/5 text-teal-400' : 'bg-white border-brand-sage/30 text-brand-leaf'}`}
+                className={`hidden fixed top-6 right-6 z-50 p-3 rounded-full shadow-lg border transition-all active:scale-95 ${theme === 'dark' ? 'bg-slate-800 border-white/5 text-teal-400' : 'bg-white border-brand-sage/30 text-brand-leaf'}`}
             >
                 {isOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
