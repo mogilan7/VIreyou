@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import Sidebar from '@/components/dashboard/Sidebar';
 import { Wallet, Gift, ArrowRightLeft, Clock, Info } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
+import ReferralButton from '@/components/dashboard/ReferralButton';
 
 export default async function WalletPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
@@ -122,16 +123,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                             <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 mb-4">
                                 Приглашайте друзей через марафоны и получайте 10% от их оплат на свой баланс навсегда! Пользователи с подпиской PRO получают еще 5% с друзей их друзей.
                             </p>
-                            <button 
-                                onClick={() => {
-                                    navigator.clipboard.writeText(`https://t.me/vireyou_bot?start=ref_${user.id}`);
-                                    alert('Ссылка скопирована!');
-                                }}
-                                className="w-full sm:w-auto bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 transition-colors py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-bold shadow-sm"
-                            >
-                                <Copy size={18} />
-                                <span>Пригласить друга (Скопировать скидку)</span>
-                            </button>
+                            <ReferralButton userId={user.id} />
                         </div>
                     </div>
                 </section>
