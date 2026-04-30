@@ -1157,7 +1157,7 @@ bot.action('menu_my_squad', async (ctx: any) => {
         
         if (participant && participant.squad.is_active) {
             const leaderboard = await getSquadLeaderboard(participant.squad_id);
-            const inviteLink = `https://t.me/reyou_bot?start=sq_${participant.squad_id}`;
+            const inviteLink = `https://t.me/vireyou_bot?start=sq_${participant.squad_id}`;
             await ctx.reply(`${leaderboard}\n\n🔗 Пригласить друзей: \`${inviteLink}\``, { parse_mode: 'Markdown' });
         } else {
             await ctx.reply(lang === 'en' 
@@ -1185,7 +1185,7 @@ bot.action('create_squad', async (ctx: any) => {
         const squadName = `Squad of ${user.full_name || 'User'}`;
         const newSquad = await createSquad(user.id, squadName);
         
-        const inviteLink = `https://t.me/reyou_bot?start=sq_${newSquad.id}`;
+        const inviteLink = `https://t.me/vireyou_bot?start=sq_${newSquad.id}`;
         
         await ctx.reply(lang === 'en' 
             ? `✅ Squad created!\n\nInvite link:\n\`${inviteLink}\`` 
