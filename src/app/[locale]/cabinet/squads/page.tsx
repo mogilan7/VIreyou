@@ -2,8 +2,8 @@ import React from 'react';
 import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
 import Sidebar from '@/components/dashboard/Sidebar';
-import { Users, Trophy, Flame, Share2, Plus } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
+import SquadInviteButton from '@/components/dashboard/SquadInviteButton';
 
 export default async function SquadsPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
@@ -79,10 +79,10 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
                                     До конца: {Math.max(0, Math.ceil((new Date(activeSquad.end_date).getTime() - new Date().getTime()) / (1000 * 3600 * 24)))} дней
                                 </p>
                                 
-                                <button className="mt-6 bg-white text-indigo-600 hover:bg-indigo-50 transition-colors py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-sm w-full sm:w-auto">
-                                    <Share2 size={16} />
-                                    Пригласить друга
-                                </button>
+                                <SquadInviteButton 
+                                    squadId={activeSquad.id} 
+                                    className="mt-6 bg-white text-indigo-600 hover:bg-indigo-50 transition-colors py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-sm w-full sm:w-auto"
+                                />
                             </div>
                         </section>
 
