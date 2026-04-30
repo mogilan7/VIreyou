@@ -5,6 +5,7 @@ import Sidebar from '@/components/dashboard/Sidebar';
 import { Wallet, Gift, ArrowRightLeft, Clock, Info } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import ReferralButton from '@/components/dashboard/ReferralButton';
+import CheckoutButton from '@/components/dashboard/CheckoutButton';
 
 export default async function WalletPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
@@ -83,9 +84,13 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                                     <li className="flex items-center gap-2 opacity-50">❌ Приоритетный доступ к мощным ИИ</li>
                                 </ul>
                             </div>
-                            <button className="mt-6 w-full py-2.5 rounded-xl font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 cursor-default">
-                                Текущий план
-                            </button>
+                            <CheckoutButton 
+                                plan="Standard" 
+                                amount={990}
+                                className="mt-6 w-full py-2.5 rounded-xl font-bold text-white bg-slate-600 hover:bg-slate-700 transition-colors shadow-lg"
+                            >
+                                Оформить Standard
+                            </CheckoutButton>
                         </div>
 
                         {/* PRO Tier */}
@@ -105,9 +110,13 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                                     <li className="flex items-center gap-2">✔️ <span className="text-[#60B76F] font-bold">Приоритетный доступ к мощным ИИ</span></li>
                                 </ul>
                             </div>
-                            <button className="mt-6 w-full py-2.5 rounded-xl font-bold text-white bg-[#60B76F] hover:bg-emerald-600 transition-colors shadow-lg shadow-[#60B76F]/30">
+                            <CheckoutButton 
+                                plan="PRO" 
+                                amount={1490}
+                                className="mt-6 w-full py-2.5 rounded-xl font-bold text-white bg-[#60B76F] hover:bg-emerald-600 transition-colors shadow-lg shadow-[#60B76F]/30"
+                            >
                                 Оформить PRO
-                            </button>
+                            </CheckoutButton>
                         </div>
                     </div>
                 </section>

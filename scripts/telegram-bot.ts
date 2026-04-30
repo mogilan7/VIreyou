@@ -203,7 +203,8 @@ bot.command('start', async (ctx: any) => {
                   full_name: ctx.from.first_name || 'Спортсмен',
                   language: detectTimezoneFromLang(ctx.from.language_code) === 'Europe/Moscow' ? 'ru' : 'en',
                   timezone: detectTimezoneFromLang(ctx.from.language_code),
-                  referrer_id: refId || null
+                  referrer_id: refId || null,
+                  subscription_expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // 3 days free trial
               }
           });
       }
