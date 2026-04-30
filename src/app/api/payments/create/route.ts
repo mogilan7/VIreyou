@@ -35,7 +35,14 @@ export async function POST(req: NextRequest) {
         }
 
         const idempotenceKey = uuidv4();
-        const auth = Buffer.from(`${shopId}:${secretKey}`).toString('base64');
+        const auth = Buffer.from(`${shopId.trim()}:${secretKey.trim()}`).toString('base64');
+
+        // Fix return_url: remove potential double slashes and handle missing locale
+        const locale = req.nextUrl.pathname.split('/')[1] || 'ru';
+        const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://vireyou.com').replace(/\/$/, '');
+        const returnUrl = `${baseUrl}/${locale}/cabinet/wallet`;
+
+        console.log('Creating YooKassa payment for user:', user.email, 'Amount:', amount);
 
         const response = await fetch('https://api.yookassa.ru/v3/payments', {
             method: 'POST',
@@ -46,12 +53,12 @@ export async function POST(req: NextRequest) {
             },
             body: JSON.stringify({
                 amount: {
-                    value: amount.toString(),
+                    value: Number(amount).toFixed(2),
                     currency: 'RUB'
                 },
                 confirmation: {
                     type: 'redirect',
-                    return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://vireyou.com'}/${req.nextUrl.locale}/cabinet/wallet`
+                    return_url: returnUrl
                 },
                 capture: true,
                 description: `Подписка VIReyou ${plan} для ${user.email}`,
@@ -65,8 +72,11 @@ export async function POST(req: NextRequest) {
         const data = await response.json();
 
         if (!response.ok) {
-            console.error('YooKassa Error:', data);
-            return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 });
+            console.error('YooKassa API Error:', JSON.stringify(data));
+            return NextResponse.json({ 
+                error: 'YooKassa API Error', 
+                details: data.description || data.code || 'Unknown error' 
+            }, { status: response.status });
         }
 
         return NextResponse.json({ confirmation_url: data.confirmation.confirmation_url });

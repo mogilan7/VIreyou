@@ -26,7 +26,7 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
             if (data.confirmation_url) {
                 window.location.href = data.confirmation_url;
             } else {
-                alert('Ошибка при создании платежа. Пожалуйста, попробуйте позже.');
+                alert(`Ошибка при создании платежа: ${data.details || 'неизвестная ошибка'}`);
             }
         } catch (error) {
             console.error('Checkout error:', error);
