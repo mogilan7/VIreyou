@@ -271,7 +271,7 @@ ${JSON.stringify(nutrients, null, 2)}`;
 export async function analyzeProductLabelWithAI(imageBase64: string, currentNutrients: any, lang: string = 'ru') {
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
 
-  const prompt = \`Ты — строгий ИИ-нутрициолог. Пользователь прислал фото продукта из магазина (этикетка состава или БЖУ).
+  const prompt = `Ты — строгий ИИ-нутрициолог. Пользователь прислал фото продукта из магазина (этикетка состава или БЖУ).
 Тебе также передан JSON с тем, что пользователь УЖЕ съел за сегодня.
 
 Твоя задача:
@@ -285,20 +285,20 @@ export async function analyzeProductLabelWithAI(imageBase64: string, currentNutr
   "status": "SUCCESS" | "UNKNOWN",
   "verdict": "BUY" | "LIMIT" | "AVOID",
   "title": "Краткое название продукта",
-  "reason": "Объяснение на \${lang === 'en' ? 'английском' : 'русском'} языке, почему стоит или не стоит брать продукт (максимум 3-4 предложения). Упомяни контекст текущего дня (например, 'у вас уже перебор по жирам').",
+  "reason": "Объяснение на ${lang === 'en' ? 'английском' : 'русском'} языке, почему стоит или не стоит брать продукт (максимум 3-4 предложения). Упомяни контекст текущего дня (например, 'у вас уже перебор по жирам').",
   "hidden_nasties": ["список вредных добавок, если есть"]
 }
 Если на фото не еда или текст не читается, верни status "UNKNOWN".
 
 ТЕКУЩИЕ НУТРИЕНТЫ ЗА СЕГОДНЯ:
-\${JSON.stringify(currentNutrients, null, 2)}
-\`;
+${JSON.stringify(currentNutrients, null, 2)}
+`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
       { role: "system", content: prompt },
-      { role: "user", content: [{ type: "image_url", image_url: { url: \`data:image/jpeg;base64,\${imageBase64}\` } }] }
+      { role: "user", content: [{ type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }] }
     ],
     response_format: { type: "json_object" },
     temperature: 0.2,
@@ -313,22 +313,22 @@ export async function analyzeProductLabelWithAI(imageBase64: string, currentNutr
 export async function getProactiveNutritionAdvice(currentNutrients: any, userProfile: any, lang: string = 'ru') {
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
 
-  const prompt = \`Ты — проактивный ИИ-коуч по здоровью. Сейчас середина или конец дня.
+  const prompt = `Ты — проактивный ИИ-коуч по здоровью. Сейчас середина или конец дня.
 У тебя есть данные о том, что пользователь уже съел.
-Рассчитай дельту до физиологической нормы (учитывай пол: \${userProfile.gender}, возраст: \${userProfile.age}).
+Рассчитай дельту до физиологической нормы (учитывай пол: ${userProfile.gender}, возраст: ${userProfile.age}).
 
 Твоя задача — предложить 1-2 конкретных варианта приема пищи (обед или ужин), чтобы ИДЕАЛЬНО закрыть остаток нормы по КБЖУ и особенно по микронутриентам (витаминам/минералам), которых не хватает.
 
 Ответ должен быть в формате ободряющего сообщения для мессенджера (Telegram).
-Используй эмодзи. Отвечай на \${lang === 'en' ? 'английском' : 'русском'} языке.
+Используй эмодзи. Отвечай на ${lang === 'en' ? 'английском' : 'русском'} языке.
 Не делай текст слишком длинным. Сразу к делу: чего не хватает и что съесть.
-\`;
+`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
       { role: "system", content: prompt },
-      { role: "user", content: \`Мой рацион за сегодня:\n\${JSON.stringify(currentNutrients, null, 2)}\nЧто мне съесть дальше?\` }
+      { role: "user", content: `Мой рацион за сегодня:\n${JSON.stringify(currentNutrients, null, 2)}\nЧто мне съесть дальше?` }
     ],
     temperature: 0.7,
   });

@@ -12,8 +12,8 @@ if (process.env.DATABASE_URL) {
 }
 
 import prisma from "../src/lib/prisma";
-import { analyzeFoodWithAI, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI } from "../src/lib/telegram/ai-services";
-import { generatePeriodicReport, NUTRITION_NORMS, NUTRIENT_NAMES } from "../src/lib/reportGenerator";
+import { analyzeFoodWithAI, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI, analyzeProductLabelWithAI, getProactiveNutritionAdvice } from "../src/lib/telegram/ai-services";
+import { generatePeriodicReport } from "../src/lib/reportGenerator";
 
 const ruMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/ru.json'), 'utf8'));
 const enMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/en.json'), 'utf8'));
@@ -229,7 +229,7 @@ bot.command('start', async (ctx: any) => {
   const joinSquadIfNeeded = async (user: any) => {
       if (squadId) {
           try {
-              const { joinSquad } = await import('../lib/squads/squadService');
+              const { joinSquad } = await import('../src/lib/squads/squadService');
               const joined = await joinSquad(squadId, user.id);
               if (joined) {
                   await ctx.reply(ctx.state.lang === 'en' ? "✅ You successfully joined the Squad!" : "✅ Вы успешно присоединились к марафону (Скваду)!");
@@ -322,7 +322,7 @@ async function handleMarathonJoinLogic(ctx: any, user: any, lang: string) {
         ctx.reply(t(lang, 'Marathon.joinSuccess'));
 
         // If limit reached, update the channel post
-        if (result.newCount >= result.limit) {
+        if (result.newCount && result.limit && result.newCount >= result.limit) {
             const channelIdSetting = await prisma.systemSetting.findUnique({ where: { key: 'marathon_channel_id' } });
             const msgIdSetting = await prisma.systemSetting.findUnique({ where: { key: 'marathon_broadcast_msg_id' } });
             
@@ -1145,7 +1145,7 @@ bot.action('menu_my_squad', async (ctx: any) => {
     const lang = ctx.state.lang || 'ru';
     
     try {
-        const { getSquadLeaderboard } = await import('../lib/squads/squadService');
+        const { getSquadLeaderboard } = await import('../src/lib/squads/squadService');
         
         // Find if user is in an active squad
         const participant = await prisma.squadParticipant.findFirst({
@@ -1180,7 +1180,7 @@ bot.action('create_squad', async (ctx: any) => {
     const lang = ctx.state.lang || 'ru';
 
     try {
-        const { createSquad } = await import('../lib/squads/squadService');
+        const { createSquad } = await import('../src/lib/squads/squadService');
         const squadName = `Squad of ${user.full_name || 'User'}`;
         const newSquad = await createSquad(user.id, squadName);
         
