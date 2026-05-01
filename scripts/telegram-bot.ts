@@ -36,6 +36,21 @@ export function t(locale: string, pathStr: string, params: Record<string, any> =
   return finalStr;
 }
 
+/**
+ * Переводит технический ключ привычки для отображения пользователю.
+ */
+function formatHabitName(key: string, lang: string): string {
+    const mapping: Record<string, Record<string, string>> = {
+        'Alcohol': { ru: '🍷 Алкоголь', en: '🍷 Alcohol' },
+        'Smoking': { ru: '🚬 Курение', en: '🚬 Smoking' },
+        'Sugar': { ru: '🍰 Сахар/Сладости', en: '🍰 Sugar/Sweets' },
+        'Алкоголь': { ru: '🍷 Алкоголь', en: '🍷 Alcohol' },
+        'Курение': { ru: '🚬 Курение', en: '🚬 Smoking' },
+        'Сахар': { ru: '🍰 Сахар/Сладости', en: '🍰 Sugar/Sweets' }
+    };
+    return mapping[key]?.[lang] || key;
+}
+
 // Global Error Handlers for Stability
 process.on('unhandledRejection', (reason, promise) => {
   console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
@@ -955,7 +970,7 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
             grams: d.grams || '?', cal: d.calories || 0, prot: d.protein || 0, carbs: d.carbs || 0, fat: d.fat || 0, desc: parsedData.description 
         });
         if (parsedData.habit_key) {
-            text += t(lang, 'Nutrition.detectedHabit', { habit: parsedData.habit_key });
+            text += t(lang, 'Nutrition.detectedHabit', { habit: formatHabitName(parsedData.habit_key, lang) });
         }
     } else if (parsedData.type === "SLEEP") {
         const d = parsedData.data;
@@ -970,7 +985,7 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
         });
     } else if (parsedData.type === "HABIT") {
         const d = parsedData.data;
-        text = t(lang, 'Habits.saved', { habit: d.habit_key, desc: parsedData.description });
+        text = t(lang, 'Habits.saved', { habit: formatHabitName(d.habit_key || parsedData.habit_key, lang), desc: parsedData.description });
     }
 
     const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
@@ -1040,7 +1055,7 @@ bot.on('photo', async (ctx: any) => {
     }
 
     // Сначала пробуем распознать как скриншот
-    const screenshotData = await analyzeScreenshotWithAI(base64, getUserLocalDate(ctx.state.user?.timezone));
+    const screenshotData = await analyzeScreenshotWithAI(base64, getUserLocalDate(ctx.state.user?.timezone), lang);
 
     if (screenshotData.status === "SUCCESS" && screenshotData.type !== "UNKNOWN") {
         await sendConfirmationMessage(ctx, {
@@ -1050,7 +1065,7 @@ bot.on('photo', async (ctx: any) => {
         });
     } else {
         // Пробуем распознать как еду
-        const foodData = await analyzeFoodWithAI(base64, ctx.message.caption, getUserLocalDate(ctx.state.user?.timezone));
+        const foodData = await analyzeFoodWithAI(base64, ctx.message.caption, getUserLocalDate(ctx.state.user?.timezone), lang);
 
         if (foodData.status === "SUCCESS") {
             await sendConfirmationMessage(ctx, {
@@ -1090,7 +1105,7 @@ bot.on('voice', async (ctx: any) => {
     console.log(`[VOICE] Transcription text: ${text}`);
     await ctx.reply(t(lang, 'Processing.voiceTranscription', { text }));
 
-    const parsedData = await analyzeTextWithAI(text, getUserLocalDate(ctx.state.user?.timezone));
+    const parsedData = await analyzeTextWithAI(text, getUserLocalDate(ctx.state.user?.timezone), lang);
     console.log(`[VOICE] AI Analysis status: ${parsedData.status}`);
 
     if (parsedData.status === "SUCCESS") {
@@ -1156,7 +1171,7 @@ bot.on('text', async (ctx: any) => {
       await ctx.reply(t(lang, 'Processing.editWait'));
       try {
           const previousData = JSON.stringify(tempLog[user.id].data);
-          const parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON.`, getUserLocalDate(ctx.state.user?.timezone));
+          const parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON.`, getUserLocalDate(ctx.state.user?.timezone), lang);
 
           if (parsedData.status === "SUCCESS") {
               userStates[user.id] = ''; // Сброс статуса
@@ -1214,7 +1229,7 @@ bot.on('text', async (ctx: any) => {
   // Обычный анализ
   await ctx.reply(t(lang, 'Processing.textWait'));
   try {
-      const parsedData = await analyzeTextWithAI(text, getUserLocalDate(ctx.state.user?.timezone));
+      const parsedData = await analyzeTextWithAI(text, getUserLocalDate(ctx.state.user?.timezone), lang);
       if (parsedData.status === "SUCCESS") {
           await sendConfirmationMessage(ctx, parsedData);
       } else {

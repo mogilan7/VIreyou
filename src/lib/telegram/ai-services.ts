@@ -12,23 +12,23 @@ const openai = new OpenAI({ apiKey });
 /**
  * Распознает еду по фотографии или описанию.
  */
-export async function analyzeFoodWithAI(imageBase64?: string, description?: string, referenceDate?: string) {
+export async function analyzeFoodWithAI(imageBase64?: string, description?: string, referenceDate?: string, lang: string = 'ru') {
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
 
   const todayStr = referenceDate || new Date().toISOString().split('T')[0];
 
-  const prompt = `Ты — эксперт-нутрициолог и ИИ-аналитик питания.
-Проанализируй предоставленные данные (фото и/или текст) и верни подробный отчет о КБЖУ, клетчатке, витаминах и минералах.
+  const prompt = `You are a professional AI nutritionist and food analyst.
+Analyze the provided data (photo and/or text) and return a detailed nutritional report.
 
-**КОНТЕКСТ:**
-Сегодняшняя дата: ${todayStr}.
-Используй её как СТРОГУЮ точку отсчета для "сегодня", "вчера", "позавчера" и любых относительных дат.
+**CONTEXT:**
+Current date: ${todayStr}.
+Use it as a STRICT reference for "today", "yesterday", etc.
 
-Верни СТРОГО JSON-объект следующего формата:
+Respond STRICTLY in JSON format:
 {
   "status": "SUCCESS",
-  "description": "Краткое описание блюда, его состава и пользы.",
-  "dish": "Название блюда",
+  "description": "Short description of the dish and its benefits in ${lang === 'en' ? 'English' : 'Russian'}.",
+  "dish": "Name of the dish in ${lang === 'en' ? 'English' : 'Russian'}",
   "grams": 250,
   "calories": 350.0,
   "protein": 15.5,
@@ -46,9 +46,9 @@ export async function analyzeFoodWithAI(imageBase64?: string, description?: stri
   "vitamin_B1": 1.2, "vitamin_B2": 1.3, "vitamin_B3": 16, "vitamin_B5": 5, "vitamin_B6": 1.3, "vitamin_B7": 30, "vitamin_B9": 400, "vitamin_B12": 2.4, "vitamin_C": 90,
   "calcium": 1000, "iron": 12, "magnesium": 400, "phosphorus": 700, "potassium": 4700, "sodium": 1500, "zinc": 11, "copper": 0.9, "manganese": 2.3, "selenium": 55, "iodine": 150,
   "date_offset_days": 0,
-  "habit_key": "Алкоголь" | "Курение" | "Сахар" | null
+  "habit_key": "Alcohol" | "Smoking" | "Sugar" | null
 }
-Если указано фото — опирайся на него в приоритете.`;
+If a photo is provided, prioritize it over text description.`;
 
   const messages: any[] = [{ role: "system", content: prompt }];
   const userContent: any[] = [];
@@ -70,36 +70,36 @@ export async function analyzeFoodWithAI(imageBase64?: string, description?: stri
 /**
  * Читает скриншоты показателей здоровья.
  */
-export async function analyzeScreenshotWithAI(imageBase64: string, referenceDate?: string) {
+export async function analyzeScreenshotWithAI(imageBase64: string, referenceDate?: string, lang: string = 'ru') {
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
   const todayStr = referenceDate || new Date().toISOString().split('T')[0];
-  const prompt = `Ты — система распознавания медицинских и фитнес-скриншотов. Твоя задача — извлечь показатели здоровья и вернуть их в СТРОГО структурированном виде.
-
-Верни СТРОГО JSON:
+  const prompt = `You are a health and fitness screenshot recognition system. Your task is to extract health metrics and return them in a STRICT JSON format.
+  
+Respond STRICTLY in JSON:
 {
   "status": "SUCCESS",
   "type": "SLEEP" | "ACTIVITY" | "UNKNOWN",
-  "description": "Краткое описание на языке скриншота (например: 'Сон 7 часов 20 минут' или 'Активность за день: 5000 шагов').",
+  "description": "Short description in ${lang === 'en' ? 'English' : 'Russian'} (e.g., 'Sleep 7h 20m' or 'Activity: 5000 steps').",
   "metrics": {},
   "date_offset_days": 0
 }
 
-**ПРАВИЛА ДЛЯ METRICS (в зависимости от type):**
+**METRICS RULES (based on type):**
 
-1. Если type "SLEEP":
-   - "duration_hrs": число (часы),
-   - "deep_hrs": число (часы),
-   - "rem_hrs": число (часы),
-   - "light_hrs": число (часы),
-   - "hrv": число (мс),
-   - "resting_heart_rate": число (уд/мин).
+1. If type is "SLEEP":
+   - "duration_hrs": number (hours),
+   - "deep_hrs": number (hours),
+   - "rem_hrs": number (hours),
+   - "light_hrs": number (hours),
+   - "hrv": number (ms),
+   - "resting_heart_rate": number (bpm).
 
-2. Если type "ACTIVITY":
-   - "steps": целое число,
-   - "active_minutes": активные минуты / время тренировки (целое число),
-   - "calories_burned": сожженные калории (число).
+2. If type is "ACTIVITY":
+   - "steps": integer,
+   - "active_minutes": integer,
+   - "calories_burned": number.
 
-Если на скриншоте нет нужных данных, верни type "UNKNOWN".`;
+If no data found, return type "UNKNOWN".`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -134,32 +134,31 @@ export async function transcribeVoiceWithAI(file_path: string): Promise<string> 
 /**
  * Анализирует текст пользователя для определения категории здоровья.
  */
-export async function analyzeTextWithAI(text: string, referenceDate?: string) {
+export async function analyzeTextWithAI(text: string, referenceDate?: string, lang: string = 'ru') {
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
   const todayStr = referenceDate || new Date().toISOString().split('T')[0];
-  const prompt = `Ты — профессиональный ИИ-аналитик здоровья. Твоя задача — классифицировать сообщение и извлечь показатели в структурированный JSON.
-Сегодняшняя дата: ${todayStr}. Используй её как точку отсчета для "сегодня", "вчера" (date_offset_days: -1) и т.д.
+  const prompt = `You are a professional AI health analyst. Your task is to classify the message and extract metrics into a structured JSON.
+Current date: ${todayStr}. Use it as a reference for "today", "yesterday" (date_offset_days: -1), etc.
 
-Верни СТРОГО JSON:
+Return STRICT JSON:
 {
   "status": "SUCCESS" | "ERROR",
   "type": "NUTRITION" | "SLEEP" | "ACTIVITY" | "HABIT",
-  "description": "Краткое описание на языке пользователя.",
+  "description": "Short description in ${lang === 'en' ? 'English' : 'Russian'}.",
   "data": { ... },
   "date_offset_days": 0,
-  "habit_key": "Алкоголь" | "Курение" | null
+  "habit_key": "Alcohol" | "Smoking" | "Sugar" | null
 }
 
-**ПРАВИЛА ДЛЯ DATA (обязательно заполни все поля внутри JSON-объекта 'data'):**
-- NUTRITION: { "dish": "название", "calories": 350, "protein": 15, "carbs": 40, "fat": 12, "grams": 250, "fiber": 5 }
-  При типе NUTRITION Обязательно ОЦЕНИВАЙ КБЖУ (калории, белки, жиры, углеводы) на основе описания еды. 
-  Если в еде есть Алкоголь, укажи "habit_key": "Алкоголь" на верхнем уровне.
+**DATA RULES (fill all fields inside 'data' object):**
+- NUTRITION: { "dish": "name", "calories": 350, "protein": 15, "carbs": 40, "fat": 12, "grams": 250, "fiber": 5 }
+  Estimate nutritional values based on food description.
+  If Alcohol is mentioned, set "habit_key": "Alcohol".
 - SLEEP: { "duration_hrs": 8, "deep_hrs": 1.5, "rem_hrs": 2, "light_hrs": 4.5, "hrv": 60, "resting_heart_rate": 55 }
 - ACTIVITY: { "steps": 5000, "active_minutes": 30, "calories_burned": 250 }
-- HABIT: { "habit_key": "Алкоголь" | "Курение" | "Сахар" }
-  ВНИМАНИЕ: Если type: "HABIT", поле 'habit_key' должно быть ОБЯЗАТЕЛЬНО заполнено и в корневом объекте, и внутри объекта 'data'.
+- HABIT: { "habit_key": "Alcohol" | "Smoking" | "Sugar" }
 
-Если суть сообщения непонятна, верни status "ERROR".`;
+If message is unclear, return status "ERROR".`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
