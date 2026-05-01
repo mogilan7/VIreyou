@@ -147,8 +147,8 @@ export default async function LifestylePage({
             nutritionNorms: localizedNutritionNorms,
             nutrientNames: localizedNutrientNames,
             targetCalories: publicUser?.target_calories || 2200,
-            targetSteps: publicUser?.target_steps || 10000,
-            targetWater: publicUser?.target_water || 2000
+            targetSteps: 10000,
+            targetWater: 2000
         }
 
         return (
