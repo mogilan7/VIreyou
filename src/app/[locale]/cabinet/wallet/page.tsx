@@ -63,6 +63,27 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                     </div>
                 </section>
 
+                {/* Active Subscription Status */}
+                {user.subscription_expires_at && user.subscription_expires_at > new Date() && (
+                    <section className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm flex items-center justify-between">
+                        <div>
+                            <h3 className="font-bold text-lg flex items-center gap-2">
+                                <span className={user.role === 'PRO' ? "text-[#60B76F]" : "text-slate-700 dark:text-slate-300"}>
+                                    Активная подписка: {user.role === 'PRO' ? 'VIReyou PRO' : (user.role === 'employee' ? 'VIReyou PRO (Сотрудник)' : 'VIReyou Standard')}
+                                </span>
+                            </h3>
+                            <p className="text-slate-500 text-sm mt-1">
+                                Действует до: {new Date(user.subscription_expires_at).toLocaleDateString()}
+                            </p>
+                        </div>
+                        {user.role !== 'PRO' && user.role !== 'employee' && user.role !== 'admin' && (
+                            <div className="text-sm font-medium text-[#60B76F] bg-[#60B76F]/10 px-3 py-1 rounded-full">
+                                Доступен апгрейд
+                            </div>
+                        )}
+                    </section>
+                )}
+
                 {/* Subscriptions */}
                 <section className="space-y-4 pt-2">
                     <h3 className="font-bold text-xl flex items-center gap-2">

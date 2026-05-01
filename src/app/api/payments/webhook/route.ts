@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
                 where: { id: user.id },
                 data: { 
                     subscription_expires_at: newExpiry,
-                    role: 'client' // Ensure role is client
+                    role: (user.role === 'employee' || user.role === 'admin') ? user.role : (plan === 'PRO' ? 'PRO' : 'client')
                 }
             });
 
