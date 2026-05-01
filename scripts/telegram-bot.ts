@@ -832,7 +832,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
 
   const dashboardUrl = lang === 'en' ? 'https://vireyou.com/en/cabinet/lifestyle' : 'https://vireyou.com/ru/cabinet/lifestyle';
   
-  const menuButtons = [
+  const menuButtons: any[][] = [
       [Markup.button.callback(t(lang, 'Menu.nutrition'), 'menu_nutrition')],
       [Markup.button.callback(t(lang, 'Menu.activity'), 'menu_activity')],
       [Markup.button.callback(t(lang, 'Menu.sleep'), 'menu_sleep')],
@@ -1775,7 +1775,7 @@ cron.schedule('* * * * *', async () => {
                 for (const p of participants) {
                     if (p.user.telegram_id) {
                         try {
-                            const { markdown } = await generatePeriodicReport(p.user_id, 7, p.user.full_name);
+                            const { markdown } = await generatePeriodicReport(p.user_id, 7, p.user.full_name || undefined);
                             await bot.telegram.sendMessage(p.user.telegram_id, markdown, { parse_mode: 'Markdown' });
                         } catch (e) {
                             console.error(`[CRON] Failed to send final report to ${p.user.id}:`, e);
@@ -2125,7 +2125,7 @@ export async function generateMarathonDailyReport(name?: string) {
         avgScores.sort((a, b) => a.pct - b.pct);
         const top5Deficiencies = avgScores.slice(0, 5);
 
-        const lang = 'ru'; // Default to ru for group summary
+        const lang: string = 'ru'; // Default to ru for group summary
         const dateStr = yest.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU');
         let report = name 
             ? (lang === 'en' ? `📊 **Marathon results for ${dateStr} for ${name}** 🚀\n\n` : `📊 **${name}, вот итоги марафона за ${dateStr}** 🚀\n\nВчера наши участники показали отличные результаты! Вот статистика по группе:`)
