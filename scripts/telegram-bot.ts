@@ -848,10 +848,11 @@ bot.on('photo', async (ctx: any) => {
                 replyText += `\n\n🚨 Скрытые угрозы: ${result.hidden_nasties.join(', ')}`;
             }
             await ctx.reply(replyText, { parse_mode: 'Markdown' });
-        } else {
-            await ctx.reply(lang === 'en' ? "Couldn't read the label clearly." : "Не удалось распознать этикетку.");
+            return; // Успешно обработали как товар
         }
-        return;
+        
+        // Если как товар не распознано, пробуем общую логику (скриншот/еда) ниже
+        console.log(`[PhotoDispatch] Label analysis failed for user ${user.id}, falling back to general analysis.`);
     }
 
     // Сначала пробуем распознать как скриншот
