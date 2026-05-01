@@ -53,10 +53,11 @@ async function getAggregatedAnalysisData(userId: string) {
     where: { user_id: userId, date: { gte: sevenDaysAgo, lte: yesterday } },
   };
 
-  const [nutritionLogs, activityLogs, sleepLogs, hydrationLogs, habitLogs] = await Promise.all([
+  const [userRecord, nutritionLogs, sleepLogs, activityLogs, hydrationLogs, habitLogs] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId } }),
     prisma.nutritionLog.findMany(lifestyleQuery),
-    prisma.activityLog.findMany(lifestyleQuery),
     prisma.sleepLog.findMany(lifestyleQuery),
+    prisma.activityLog.findMany(lifestyleQuery),
     prisma.hydrationLog.findMany(lifestyleQuery),
     prisma.habitLog.findMany(lifestyleQuery),
   ]);
@@ -201,8 +202,11 @@ async function getAggregatedAnalysisData(userId: string) {
     },
     anthropometry: {
       waist: (latestResultsMap["bio-age"]?.raw_data || latestResultsMap["systemic-bio-age"]?.raw_data || profile?.welcome_data || {}).waist || "н/д",
-      weight: (latestResultsMap["bio-age"]?.raw_data || latestResultsMap["systemic-bio-age"]?.raw_data || profile?.welcome_data || {}).weight || "н/д",
-      height: profile?.height || "н/д",
+      weight: userRecord?.weight || (latestResultsMap["bio-age"]?.raw_data || latestResultsMap["systemic-bio-age"]?.raw_data || profile?.welcome_data || {}).weight || "н/д",
+      height: userRecord?.height || profile?.height || "н/д",
+      gender: userRecord?.gender || profile?.gender || "н/д",
+      activity: userRecord?.activity_level || "н/д",
+      goal: userRecord?.goal || "н/д"
     }
   };
 
@@ -218,6 +222,8 @@ async function getAggregatedAnalysisData(userId: string) {
       const m = today.getMonth() - birthDate.getMonth();
       if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
       ageValue = String(age);
+    } else if (userRecord?.age) {
+      ageValue = String(userRecord.age);
     } else if (profile?.welcome_data && (profile.welcome_data as any).age) {
       ageValue = String((profile.welcome_data as any).age);
     } else if (healthData?.biological_age_actual) {
@@ -239,10 +245,13 @@ async function getAggregatedAnalysisData(userId: string) {
 
   // Formatted dataContext
   const dataContext = `
-ДАННЫЕ ПРОФИЛЯ:
-- Возраст: ${ageValue}, Пол: ${profile?.gender === "female" ? "Женский" : "Мужской"}
+ ДАННЫЕ ПРОФИЛЯ:
+- Возраст: ${ageValue}, Пол: ${metrics.anthropometry.gender === "female" ? "Женский" : "Мужской"}
 - Рост: ${metrics.anthropometry.height} см, Вес: ${metrics.anthropometry.weight} кг
 - Объем талии: ${metrics.anthropometry.waist} см
+- Уровень активности: ${metrics.anthropometry.activity}
+- Основная цель: ${metrics.anthropometry.goal}
+- Целевые показатели КБЖУ: ${userRecord?.target_calories ? `${userRecord.target_calories} ккал (Б:${userRecord.target_protein}г, Ж:${userRecord.target_fat}г, У:${userRecord.target_carbs}г)` : "не заданы"}
 
 РЕЗУЛЬТАТЫ ОПРОСНИКОВ (с клинической интерпретацией):
 ${questionnaires.map(q => `- ${q.name}: ${q.score || "н/д"} баллов. Интерпретация: ${q.interpretation || "н/д"}`).join("\n")}

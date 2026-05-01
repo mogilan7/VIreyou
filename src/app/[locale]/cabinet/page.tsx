@@ -163,6 +163,7 @@ export default async function ClientDashboardPage() {
                         activityLogs={(dbUser as any)?.activityLogs || []}
                         habitLogs={(dbUser as any)?.habitLogs || []}
                         hydrationLogs={(dbUser as any)?.hydrationLogs || []}
+                        user={dbUser}
                     />
                 </main>
             </div>

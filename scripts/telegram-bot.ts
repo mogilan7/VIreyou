@@ -104,6 +104,16 @@ async function fileToBase64(filePath: string): Promise<string> {
 const tempLog: Record<string, any> = {};
 const userStates: Record<string, string> = {};
 
+const ONBOARDING_STATES = {
+    NAME: 'ONBOARDING_NAME',
+    GENDER: 'ONBOARDING_GENDER',
+    AGE: 'ONBOARDING_AGE',
+    WEIGHT: 'ONBOARDING_WEIGHT',
+    HEIGHT: 'ONBOARDING_HEIGHT',
+    ACTIVITY: 'ONBOARDING_ACTIVITY',
+    GOAL: 'ONBOARDING_GOAL'
+};
+
 // ----------------------------------------------------
 // Middleware: Проверка авторизации
 // ----------------------------------------------------
@@ -251,6 +261,12 @@ bot.command('start', async (ctx: any) => {
          if (!user.language) {
              return sendLanguagePrompt(ctx);
          }
+         
+         // Trigger onboarding for new users or if physical params are missing
+         if (!user.weight || !user.height) {
+             return startOnboarding(ctx);
+         }
+
          return sendWelcomeMenu(ctx, user);
     }
     return ctx.reply(t(ctx.state.lang, 'Auth.welcomeUnlinked'));
@@ -289,6 +305,15 @@ bot.command('start', async (ctx: any) => {
     console.error("Start command error:", error);
     ctx.reply(t(ctx.state.lang, 'Auth.linkError'));
   }
+});
+
+bot.command('profile', async (ctx: any) => {
+    if (ctx.state.user) {
+        await startOnboarding(ctx);
+    } else {
+        const lang = ctx.state.lang || 'ru';
+        await ctx.reply(t(lang, 'Auth.notLinked'));
+    }
 });
 
 // --- Marathon Commands ---
@@ -632,6 +657,138 @@ async function saveLanguageAndMenu(ctx: any, lang: string) {
     
     await ctx.reply(t(lang, 'Settings.langSaved'));
     await sendWelcomeMenu(ctx, updatedUser);
+}
+
+// ----------------------------------------------------
+// ONBOARDING FUNCTIONS
+// ----------------------------------------------------
+
+async function startOnboarding(ctx: any) {
+    const lang = ctx.state.lang || 'ru';
+    const user = ctx.state.user;
+    await ctx.reply(t(lang, 'Onboarding.welcome'));
+    userStates[user.id] = ONBOARDING_STATES.NAME;
+    await ctx.reply(t(lang, 'Onboarding.askName'));
+}
+
+bot.action(/^onboarding_gender:(.+)$/, async (ctx: any) => {
+    const gender = ctx.match[1];
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (!user) return;
+    
+    tempLog[user.id] = { ...tempLog[user.id], gender };
+    userStates[user.id] = ONBOARDING_STATES.AGE;
+    await ctx.editMessageText(`${t(lang, 'Onboarding.askGender')} ${gender === 'male' ? '👨' : '👩'}`);
+    await ctx.reply(t(lang, 'Onboarding.askAge'));
+    await ctx.answerCbQuery();
+});
+
+bot.action(/^onboarding_act:(.+)$/, async (ctx: any) => {
+    const activity = ctx.match[1];
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (!user) return;
+
+    tempLog[user.id] = { ...tempLog[user.id], activity };
+    userStates[user.id] = ONBOARDING_STATES.GOAL;
+    
+    await ctx.editMessageText(t(lang, 'Onboarding.askGoal'), Markup.inlineKeyboard([
+        [Markup.button.callback(t(lang, 'Onboarding.goalLose'), 'onboarding_goal:lose_weight')],
+        [Markup.button.callback(t(lang, 'Onboarding.goalMaintain'), 'onboarding_goal:maintain')],
+        [Markup.button.callback(t(lang, 'Onboarding.goalGain'), 'onboarding_goal:gain_muscle')]
+    ]));
+    await ctx.answerCbQuery();
+});
+
+bot.action(/^onboarding_goal:(.+)$/, async (ctx: any) => {
+    const goal = ctx.match[1];
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (!user) return;
+
+    tempLog[user.id] = { ...tempLog[user.id], goal };
+    userStates[user.id] = '';
+    
+    await ctx.reply(t(lang, 'Onboarding.calculating'));
+    
+    const data = tempLog[user.id];
+    const kbju = calculateKBJU(data);
+    
+    try {
+        const updatedUser = await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                full_name: data.name,
+                gender: data.gender,
+                age: data.age,
+                weight: data.weight,
+                height: data.height,
+                activity_level: data.activity,
+                goal: data.goal,
+                target_calories: kbju.calories,
+                target_protein: kbju.protein,
+                target_fat: kbju.fat,
+                target_carbs: kbju.carbs
+            }
+        });
+        
+        ctx.state.user = updatedUser;
+        
+        await ctx.reply(t(lang, 'Onboarding.results', {
+            calories: kbju.calories,
+            protein: kbju.protein,
+            fat: kbju.fat,
+            carbs: kbju.carbs
+        }), { parse_mode: 'Markdown' });
+        
+        await sendWelcomeMenu(ctx, updatedUser);
+    } catch (e) {
+        console.error("Onboarding save error:", e);
+        await ctx.reply(t(lang, 'Confirmation.error'));
+    }
+    
+    await ctx.answerCbQuery();
+});
+
+function calculateKBJU(params: any) {
+    let bmr = 0;
+    const { gender, age, weight, height, activity, goal } = params;
+    
+    if (gender === 'male') {
+        bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+    } else {
+        bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+    }
+
+    const activityMultipliers: Record<string, number> = {
+        'sedentary': 1.2,
+        'light': 1.375,
+        'moderate': 1.55,
+        'active': 1.725,
+        'very_active': 1.9
+    };
+
+    const tdee = bmr * (activityMultipliers[activity] || 1.2);
+    
+    const goalAdjustments: Record<string, number> = {
+        'lose_weight': -500,
+        'maintain': 0,
+        'gain_muscle': 500
+    };
+
+    const targetCalories = tdee + (goalAdjustments[goal] || 0);
+    
+    const targetProtein = weight * (goal === 'gain_muscle' ? 2.0 : 1.8);
+    const targetFat = weight * 0.9;
+    const targetCarbs = (targetCalories - (targetProtein * 4) - (targetFat * 9)) / 4;
+
+    return {
+        calories: Math.round(targetCalories),
+        protein: Math.round(targetProtein),
+        fat: Math.round(targetFat),
+        carbs: Math.round(targetCarbs)
+    };
 }
 
 // Вспомогательная функция для отображения меню
@@ -982,6 +1139,47 @@ bot.on('text', async (ctx: any) => {
           }
       } catch (err) {
           await ctx.reply(t(lang, 'Processing.editError'));
+      }
+      return;
+  }
+
+  // --- ONBOARDING HANDLERS ---
+  if (userStates[user.id]?.startsWith('ONBOARDING_')) {
+      const state = userStates[user.id];
+      if (state === ONBOARDING_STATES.NAME) {
+          if (text.length < 2) return ctx.reply(t(lang, 'Onboarding.invalidName'));
+          tempLog[user.id] = { ...tempLog[user.id], name: text };
+          userStates[user.id] = ONBOARDING_STATES.GENDER;
+          return ctx.reply(t(lang, 'Onboarding.askGender'), Markup.inlineKeyboard([
+              [Markup.button.callback(t(lang, 'Onboarding.genderMale'), 'onboarding_gender:male')],
+              [Markup.button.callback(t(lang, 'Onboarding.genderFemale'), 'onboarding_gender:female')]
+          ]));
+      }
+
+      const num = parseFloat(text.replace(',', '.'));
+      if (state === ONBOARDING_STATES.AGE) {
+          if (isNaN(num) || num < 1 || num > 120) return ctx.reply(t(lang, 'Onboarding.invalidNumber'));
+          tempLog[user.id].age = Math.round(num);
+          userStates[user.id] = ONBOARDING_STATES.WEIGHT;
+          return ctx.reply(t(lang, 'Onboarding.askWeight'));
+      }
+      if (state === ONBOARDING_STATES.WEIGHT) {
+          if (isNaN(num) || num < 20 || num > 300) return ctx.reply(t(lang, 'Onboarding.invalidNumber'));
+          tempLog[user.id].weight = num;
+          userStates[user.id] = ONBOARDING_STATES.HEIGHT;
+          return ctx.reply(t(lang, 'Onboarding.askHeight'));
+      }
+      if (state === ONBOARDING_STATES.HEIGHT) {
+          if (isNaN(num) || num < 50 || num > 250) return ctx.reply(t(lang, 'Onboarding.invalidNumber'));
+          tempLog[user.id].height = num;
+          userStates[user.id] = ONBOARDING_STATES.ACTIVITY;
+          return ctx.reply(t(lang, 'Onboarding.askActivity'), Markup.inlineKeyboard([
+              [Markup.button.callback(t(lang, 'Onboarding.actSedentary'), 'onboarding_act:sedentary')],
+              [Markup.button.callback(t(lang, 'Onboarding.actLight'), 'onboarding_act:light')],
+              [Markup.button.callback(t(lang, 'Onboarding.actModerate'), 'onboarding_act:moderate')],
+              [Markup.button.callback(t(lang, 'Onboarding.actActive'), 'onboarding_act:active')],
+              [Markup.button.callback(t(lang, 'Onboarding.actVeryActive'), 'onboarding_act:very_active')]
+          ]));
       }
       return;
   }
@@ -1875,8 +2073,14 @@ bot.action('menu_settings', async (ctx: any) => {
         [Markup.button.callback(t(lang, 'Settings.rem3'), 'set_count_3')],
         [Markup.button.callback(t(lang, 'Settings.rem0'), 'set_count_0')],
         [Markup.button.callback(`${t(lang, 'Settings.timezone')} (${tzPref})`, 'menu_timezone')],
-        [Markup.button.callback(t(lang, 'Settings.languageBtn'), 'settings_language')]
+        [Markup.button.callback(t(lang, 'Settings.languageBtn'), 'settings_language')],
+        [Markup.button.callback(t(lang, 'Settings.profileBtn'), 'menu_profile')]
     ]));
+});
+
+bot.action('menu_profile', async (ctx: any) => {
+    ctx.answerCbQuery();
+    await startOnboarding(ctx);
 });
 
 bot.action('menu_timezone', async (ctx: any) => {
