@@ -6,6 +6,7 @@ import { Wallet, Gift, ArrowRightLeft, Clock, Info } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import ReferralButton from '@/components/dashboard/ReferralButton';
 import CheckoutButton from '@/components/dashboard/CheckoutButton';
+import ReferralInfo from '@/components/dashboard/ReferralInfo';
 
 export default async function WalletPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
@@ -128,9 +129,12 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                             <Users size={24} />
                         </div>
                         <div className="flex-1">
-                            <h3 className="font-bold text-lg">Реферальная система</h3>
-                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 mb-4">
-                                Приглашайте друзей через марафоны и получайте 10% от их оплат на свой баланс навсегда! Пользователи с подпиской PRO получают еще 5% с друзей их друзей.
+                            <div className="flex items-center justify-between mb-1">
+                                <h3 className="font-bold text-lg">Здоровье заразно — в хорошем смысле 😊</h3>
+                                <ReferralInfo />
+                            </div>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mb-4 leading-relaxed">
+                                Поделись VIReyou с тем, кому это важно. Друг получит 3 дня PRO бесплатно, а ты — бонус на баланс каждый раз, когда он продлевает подписку. Чем шире твой круг заботы — тем больше возвращается к тебе.
                             </p>
                             <ReferralButton userId={user.id} />
                         </div>
