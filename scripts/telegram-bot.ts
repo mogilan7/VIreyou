@@ -228,13 +228,6 @@ bot.command('start', async (ctx: any) => {
       }
       ctx.state.user = newUser;
       ctx.state.lang = newUser.language || 'ru';
-  } else if (ctx.state.user && refId && !ctx.state.user.referrer_id && ctx.state.user.id !== refId) {
-      // If user exists but has no referrer, link them now
-      const updatedUser = await prisma.user.update({
-          where: { id: ctx.state.user.id },
-          data: { referrer_id: refId }
-      });
-      ctx.state.user = updatedUser;
   }
 
   // 2. Иначе интерпретируем payload как email (для связки аккаунтов)
