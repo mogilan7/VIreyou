@@ -597,6 +597,19 @@ model User {
   created_squads          Squad[]            @relation("SquadCreator")
   squad_participations    SquadParticipant[]
 
+  // Physical parameters & Goals
+  gender              String?
+  age                 Int?
+  weight              Float?
+  height              Float?
+  activity_level      String?  // sedentary, light, moderate, active, very_active
+  goal                String?  // lose_weight, maintain, gain_muscle
+  
+  target_calories     Float?
+  target_protein      Float?
+  target_fat          Float?
+  target_carbs        Float?
+
   @@schema("public")
 }
 
