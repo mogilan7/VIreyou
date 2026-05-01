@@ -5,95 +5,117 @@ import { createClient } from '@supabase/supabase-js';
 // Setup Supabase Admin client
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const token = searchParams.get('token');
     const locale = searchParams.get('locale') || 'ru';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vireyou.com';
+    const dashboardUrl = `${siteUrl}/${locale}/cabinet/lifestyle`;
 
     if (!token) {
         return NextResponse.redirect(new URL(`/${locale}/login`, req.url));
     }
 
     try {
-        // 1. Verify the JWT token
+        // 1. Verify the JWT token from the bot
         const secret = process.env.JWT_SECRET || process.env.YOOKASSA_SECRET_KEY || 'default_secret';
         const decoded = jwt.verify(token, secret) as { email: string };
 
-        if (!decoded || !decoded.email) {
+        if (!decoded?.email) {
             throw new Error('Invalid token payload');
         }
 
-        // 2. Generate Magic Link via Supabase Admin
-        let { data, error } = await supabaseAdmin.auth.admin.generateLink({
+        const email = decoded.email;
+
+        // 2. Find or create the user in Supabase Auth
+        const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+        if (listError) throw listError;
+
+        let authUser = users.find((u: any) => u.email === email);
+
+        if (!authUser) {
+            console.log(`[AUTH] Creating new Supabase Auth user for ${email}`);
+            const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+                email,
+                email_confirm: true,
+                user_metadata: { source: 'telegram_bot' }
+            });
+            if (createError) throw createError;
+            authUser = created.user;
+        }
+
+        // 3. Generate a magic link to get a hashed_token we can verify client-side
+        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
             type: 'magiclink',
-            email: decoded.email
+            email,
         });
-        
-        // If user doesn't exist in Supabase Auth, create them on the fly
-        if (error && (error.message.includes('User not found') || error.status === 422)) {
-            console.log(`[AUTH] User ${decoded.email} not found in Supabase Auth, creating now...`);
-            const { error: createError } = await supabaseAdmin.auth.admin.createUser({
-                email: decoded.email,
-                email_confirm: true, // Auto-confirm email
-                user_metadata: { source: 'telegram_seamless_login' }
-            });
-            
-            if (createError) {
-                console.error('[AUTH] Failed to auto-create user:', createError);
-                return NextResponse.redirect(new URL(`/${locale}/login`, req.url));
-            }
-            
-            // Try generating the link again after creation
-            const retry = await supabaseAdmin.auth.admin.generateLink({
-                type: 'magiclink',
-                email: decoded.email
-            });
-            data = retry.data;
-            error = retry.error;
+
+        if (linkError || !linkData?.properties?.hashed_token) {
+            throw new Error(`Magic link generation failed: ${linkError?.message}`);
         }
 
-        if (error || !data?.properties?.action_link) {
-            console.error('Magic link generation failed:', error);
-            return NextResponse.redirect(new URL(`/${locale}/login`, req.url));
+        // 4. Return an HTML page that verifies the OTP client-side and redirects.
+        //    This is MUCH more reliable than a server-side redirect with cookies,
+        //    because Telegram Mini App webview often resets cookies between sessions.
+        //    Client-side JS stores the session in localStorage, which persists.
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        const hashedToken = linkData.properties.hashed_token;
+
+        const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Вход...</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin:0; display:flex; align-items:center; justify-content:center;
+           min-height:100vh; background:#0f1117; font-family:sans-serif; flex-direction:column; }
+    .icon { color:#60B76F; animation:spin 1s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    p { color:#94a3b8; margin-top:16px; font-size:14px; }
+  </style>
+</head>
+<body>
+  <svg class="icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+  </svg>
+  <p>Выполняется вход...</p>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+    (async function() {
+      try {
+        const client = supabase.createClient('${supabaseUrl}', '${supabaseAnonKey}');
+        const { error } = await client.auth.verifyOtp({
+          token_hash: '${hashedToken}',
+          type: 'magiclink'
+        });
+        if (error) {
+          console.error('verifyOtp error:', error.message);
+          window.location.href = '/${locale}/login?error=otp_failed';
+          return;
         }
+        // Session stored in localStorage — persists across Mini App opens!
+        window.location.href = '${dashboardUrl}';
+      } catch(e) {
+        console.error('Auth error:', e);
+        window.location.href = '/${locale}/login?error=unexpected';
+      }
+    })();
+  </script>
+</body>
+</html>`;
 
-        // 3. We have the action link. But wait, the action_link redirects to what is configured in Supabase.
-        // We want to make sure it redirects to the dashboard.
-        // We can append &redirect_to=... to the action_link if Supabase allows it, 
-        // or just rely on the default site url which usually goes to root, 
-        // but we can enforce it by modifying the action_link.
-        
-        let actionLink = data.properties.action_link;
-        
-        // Supabase action_link includes redirect_to=http://localhost:3000 by default (from settings)
-        // We want to replace it to point to the correct locale dashboard.
-        // Supabase action_link includes redirect_to=... by default
-        // We ensure it points to the cabinet for the given locale
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vireyou.com';
-        const dashboardUrl = encodeURIComponent(`${siteUrl}/${locale}/cabinet/lifestyle`);
-        
-        if (actionLink.includes('redirect_to=')) {
-            actionLink = actionLink.replace(/redirect_to=[^&]+/, `redirect_to=${dashboardUrl}`);
-        } else {
-            actionLink += `&redirect_to=${dashboardUrl}`;
-        }
-
-        console.log(`[AUTH] Redirecting user ${decoded.email} to magic link for seamless login`);
-
-        // Creating response with the redirect
-        const response = NextResponse.redirect(actionLink);
-        
-        // IMPORTANT: We don't manually clear cookies here because Supabase's actionLink 
-        // will automatically overwrite the session cookies when the user hits the verification endpoint.
-        
-        return response;
+        return new NextResponse(html, {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
 
     } catch (error: any) {
-        console.error('Seamless login error:', error.message || error);
-        // If token is invalid or expired, take them to login but with a hint
+        console.error('[AUTH] Seamless login error:', error.message || error);
         return NextResponse.redirect(new URL(`/${locale}/login?error=auth_failed`, req.url));
     }
 }
