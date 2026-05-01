@@ -73,7 +73,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                         <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm flex flex-col justify-between">
                             <div>
                                 <h4 className="font-bold text-lg text-slate-700 dark:text-slate-300">VIReyou Standard</h4>
-                                <p className="text-2xl font-bold my-2">990 ₽ <span className="text-sm font-normal text-slate-400">/ месяц</span></p>
+                                <p className="text-2xl font-bold my-2">9.90 ₽ <span className="text-sm font-normal text-slate-400">/ месяц</span></p>
                                 <ul className="text-sm space-y-2 mt-4 text-slate-600 dark:text-slate-400">
                                     <li className="flex items-center gap-2">✔️ Логгирование по фото и голосу</li>
                                     <li className="flex items-center gap-2">✔️ Личный кабинет (Дашборд долголетия)</li>
@@ -87,7 +87,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                             </div>
                             <CheckoutButton 
                                 plan="Standard" 
-                                amount={990}
+                                amount={9.90}
                                 className="mt-6 w-full py-2.5 rounded-xl font-bold text-white bg-slate-600 hover:bg-slate-700 transition-colors shadow-lg"
                             >
                                 Оформить Standard
@@ -99,7 +99,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                             <div className="absolute top-0 right-0 bg-[#60B76F] text-white text-[10px] font-bold uppercase py-1 px-3 rounded-bl-xl">Хит</div>
                             <div>
                                 <h4 className="font-bold text-lg text-[#60B76F]">VIReyou PRO</h4>
-                                <p className="text-2xl font-bold my-2">1490 ₽ <span className="text-sm font-normal text-slate-400">/ месяц</span></p>
+                                <p className="text-2xl font-bold my-2">14.90 ₽ <span className="text-sm font-normal text-slate-400">/ месяц</span></p>
                                 <ul className="text-sm space-y-2 mt-4 text-slate-700 dark:text-slate-300">
                                     <li className="flex items-center gap-2">✔️ Логгирование по фото и голосу</li>
                                     <li className="flex items-center gap-2">✔️ Личный кабинет (Дашборд долголетия)</li>
@@ -113,7 +113,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                             </div>
                             <CheckoutButton 
                                 plan="PRO" 
-                                amount={1490}
+                                amount={14.90}
                                 className="mt-6 w-full py-2.5 rounded-xl font-bold text-white bg-[#60B76F] hover:bg-emerald-600 transition-colors shadow-lg shadow-[#60B76F]/30"
                             >
                                 Оформить PRO
