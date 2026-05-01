@@ -3,17 +3,21 @@ import jwt from 'jsonwebtoken';
 import { createClient } from '@supabase/supabase-js';
 
 export async function GET(req: NextRequest) {
-    // Initialize inside handler so env vars are available at runtime, not build time
-    const supabaseAdmin = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
     const { searchParams } = new URL(req.url);
     const token = searchParams.get('token');
     const locale = searchParams.get('locale') || 'ru';
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vireyou.com';
     const dashboardUrl = `${siteUrl}/${locale}/cabinet/lifestyle`;
+
+    // Guard: check required env vars at runtime
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !serviceKey || !anonKey) {
+        console.error('[AUTH] Missing Supabase env vars:', { supabaseUrl: !!supabaseUrl, serviceKey: !!serviceKey, anonKey: !!anonKey });
+        return NextResponse.redirect(new URL(`/${locale}/login?error=config`, req.url));
+    }
 
     if (!token) {
         return NextResponse.redirect(new URL(`/${locale}/login`, req.url));
@@ -30,41 +34,40 @@ export async function GET(req: NextRequest) {
 
         const email = decoded.email;
 
-        // 2. Find or create the user in Supabase Auth
-        const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-        if (listError) throw listError;
+        // 2. Create admin client (inside handler = runtime only, not build time)
+        const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
-        let authUser = users.find((u: any) => u.email === email);
+        // 3. Try to generate magic link directly — this also auto-creates user in Supabase Auth
+        //    if email doesn't exist yet (as of Supabase 2.x admin API)
+        let { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'magiclink',
+            email,
+        });
 
-        if (!authUser) {
-            console.log(`[AUTH] Creating new Supabase Auth user for ${email}`);
-            const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        // If user not found — create them first, then try again
+        if (linkError) {
+            console.log(`[AUTH] generateLink error: ${linkError.message} — trying to create user`);
+            await supabaseAdmin.auth.admin.createUser({
                 email,
                 email_confirm: true,
                 user_metadata: { source: 'telegram_bot' }
             });
-            if (createError) throw createError;
-            authUser = created.user;
+            const retry = await supabaseAdmin.auth.admin.generateLink({
+                type: 'magiclink',
+                email,
+            });
+            linkData = retry.data;
+            linkError = retry.error;
         }
-
-        // 3. Generate a magic link to get a hashed_token we can verify client-side
-        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-            type: 'magiclink',
-            email,
-        });
 
         if (linkError || !linkData?.properties?.hashed_token) {
             throw new Error(`Magic link generation failed: ${linkError?.message}`);
         }
 
-        // 4. Return an HTML page that verifies the OTP client-side and redirects.
-        //    This is MUCH more reliable than a server-side redirect with cookies,
-        //    because Telegram Mini App webview often resets cookies between sessions.
-        //    Client-side JS stores the session in localStorage, which persists.
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
         const hashedToken = linkData.properties.hashed_token;
 
+        // 4. Return HTML page that verifies OTP client-side → session stored in localStorage
+        //    localStorage persists between Telegram Mini App open/close, unlike cookies!
         const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -88,8 +91,8 @@ export async function GET(req: NextRequest) {
   <script>
     (async function() {
       try {
-        const client = supabase.createClient('${supabaseUrl}', '${supabaseAnonKey}');
-        const { error } = await client.auth.verifyOtp({
+        const client = supabase.createClient('${supabaseUrl}', '${anonKey}');
+        const { data, error } = await client.auth.verifyOtp({
           token_hash: '${hashedToken}',
           type: 'magiclink'
         });
@@ -98,7 +101,6 @@ export async function GET(req: NextRequest) {
           window.location.href = '/${locale}/login?error=otp_failed';
           return;
         }
-        // Session stored in localStorage — persists across Mini App opens!
         window.location.href = '${dashboardUrl}';
       } catch(e) {
         console.error('Auth error:', e);
