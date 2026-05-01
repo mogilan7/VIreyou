@@ -1690,72 +1690,106 @@ cron.schedule('* * * * *', async () => {
 
     if (mskTime === '03:00') {
         try {
-            // --- Update Squad Scores ---
-            console.log("[CRON] Updating Squad Scores...");
-            const { calculateDailyScore } = await import('../src/lib/squads/squadService');
-            const activeSquads = await prisma.squad.findMany({ where: { is_active: true } });
-            
             const yesterday = new Date(now);
             yesterday.setDate(yesterday.getDate() - 1);
             const sDay = new Date(yesterday.setHours(0, 0, 0, 0));
             const eDay = new Date(yesterday.setHours(23, 59, 59, 999));
 
+            // 1. --- Update Squad Scores ---
+            console.log("[CRON] Updating Squad Scores...");
+            const { calculateDailyScore } = await import('../src/lib/squads/squadService');
+            const activeSquads = await prisma.squad.findMany({ where: { is_active: true } });
+            
             for (const squad of activeSquads) {
                 const squadParticipants = await prisma.squadParticipant.findMany({
                     where: { squad_id: squad.id }
                 });
                 for (const p of squadParticipants) {
-                    const { score, details } = await calculateDailyScore(p.user_id, sDay, eDay);
+                    const { score } = await calculateDailyScore(p.user_id, sDay, eDay);
                     if (score > 0) {
                         await prisma.squadParticipant.update({
                             where: { id: p.id },
                             data: { score: { increment: score } }
                         });
                     }
+                }
+            }
 
-                    // --- Send Personal Report ---
-                    const pUser = await prisma.user.findUnique({ where: { id: p.user_id } });
-                    if (pUser && pUser.telegram_id) {
-                        const lang = (pUser as any).language || 'ru';
-                        const dateStr = yesterday.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU');
+            // 2. --- Send Daily Reports to Each Participant ---
+            for (const squad of activeSquads) {
+                const participants = await prisma.squadParticipant.findMany({
+                    where: { squad_id: squad.id },
+                    include: { user: true }
+                });
+
+                // Check if yesterday was the last day
+                const isLastDay = yesterday.toDateString() === new Date(squad.end_date).toDateString();
+                
+                for (const p of participants) {
+                    if (p.user.telegram_id) {
+                        const lang = (p.user as any).language || 'ru';
+                        const name = p.user.full_name || 'друг';
                         
-                        let personalMsg = t(lang, 'Marathon.personalReportHeader', { date: dateStr }) + "\n";
-                        personalMsg += t(lang, 'Marathon.personalMetricWater', { 
-                            vol: details.water, 
-                            status: details.waterMet ? t(lang, 'Marathon.statusMet') : t(lang, 'Marathon.statusNotMet') 
-                        }) + "\n";
-                        personalMsg += t(lang, 'Marathon.personalMetricSleep', { 
-                            hrs: details.sleep, 
-                            status: details.sleepMet ? t(lang, 'Marathon.statusMet') : t(lang, 'Marathon.statusNotMet') 
-                        }) + "\n";
-                        personalMsg += t(lang, 'Marathon.personalMetricSteps', { 
-                            steps: details.steps, 
-                            status: details.stepsMet ? t(lang, 'Marathon.statusMet') : t(lang, 'Marathon.statusNotMet') 
-                        }) + "\n";
-                        personalMsg += t(lang, 'Marathon.personalMetricNutrition', { 
-                            status: details.nutritionMet ? t(lang, 'Marathon.statusFilled') : t(lang, 'Marathon.statusNotFilled') 
-                        }) + "\n";
-                        
-                        personalMsg += t(lang, 'Marathon.personalScore', { score });
-                        personalMsg += t(lang, 'Marathon.personalFooter');
-                        
-                        try {
-                            await bot.telegram.sendMessage(pUser.telegram_id, personalMsg, { parse_mode: 'Markdown' });
-                        } catch (sendErr) {
-                            console.error(`[CRON] Failed to send personal report to ${pUser.id}:`, sendErr);
+                        // Generate group summary report personalized for this user
+                        const groupSummary = await generateMarathonDailyReport(name);
+
+                        if (groupSummary) {
+                            let msg = groupSummary;
+                            if (isLastDay) {
+                                const thankYou = lang === 'en' 
+                                    ? `\n\n🎉 **Marathon Completed!**\nThank you for participating, ${name}! Your contribution made this marathon special. Tomorrow you will receive your detailed personal report for all 7 days. 💪✨`
+                                    : `\n\n🎉 **Марафон завершен!**\nСпасибо за участие, ${name}! Твой вклад сделал этот марафон особенным. Завтра ты получишь свой подробный персональный отчет за все 7 дней. 💪✨`;
+                                msg += thankYou;
+                            }
+
+                            try {
+                                await bot.telegram.sendMessage(p.user.telegram_id, msg, { parse_mode: 'Markdown' });
+                            } catch (e) {
+                                console.error(`[CRON] Failed to send group summary to ${p.user.id}:`, e);
+                            }
                         }
                     }
                 }
             }
 
-            const report = await generateMarathonDailyReport();
-            if (report) {
-                const setting = await prisma.systemSetting.findUnique({ where: { key: 'marathon_channel_id' } });
-                if (setting && setting.value) {
-                    await bot.telegram.sendMessage(setting.value, report, { parse_mode: 'Markdown' });
-                    console.log("[CRON] Marathon report sent to channel:", setting.value);
+            // 3. --- Send Final 7-Day Detailed Reports (Next day after completion) ---
+            const dayBeforeYesterday = new Date(yesterday);
+            dayBeforeYesterday.setDate(dayBeforeYesterday.getDate() - 1);
+            
+            // Find squads that ended 1 day ago (end_date was the day before yesterday)
+            const endedSquads = await prisma.squad.findMany({
+                where: { 
+                    is_active: true,
+                    end_date: {
+                        lt: sDay // end_date is before yesterday start
+                    }
                 }
+            });
+
+            for (const squad of endedSquads) {
+                const participants = await prisma.squadParticipant.findMany({
+                    where: { squad_id: squad.id },
+                    include: { user: true }
+                });
+
+                for (const p of participants) {
+                    if (p.user.telegram_id) {
+                        try {
+                            const { markdown } = await generatePeriodicReport(p.user_id, 7, p.user.full_name);
+                            await bot.telegram.sendMessage(p.user.telegram_id, markdown, { parse_mode: 'Markdown' });
+                        } catch (e) {
+                            console.error(`[CRON] Failed to send final report to ${p.user.id}:`, e);
+                        }
+                    }
+                }
+
+                // Finally deactivate the squad after sending all reports
+                await prisma.squad.update({
+                    where: { id: squad.id },
+                    data: { is_active: false }
+                });
             }
+
         } catch (err) {
             console.error("[CRON] Marathon report error:", err);
         }
@@ -2003,7 +2037,7 @@ async function generateDailyReport(userId: string, lang: string = 'ru') {
 /**
  * Генерирует анонимный отчет по марафону для канала.
  */
-export async function generateMarathonDailyReport() {
+export async function generateMarathonDailyReport(name?: string) {
     console.log("[MARATHON] Generating daily report...");
     try {
         // Fetch all unique users in active squads
@@ -2091,14 +2125,19 @@ export async function generateMarathonDailyReport() {
         avgScores.sort((a, b) => a.pct - b.pct);
         const top5Deficiencies = avgScores.slice(0, 5);
 
-        const dateStr = yest.toLocaleDateString('ru-RU');
-        let report = t('ru', 'Marathon.reportHeader', { date: dateStr }) + "\n";
+        const lang = 'ru'; // Default to ru for group summary
+        const dateStr = yest.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU');
+        let report = name 
+            ? (lang === 'en' ? `📊 **Marathon results for ${dateStr} for ${name}** 🚀\n\n` : `📊 **${name}, вот итоги марафона за ${dateStr}** 🚀\n\nВчера наши участники показали отличные результаты! Вот статистика по группе:`)
+            : t(lang, 'Marathon.reportHeader', { date: dateStr });
+
+        report += "\n";
         
         // Add new metrics
-        report += t('ru', 'Marathon.metricDiaries', { count: countDiaries }) + "\n";
-        report += t('ru', 'Marathon.metricActivity', { count: countSteps10kActive30 }) + "\n";
-        report += t('ru', 'Marathon.metricWater', { count: countWater2L }) + "\n";
-        report += t('ru', 'Marathon.metricSleep', { count: countSleep7_8 }) + "\n";
+        report += t(lang, 'Marathon.metricDiaries', { count: countDiaries }) + "\n";
+        report += t(lang, 'Marathon.metricActivity', { count: countSteps10kActive30 }) + "\n";
+        report += t(lang, 'Marathon.metricWater', { count: countWater2L }) + "\n";
+        report += t(lang, 'Marathon.metricSleep', { count: countSleep7_8 }) + "\n";
 
         // Add deficiencies
         report += t('ru', 'Marathon.topDeficiencies');
