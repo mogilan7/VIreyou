@@ -58,11 +58,11 @@ export async function getSquadLeaderboard(squadId: string) {
         orderBy: { score: 'desc' }
     });
 
-    let leaderboardStr = "🏆 **Таблица лидеров челленджа:**\n\n";
+    let leaderboardStr = "🏆 <b>Таблица лидеров челленджа:</b>\n\n";
     participants.forEach((p: any, index: number) => {
         const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "👤";
-        const name = p.user.full_name || p.user.email || "Участник";
-        const tgUser = p.user.telegram_username ? ` (@${p.user.telegram_username})` : "";
+        const name = (p.user.full_name || p.user.email || "Участник").replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const tgUser = p.user.telegram_username ? ` (@${p.user.telegram_username.replace(/</g, '&lt;').replace(/>/g, '&gt;')})` : "";
         leaderboardStr += `${medal} ${name}${tgUser} — ${p.score} баллов\n`;
     });
 

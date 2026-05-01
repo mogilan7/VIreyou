@@ -1381,7 +1381,7 @@ bot.action('menu_my_squad', async (ctx: any) => {
         if (participant && participant.squad.is_active) {
             const leaderboard = await getSquadLeaderboard(participant.squad_id);
             const inviteLink = `https://t.me/vireyou_bot?start=sq_${participant.squad_id}`;
-            await ctx.reply(`${leaderboard}\n\n🔗 Пригласить друзей: \`${inviteLink}\``, { parse_mode: 'Markdown' });
+            await ctx.reply(`${leaderboard}\n\n🔗 Пригласить друзей: <code>${inviteLink}</code>`, { parse_mode: 'HTML' });
         } else {
             await ctx.reply(lang === 'en' 
                 ? "You don't have an active Squad. Do you want to create one?" 
@@ -1411,9 +1411,9 @@ bot.action('create_squad', async (ctx: any) => {
         const inviteLink = `https://t.me/vireyou_bot?start=sq_${newSquad.id}`;
         
         await ctx.reply(lang === 'en' 
-            ? `✅ Squad created!\n\nInvite link:\n\`${inviteLink}\`` 
-            : `✅ Марафон успешно создан!\n\nОтправьте эту ссылку друзьям:\n\`${inviteLink}\``, 
-            { parse_mode: 'Markdown' });
+            ? `✅ Squad created!\n\nInvite link:\n<code>${inviteLink}</code>` 
+            : `✅ Марафон успешно создан!\n\nОтправьте эту ссылку друзьям:\n<code>${inviteLink}</code>`, 
+            { parse_mode: 'HTML' });
             
     } catch (e) {
         console.error(e);
