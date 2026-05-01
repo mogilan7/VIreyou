@@ -811,7 +811,25 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                 activeView === 'overview' && (
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-in fade-in duration-500">
                         <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                           {/* Питание */}
+                            {/* Сон */}
+                            <div className="dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl p-6 shadow-md transition-colors duration-300">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="font-semibold dark:text-slate-300 text-brand-text">Сон & HRV</h3>
+                                    <span className={`text-xs px-2 py-1 dark:bg-slate-700 bg-brand-leaf/10 rounded ${accentColor}`}>Deep Recovery</span>
+                                </div>
+                                <div className="h-48 mb-6">
+                                    <HRVChart />
+                                </div>
+                                <div className="flex justify-between text-xs opacity-60">
+                                    <span>Фазы сна (ч)</span>
+                                    <span className={`${accentColor} italic`}>Gold Standard: 8.0h</span>
+                                </div>
+                                <div className="h-16 mt-2">
+                                    <SleepPhasesChart />
+                                </div>
+                            </div>
+
+                            {/* Питание */}
                             <div className="dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl p-6 shadow-md transition-colors duration-300">
                                 <h3 className="font-semibold dark:text-slate-300 text-brand-text mb-6">Цели и Нутриенты</h3>
                                 
@@ -908,25 +926,6 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                         </div>
                                     </>
                                 )}
-                            </div>text-[10px] mb-1 opacity-50">
-                                                <span>ИНДЕКС САХАРА</span>
-                                                <span>LOW</span>
-                                            </div>
-                                            <div className="w-full h-1 dark:bg-slate-700 bg-brand-sage/20 rounded-full">
-                                                <div className={`h-full ${accentBg} w-[30%]`}></div>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <div className="flex justify-between text-[10px] mb-1 opacity-50">
-                                                <span>КЛЕТЧАТКА</span>
-                                                <span>32g</span>
-                                            </div>
-                                            <div className="w-full h-1 dark:bg-slate-700 bg-brand-sage/20 rounded-full">
-                                                <div className={`h-full ${accentBg} w-[85%]`}></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
 
                             {/* Активность */}
