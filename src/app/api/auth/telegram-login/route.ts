@@ -47,7 +47,10 @@ export async function GET(req: NextRequest) {
         
         // Supabase action_link includes redirect_to=http://localhost:3000 by default (from settings)
         // We want to replace it to point to the correct locale dashboard.
-        const dashboardUrl = encodeURIComponent(`${process.env.NEXT_PUBLIC_SITE_URL || 'https://vireyou.com'}/${locale}/cabinet/lifestyle`);
+        // Supabase action_link includes redirect_to=... by default
+        // We ensure it points to the cabinet for the given locale
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vireyou.com';
+        const dashboardUrl = encodeURIComponent(`${siteUrl}/${locale}/cabinet/lifestyle`);
         
         if (actionLink.includes('redirect_to=')) {
             actionLink = actionLink.replace(/redirect_to=[^&]+/, `redirect_to=${dashboardUrl}`);
@@ -55,12 +58,19 @@ export async function GET(req: NextRequest) {
             actionLink += `&redirect_to=${dashboardUrl}`;
         }
 
-        // Redirect the user to the Supabase verification URL. 
-        // It will set the cookies and then redirect them to the dashboard.
-        return NextResponse.redirect(actionLink);
+        console.log(`[AUTH] Redirecting user ${decoded.email} to magic link for seamless login`);
 
-    } catch (error) {
-        console.error('Seamless login error:', error);
-        return NextResponse.redirect(new URL(`/${locale}/login?error=invalid_token`, req.url));
+        // Creating response with the redirect
+        const response = NextResponse.redirect(actionLink);
+        
+        // IMPORTANT: We don't manually clear cookies here because Supabase's actionLink 
+        // will automatically overwrite the session cookies when the user hits the verification endpoint.
+        
+        return response;
+
+    } catch (error: any) {
+        console.error('Seamless login error:', error.message || error);
+        // If token is invalid or expired, take them to login but with a hint
+        return NextResponse.redirect(new URL(`/${locale}/login?error=auth_failed`, req.url));
     }
 }

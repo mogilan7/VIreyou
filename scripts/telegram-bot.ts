@@ -832,7 +832,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
   const isTrial = daysSinceCreated <= 3;
 
   const secret = process.env.JWT_SECRET || process.env.YOOKASSA_SECRET_KEY || 'default_secret';
-  const token = jwt.sign({ email: user.email }, secret, { expiresIn: '5m' });
+  const token = jwt.sign({ email: user.email }, secret, { expiresIn: '1h' });
   const dashboardUrl = `https://vireyou.com/api/auth/telegram-login?token=${token}&locale=${lang}`;
 
   const menuButtons: any[][] = [
