@@ -1705,12 +1705,45 @@ cron.schedule('* * * * *', async () => {
                     where: { squad_id: squad.id }
                 });
                 for (const p of squadParticipants) {
-                    const dailyScore = await calculateDailyScore(p.user_id, sDay, eDay);
-                    if (dailyScore > 0) {
+                    const { score, details } = await calculateDailyScore(p.user_id, sDay, eDay);
+                    if (score > 0) {
                         await prisma.squadParticipant.update({
                             where: { id: p.id },
-                            data: { score: { increment: dailyScore } }
+                            data: { score: { increment: score } }
                         });
+                    }
+
+                    // --- Send Personal Report ---
+                    const pUser = await prisma.user.findUnique({ where: { id: p.user_id } });
+                    if (pUser && pUser.telegram_id) {
+                        const lang = (pUser as any).language || 'ru';
+                        const dateStr = yesterday.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU');
+                        
+                        let personalMsg = t(lang, 'Marathon.personalReportHeader', { date: dateStr }) + "\n";
+                        personalMsg += t(lang, 'Marathon.personalMetricWater', { 
+                            vol: details.water, 
+                            status: details.waterMet ? t(lang, 'Marathon.statusMet') : t(lang, 'Marathon.statusNotMet') 
+                        }) + "\n";
+                        personalMsg += t(lang, 'Marathon.personalMetricSleep', { 
+                            hrs: details.sleep, 
+                            status: details.sleepMet ? t(lang, 'Marathon.statusMet') : t(lang, 'Marathon.statusNotMet') 
+                        }) + "\n";
+                        personalMsg += t(lang, 'Marathon.personalMetricSteps', { 
+                            steps: details.steps, 
+                            status: details.stepsMet ? t(lang, 'Marathon.statusMet') : t(lang, 'Marathon.statusNotMet') 
+                        }) + "\n";
+                        personalMsg += t(lang, 'Marathon.personalMetricNutrition', { 
+                            status: details.nutritionMet ? t(lang, 'Marathon.statusFilled') : t(lang, 'Marathon.statusNotFilled') 
+                        }) + "\n";
+                        
+                        personalMsg += t(lang, 'Marathon.personalScore', { score });
+                        personalMsg += t(lang, 'Marathon.personalFooter');
+                        
+                        try {
+                            await bot.telegram.sendMessage(pUser.telegram_id, personalMsg, { parse_mode: 'Markdown' });
+                        } catch (sendErr) {
+                            console.error(`[CRON] Failed to send personal report to ${pUser.id}:`, sendErr);
+                        }
                     }
                 }
             }

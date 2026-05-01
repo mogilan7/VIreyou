@@ -71,39 +71,62 @@ export async function getSquadLeaderboard(squadId: string) {
 
 /**
  * (For cron job) Calculates points for a user for the day based on their logs.
- * Example simplified point system:
- * +10 points for perfect water intake
- * +20 points for sleep > 7 hours
- * +30 points for good nutrition logs
+ * Includes detailed breakdown for personal reports.
  */
 export async function calculateDailyScore(userId: string, dateStart: Date, dateEnd: Date) {
     let dailyScore = 0;
+    const details = {
+        water: 0,
+        sleep: 0,
+        steps: 0,
+        nutrition: 0,
+        waterMet: false,
+        sleepMet: false,
+        stepsMet: false,
+        nutritionMet: false
+    };
 
-    // 1. Check Hydration
+    // 1. Check Hydration (Goal: 2L)
     const hydration = await prisma.hydrationLog.aggregate({
         where: { user_id: userId, created_at: { gte: dateStart, lte: dateEnd } },
         _sum: { volume_ml: true }
     });
-    if ((hydration._sum.volume_ml || 0) >= 2000) dailyScore += 10;
+    details.water = hydration._sum.volume_ml || 0;
+    if (details.water >= 2000) {
+        dailyScore += 10;
+        details.waterMet = true;
+    }
 
-    // 2. Check Sleep
+    // 2. Check Sleep (Goal: 7-8h)
     const sleep = await prisma.sleepLog.findFirst({
         where: { user_id: userId, created_at: { gte: dateStart, lte: dateEnd } }
     });
-    if (sleep && (sleep.duration_hrs || 0) >= 7) dailyScore += 20;
+    details.sleep = sleep?.duration_hrs || 0;
+    if (details.sleep >= 7 && details.sleep <= 8) {
+        dailyScore += 20;
+        details.sleepMet = true;
+    }
 
-    // 3. Nutrition (Just logging gives points)
+    // 3. Nutrition (Goal: 3 logs)
     const nutritionCount = await prisma.nutritionLog.count({
         where: { user_id: userId, created_at: { gte: dateStart, lte: dateEnd } }
     });
-    if (nutritionCount >= 3) dailyScore += 30;
+    details.nutrition = nutritionCount;
+    if (nutritionCount >= 3) {
+        dailyScore += 30;
+        details.nutritionMet = true;
+    }
 
-    // 4. Activity (Steps)
+    // 4. Activity (Goal: 10k steps)
     const activity = await prisma.activityLog.aggregate({
         where: { user_id: userId, created_at: { gte: dateStart, lte: dateEnd } },
         _sum: { steps: true }
     });
-    if ((activity._sum.steps || 0) >= 8000) dailyScore += 10;
+    details.steps = activity._sum.steps || 0;
+    if (details.steps >= 10000) {
+        dailyScore += 10;
+        details.stepsMet = true;
+    }
 
-    return dailyScore;
+    return { score: dailyScore, details };
 }
