@@ -27,12 +27,35 @@ export async function GET(req: NextRequest) {
         }
 
         // 2. Generate Magic Link via Supabase Admin
-        const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+        let { data, error } = await supabaseAdmin.auth.admin.generateLink({
             type: 'magiclink',
             email: decoded.email
         });
+        
+        // If user doesn't exist in Supabase Auth, create them on the fly
+        if (error && (error.message.includes('User not found') || error.status === 422)) {
+            console.log(`[AUTH] User ${decoded.email} not found in Supabase Auth, creating now...`);
+            const { error: createError } = await supabaseAdmin.auth.admin.createUser({
+                email: decoded.email,
+                email_confirm: true, // Auto-confirm email
+                user_metadata: { source: 'telegram_seamless_login' }
+            });
+            
+            if (createError) {
+                console.error('[AUTH] Failed to auto-create user:', createError);
+                return NextResponse.redirect(new URL(`/${locale}/login`, req.url));
+            }
+            
+            // Try generating the link again after creation
+            const retry = await supabaseAdmin.auth.admin.generateLink({
+                type: 'magiclink',
+                email: decoded.email
+            });
+            data = retry.data;
+            error = retry.error;
+        }
 
-        if (error || !data.properties?.action_link) {
+        if (error || !data?.properties?.action_link) {
             console.error('Magic link generation failed:', error);
             return NextResponse.redirect(new URL(`/${locale}/login`, req.url));
         }
