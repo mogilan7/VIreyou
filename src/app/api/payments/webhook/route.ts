@@ -67,24 +67,27 @@ export async function POST(req: NextRequest) {
                     }
                 });
 
-                // Уровень 2 (5%) - только если у L1 есть подписка PRO
+                // Уровень 2 (5%) - только если L2 является сотрудником (role === 'employee')
                 const l1 = await prisma.user.findUnique({ where: { id: user.referrer_id } });
-                const l1IsPro = l1?.subscription_expires_at && l1.subscription_expires_at > new Date(); // Упрощенно считаем что любая активная подписка = PRO для бонусов
-
-                if (l1?.referrer_id && l1IsPro) {
-                    const l2Bonus = amount * 0.05;
-                    await prisma.user.update({
-                        where: { id: l1.referrer_id },
-                        data: { balance: { increment: l2Bonus } }
-                    });
-                    await prisma.transaction.create({
-                        data: {
-                            user_id: l1.referrer_id,
-                            amount: l2Bonus,
-                            type: 'REFERRAL_BONUS',
-                            description: `Бонус 5% за друга вашего друга (${user.full_name || user.email})`
-                        }
-                    });
+                
+                if (l1?.referrer_id) {
+                    const l2 = await prisma.user.findUnique({ where: { id: l1.referrer_id } });
+                    
+                    if (l2 && l2.role === 'employee') {
+                        const l2Bonus = amount * 0.05;
+                        await prisma.user.update({
+                            where: { id: l2.id },
+                            data: { balance: { increment: l2Bonus } }
+                        });
+                        await prisma.transaction.create({
+                            data: {
+                                user_id: l2.id,
+                                amount: l2Bonus,
+                                type: 'REFERRAL_BONUS',
+                                description: `Бонус 5% за друга вашего друга (${user.full_name || user.email})`
+                            }
+                        });
+                    }
                 }
             }
         }
