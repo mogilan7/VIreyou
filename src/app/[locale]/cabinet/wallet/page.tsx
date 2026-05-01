@@ -7,6 +7,7 @@ import { getTranslations } from 'next-intl/server';
 import ReferralButton from '@/components/dashboard/ReferralButton';
 import CheckoutButton from '@/components/dashboard/CheckoutButton';
 import ReferralInfo from '@/components/dashboard/ReferralInfo';
+import UpgradeButton from '@/components/dashboard/UpgradeButton';
 
 export default async function WalletPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
@@ -77,9 +78,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                             </p>
                         </div>
                         {user.role !== 'PRO' && user.role !== 'employee' && user.role !== 'admin' && (
-                            <div className="text-sm font-medium text-[#60B76F] bg-[#60B76F]/10 px-3 py-1 rounded-full">
-                                Доступен апгрейд
-                            </div>
+                            <UpgradeButton currentPlan={user.role} />
                         )}
                     </section>
                 )}
