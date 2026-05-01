@@ -6,14 +6,17 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const token = searchParams.get('token');
     const locale = searchParams.get('locale') || 'ru';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vireyou.com';
+    const dashboardUrl = `${siteUrl}/${locale}/cabinet/lifestyle`;
 
     // 1. Check environment variables
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !serviceKey) {
-        console.error('[AUTH] Missing critical env vars for seamless login');
-        return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    if (!supabaseUrl || !serviceKey || !anonKey) {
+        console.error('[AUTH] Missing Supabase env vars');
+        return NextResponse.json({ error: 'Config error' }, { status: 500 });
     }
 
     if (!token) {
@@ -28,58 +31,92 @@ export async function GET(req: NextRequest) {
         const decoded = jwt.verify(token, secret) as { email: string };
 
         if (!decoded || !decoded.email) {
-            throw new Error('Invalid token payload');
+            throw new Error('Invalid token');
         }
 
         const email = decoded.email;
 
-        // 3. Try generating the link. This might fail if user doesn't exist.
-        let { data, error } = await supabaseAdmin.auth.admin.generateLink({
+        // 3. Generate a magic link to get a hashed_token
+        let { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
             type: 'magiclink',
-            email: email
+            email,
         });
 
-        // 4. If user not found, create them and try again
-        if (error && (error.message.includes('User not found') || error.status === 422)) {
-            console.log(`[AUTH] User ${email} not found, creating...`);
-            const { error: createError } = await supabaseAdmin.auth.admin.createUser({
+        // Auto-create user if not found
+        if (linkError && (linkError.message.includes('User not found') || linkError.status === 422)) {
+            await supabaseAdmin.auth.admin.createUser({
                 email,
                 email_confirm: true,
                 user_metadata: { source: 'telegram_bot' }
             });
-            
-            if (!createError) {
-                const retry = await supabaseAdmin.auth.admin.generateLink({
-                    type: 'magiclink',
-                    email: email
-                });
-                data = retry.data;
-                error = retry.error;
-            } else {
-                console.error('[AUTH] Failed to create user:', createError);
-            }
+            const retry = await supabaseAdmin.auth.admin.generateLink({
+                type: 'magiclink',
+                email,
+            });
+            linkData = retry.data;
+            linkError = retry.error;
         }
 
-        if (error || !data?.properties?.action_link) {
-            console.error('[AUTH] Magic link failed:', error);
-            return NextResponse.redirect(new URL(`/${locale}/login?error=auth_failed`, req.url));
+        if (linkError || !linkData?.properties?.hashed_token) {
+            throw new Error('Link generation failed');
         }
 
-        let actionLink = data.properties.action_link;
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vireyou.com';
-        const dashboardUrl = encodeURIComponent(`${siteUrl}/${locale}/cabinet/lifestyle`);
-        
-        if (actionLink.includes('redirect_to=')) {
-            actionLink = actionLink.replace(/redirect_to=[^&]+/, `redirect_to=${dashboardUrl}`);
-        } else {
-            actionLink += `&redirect_to=${dashboardUrl}`;
-        }
+        const hashedToken = linkData.properties.hashed_token;
 
-        console.log(`[AUTH] Successful login for ${email}, redirecting...`);
-        return NextResponse.redirect(actionLink);
+        // 4. Return the "Blinking Bot" loading page that sets the session
+        const html = `<!DOCTYPE html>
+<html lang="${locale}">
+<head>
+  <meta charset="utf-8">
+  <title>VIReyou Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin: 0; display: flex; align-items: center; justify-content: center; 
+           min-height: 100vh; background: #0f1117; font-family: sans-serif; flex-direction: column; }
+    .bot-icon { color: #60B76F; animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
+    .loader { margin-top: 20px; width: 30px; height: 30px; border: 3px solid rgba(96, 183, 111, 0.2); 
+              border-radius: 50%; border-top-color: #60B76F; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    p { color: #94a3b8; margin-top: 20px; font-size: 14px; letter-spacing: 0.5px; }
+  </style>
+</head>
+<body>
+  <div class="bot-icon">
+    <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path>
+    </svg>
+  </div>
+  <div class="loader"></div>
+  <p>Синхронизация профиля...</p>
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+    (async function() {
+      try {
+        const client = supabase.createClient('${supabaseUrl}', '${anonKey}');
+        const { error } = await client.auth.verifyOtp({
+          token_hash: '${hashedToken}',
+          type: 'magiclink'
+        });
+        if (error) throw error;
+        window.location.replace('${dashboardUrl}');
+      } catch (e) {
+        console.error(e);
+        window.location.replace('/${locale}/login?error=auth_failed');
+      }
+    })();
+  </script>
+</body>
+</html>`;
+
+        return new NextResponse(html, {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
 
     } catch (err: any) {
-        console.error('[AUTH] Critical error:', err.message);
+        console.error('[AUTH] Error:', err.message);
         return NextResponse.redirect(new URL(`/${locale}/login?error=error`, req.url));
     }
 }
