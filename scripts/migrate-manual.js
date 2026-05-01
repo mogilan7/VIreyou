@@ -15,7 +15,8 @@ async function main() {
       ADD COLUMN IF NOT EXISTS "target_calories" DOUBLE PRECISION,
       ADD COLUMN IF NOT EXISTS "target_protein" DOUBLE PRECISION,
       ADD COLUMN IF NOT EXISTS "target_fat" DOUBLE PRECISION,
-      ADD COLUMN IF NOT EXISTS "target_carbs" DOUBLE PRECISION;
+      ADD COLUMN IF NOT EXISTS "target_carbs" DOUBLE PRECISION,
+      ADD COLUMN IF NOT EXISTS "telegram_username" TEXT;
     `);
     console.log('Success!');
   } catch (err) {

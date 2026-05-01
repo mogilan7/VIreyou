@@ -2,8 +2,7 @@ import React from 'react';
 import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
 import Sidebar from '@/components/dashboard/Sidebar';
-import { Users, Trophy, Flame, Share2, Plus } from 'lucide-react';
-import { getTranslations } from 'next-intl/server';
+import { Users, Trophy, Flame, Plus } from 'lucide-react';
 import SquadInviteButton from '@/components/dashboard/SquadInviteButton';
 
 export default async function SquadsPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -12,7 +11,7 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
     const { data: { user: authUser } } = await supabase.auth.getUser();
 
     if (!authUser) {
-        return <div className="p-8">Please log in</div>;
+        return <div className="p-8">Пожалуйста, авторизуйтесь</div>;
     }
 
     const user = await prisma.user.findUnique({
@@ -20,7 +19,7 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
     });
 
     if (!user) {
-         return <div className="p-8">User not found</div>;
+         return <div className="p-8">Пользователь не найден</div>;
     }
 
     // Find active squad participation
@@ -47,8 +46,8 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
 
             <main className="flex-1 lg:ml-64 px-4 md:px-8 pt-8 space-y-6 w-full max-w-4xl mx-auto min-w-0">
                 <header className="space-y-2">
-                    <h1 className="font-serif text-3xl font-bold tracking-tight">Squads</h1>
-                    <p className="text-slate-500 text-sm">Марафоны и челленджи с друзьями</p>
+                    <h1 className="font-serif text-3xl font-bold tracking-tight">Марафоны</h1>
+                    <p className="text-slate-500 text-sm">Групповые челленджи с друзьями</p>
                 </header>
 
                 {!activeSquad ? (
@@ -57,12 +56,12 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
                             <Users size={32} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold mb-2">У вас нет активного Сквада</h2>
+                            <h2 className="text-xl font-bold mb-2">У вас нет активного Марафона</h2>
                             <p className="text-slate-500 text-sm">Создайте свой 7-дневный челлендж или попросите друга прислать приглашение, чтобы соревноваться вместе!</p>
                         </div>
                         <button className="bg-[#60B76F] hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-2xl inline-flex items-center gap-2 transition-colors w-full sm:w-auto justify-center shadow-lg shadow-[#60B76F]/30">
                             <Plus size={20} />
-                            Создать Squad
+                            Создать Марафон
                         </button>
                     </section>
                 ) : (
@@ -104,11 +103,13 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
                                                     {p.user.full_name || p.user.email?.split('@')[0]}
                                                     {p.user_id === user.id && ' (Вы)'}
                                                 </p>
-                                                <p className="text-xs text-slate-500">{p.score} баллов</p>
+                                                {(p.user as any).telegram_username && (
+                                                    <p className="text-[10px] text-slate-400 -mt-0.5">@{ (p.user as any).telegram_username }</p>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="font-bold text-lg text-slate-700 dark:text-slate-300">
-                                            {p.score}
+                                            {p.score} <span className="text-xs font-normal opacity-50">баллов</span>
                                         </div>
                                     </div>
                                 ))}

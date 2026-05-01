@@ -130,6 +130,14 @@ bot.use(async (ctx: any, next) => {
     if (user) {
       ctx.state.user = user;
       ctx.state.lang = (user as any).language || 'ru';
+      
+      // Update username if changed
+      if (ctx.from?.username && (user as any).telegram_username !== ctx.from.username) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { telegram_username: ctx.from.username }
+        });
+      }
     }
   }
 
@@ -1666,6 +1674,31 @@ cron.schedule('* * * * *', async () => {
 
     if (mskTime === '03:00') {
         try {
+            // --- Update Squad Scores ---
+            console.log("[CRON] Updating Squad Scores...");
+            const { calculateDailyScore } = await import('../src/lib/squads/squadService');
+            const activeSquads = await prisma.squad.findMany({ where: { is_active: true } });
+            
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const sDay = new Date(yesterday.setHours(0, 0, 0, 0));
+            const eDay = new Date(yesterday.setHours(23, 59, 59, 999));
+
+            for (const squad of activeSquads) {
+                const squadParticipants = await prisma.squadParticipant.findMany({
+                    where: { squad_id: squad.id }
+                });
+                for (const p of squadParticipants) {
+                    const dailyScore = await calculateDailyScore(p.user_id, sDay, eDay);
+                    if (dailyScore > 0) {
+                        await prisma.squadParticipant.update({
+                            where: { id: p.id },
+                            data: { score: { increment: dailyScore } }
+                        });
+                    }
+                }
+            }
+
             const report = await generateMarathonDailyReport();
             if (report) {
                 const setting = await prisma.systemSetting.findUnique({ where: { key: 'marathon_channel_id' } });
@@ -1951,7 +1984,7 @@ export async function generateMarathonDailyReport() {
                 prisma.habitLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } })
             ]);
 
-            if (nutrition && sleep && water && activity && habits) countDiaries++;
+            if (nutrition && sleep && water && activity) countDiaries++;
 
             // 2. Water 2L
             const hydrationLogs = await prisma.hydrationLog.findMany({

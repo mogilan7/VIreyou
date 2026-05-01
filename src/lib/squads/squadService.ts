@@ -62,7 +62,8 @@ export async function getSquadLeaderboard(squadId: string) {
     participants.forEach((p: any, index: number) => {
         const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "👤";
         const name = p.user.full_name || p.user.email || "Участник";
-        leaderboardStr += `${medal} ${name} — ${p.score} баллов\n`;
+        const tgUser = p.user.telegram_username ? ` (@${p.user.telegram_username})` : "";
+        leaderboardStr += `${medal} ${name}${tgUser} — ${p.score} баллов\n`;
     });
 
     return leaderboardStr;
@@ -96,6 +97,13 @@ export async function calculateDailyScore(userId: string, dateStart: Date, dateE
         where: { user_id: userId, created_at: { gte: dateStart, lte: dateEnd } }
     });
     if (nutritionCount >= 3) dailyScore += 30;
+
+    // 4. Activity (Steps)
+    const activity = await prisma.activityLog.aggregate({
+        where: { user_id: userId, created_at: { gte: dateStart, lte: dateEnd } },
+        _sum: { steps: true }
+    });
+    if ((activity._sum.steps || 0) >= 8000) dailyScore += 10;
 
     return dailyScore;
 }
