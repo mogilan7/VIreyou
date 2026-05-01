@@ -69,8 +69,13 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                     <section className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm flex items-center justify-between">
                         <div>
                             <h3 className="font-bold text-lg flex items-center gap-2">
-                                <span className={user.role === 'PRO' ? "text-[#60B76F]" : "text-slate-700 dark:text-slate-300"}>
-                                    Активная подписка: {user.role === 'PRO' ? 'VIReyou PRO' : (user.role === 'employee' ? 'VIReyou PRO (Сотрудник)' : 'VIReyou Standard')}
+                                <span className={(user.role === 'PRO' || user.role === 'admin') ? "text-[#60B76F]" : "text-slate-700 dark:text-slate-300"}>
+                                    Активная подписка: {
+                                        user.role === 'PRO' ? 'VIReyou PRO' : 
+                                        user.role === 'admin' ? 'VIReyou PRO (Администратор)' : 
+                                        user.role === 'employee' ? 'VIReyou PRO (Сотрудник)' : 
+                                        'VIReyou Standard'
+                                    }
                                 </span>
                             </h3>
                             <p className="text-slate-500 text-sm mt-1">
