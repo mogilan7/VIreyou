@@ -2006,8 +2006,16 @@ async function generateDailyReport(userId: string, lang: string = 'ru') {
 export async function generateMarathonDailyReport() {
     console.log("[MARATHON] Generating daily report...");
     try {
+        // Fetch all unique users in active squads
+        const activeSquadParticipants = await prisma.squadParticipant.findMany({
+            where: { squad: { is_active: true } },
+            select: { user_id: true },
+            distinct: ['user_id']
+        });
+        
+        const participantIds = activeSquadParticipants.map(sp => sp.user_id);
         const participants = await prisma.user.findMany({
-            where: { is_marathon_participant: true }
+            where: { id: { in: participantIds } }
         });
 
         if (participants.length === 0) return null;
@@ -2024,13 +2032,12 @@ export async function generateMarathonDailyReport() {
         let countSteps10kActive30 = 0;
 
         const participantSummaries = await Promise.all(participants.map(async (p) => {
-            // 1. Check all 5 diaries
-            const [nutrition, sleep, water, activity, habits] = await Promise.all([
+            // 1. Check all 4 diaries (Nutrition, Sleep, Water, Activity)
+            const [nutrition, sleep, water, activity] = await Promise.all([
                 prisma.nutritionLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } }),
                 prisma.sleepLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } }),
                 prisma.hydrationLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } }),
-                prisma.activityLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } }),
-                prisma.habitLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } })
+                prisma.activityLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } })
             ]);
 
             if (nutrition && sleep && water && activity) countDiaries++;
