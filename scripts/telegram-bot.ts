@@ -1637,59 +1637,40 @@ bot.action('main_menu', async (ctx: any) => {
     await sendWelcomeMenu(ctx, user);
 });
 
-// Утреннее напоминание (Cron запускается каждый час в 00 минут)
-cron.schedule('0 * * * *', async () => {
-    console.log("[CRON] Проверка утренних напоминаний...");
-    const now = new Date();
+/**
+ * Получает список непройденных тестов для утреннего напоминания.
+ */
+async function getPendingTestsList(userId: string, lang: string): Promise<string> {
     try {
-        const users = await prisma.user.findMany({
-            where: { telegram_id: { not: null } }
+        const results = await prisma.test_results.findMany({
+            where: { user_id: userId },
+            orderBy: { created_at: 'desc' }
         });
 
-        for (const user of users) {
-             const userTz = user.timezone || 'Europe/Moscow';
-             const lang = (user as any).language || 'ru';
-             const userTime = now.toLocaleTimeString('ru-RU', { 
-                 timeZone: userTz, 
-                 hour: '2-digit', 
-                 minute: '2-digit' 
-             });
+        const aiRecs = results.filter((r: any) => r.test_type === 'ai-recommendation');
+        if (aiRecs.length === 0) return "";
 
-             if (userTime !== '09:00') continue;
+        const recommendedTests = (aiRecs[0].raw_data as any)?.recommendedTests || [];
+        if (recommendedTests.length === 0) return "";
 
-             const results = await prisma.test_results.findMany({
-                 where: { user_id: user.id },
-                 orderBy: { created_at: 'desc' }
-             });
+        const incompleteTests = recommendedTests.filter((tid: string) => {
+             const aliases = TEST_ALIASES[tid] || [tid];
+             return !results.some((r: any) => aliases.includes(r.test_type));
+        });
 
-             const aiRecs = results.filter((r: any) => r.test_type === 'ai-recommendation');
-             if (aiRecs.length === 0) continue;
+        if (incompleteTests.length === 0) return "";
 
-             const recommendedTests = (aiRecs[0].raw_data as any)?.recommendedTests || [];
-             if (recommendedTests.length === 0) continue;
-
-             const incompleteTests = recommendedTests.filter((tid: string) => {
-                  const aliases = TEST_ALIASES[tid] || [tid];
-                  return !results.some((r: any) => aliases.includes(r.test_type));
-             });
-             if (incompleteTests.length > 0) {
-                  const items = incompleteTests.map((tId: string) => {
-                      const testNameObj = TEST_NAMES[tId];
-                      const name = testNameObj ? (testNameObj[lang] || testNameObj['ru']) : tId;
-                      return `• ${name}`;
-                  }).join('\n');
-
-                  await bot.telegram.sendMessage(
-                      user.telegram_id!,
-                      t(lang, 'Reminders.morningGreeting', { name: user.full_name || (lang === 'en' ? 'Client' : 'клиент'), tests: items }),
-                      { parse_mode: 'Markdown' }
-                  );
-             }
-        }
-    } catch (error) {
-        console.error("[CRON] Ошибка утреннего напоминания:", error);
+        return incompleteTests.map((tId: string) => {
+            const testNameObj = TEST_NAMES[tId];
+            const name = testNameObj ? (testNameObj[lang] || testNameObj['ru']) : tId;
+            return `• ${name}`;
+        }).join('\n');
+    } catch (e) {
+        console.error("Error fetching pending tests:", e);
+        return "";
     }
-});
+}
+
 
 // ----------------------------------------------------
 // Вечерний Опрос (Cron в 21:00 ежедневно)
@@ -1827,20 +1808,44 @@ cron.schedule('* * * * *', async () => {
                  minute: '2-digit' 
              });
 
-             // --- Вечерний Опрос ---
+             // --- Персональные напоминания на основе настроек пользователя ---
              if (user.reminder_time1 === currentTime || 
                  user.reminder_time2 === currentTime || 
                  user.reminder_time3 === currentTime) {
                  
-                 bot.telegram.sendMessage(
-                     user.telegram_id!,
-                     t(lang, 'Reminders.eveningGreeting', { name: user.full_name || (lang === 'en' ? 'Client' : 'клиент') }),
-                     Markup.inlineKeyboard([
-                         [Markup.button.callback(lang === 'en' ? '💧 Drank 250ml' : '💧 Выпил 250мл', 'water_250')],
-                         [Markup.button.callback(lang === 'en' ? '💧 Drank 500ml' : '💧 Выпил 500мл', 'water_500')],
-                         [Markup.button.callback(t(lang, 'Habits.checkBtn'), 'habits_check')]
-                     ])
-                 );
+                 // Определяем час в таймзоне пользователя
+                 const userHour = parseInt(now.toLocaleTimeString('en-US', { 
+                     timeZone: userTz, 
+                     hour12: false, 
+                     hour: '2-digit' 
+                 }));
+
+                 if (userHour >= 5 && userHour < 12) {
+                     // УТРО: Приветствие + Список тестов
+                     const pendingTests = await getPendingTestsList(user.id, lang);
+                     const message = t(lang, 'Reminders.morningGreeting', { 
+                         name: user.full_name || (lang === 'en' ? 'Client' : 'клиент'), 
+                         tests: pendingTests || (lang === 'en' ? 'All tests completed! ✨' : 'Все тесты пройдены! ✨') 
+                     });
+                     await bot.telegram.sendMessage(user.telegram_id!, message, { parse_mode: 'Markdown' });
+                 } else {
+                     // ДЕНЬ / ВЕЧЕР: Вода + Привычки
+                     const isEvening = userHour >= 18 || userHour < 5;
+                     const message = t(lang, isEvening ? 'Reminders.eveningGreeting' : 'Reminders.morningGreeting', { 
+                         name: user.full_name || (lang === 'en' ? 'Client' : 'клиент'),
+                         tests: '' // not used in evening/afternoon generic
+                     });
+                     
+                     await bot.telegram.sendMessage(
+                         user.telegram_id!,
+                         message,
+                         Markup.inlineKeyboard([
+                             [Markup.button.callback(lang === 'en' ? '💧 Drank 250ml' : '💧 Выпил 250мл', 'water_250')],
+                             [Markup.button.callback(lang === 'en' ? '💧 Drank 500ml' : '💧 Выпил 500мл', 'water_500')],
+                             [Markup.button.callback(t(lang, 'Habits.checkBtn'), 'habits_check')]
+                         ])
+                     );
+                 }
              }
 
              // --- Периодический Отчет (11:00) ---
