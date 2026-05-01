@@ -67,13 +67,6 @@ export default async function LifestylePage({
             localizedNutrientNames[key] = t(`nutrients.${key}`);
         });
 
-        const localizedNutritionNorms: any = { ...NUTRITION_NORMS };
-        Object.keys(localizedNutritionNorms).forEach(key => {
-            const unitKey = localizedNutritionNorms[key].unit === 'г' ? 'unitGram' : 
-                          localizedNutritionNorms[key].unit === 'мг' ? 'unitMg' : 'unitMcg';
-            localizedNutritionNorms[key].unit = t(unitKey);
-        });
-
         const supabase = await createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -83,6 +76,21 @@ export default async function LifestylePage({
 
         const publicUser = await prisma.user.findUnique({ where: { email: user.email! } });
         const userId = publicUser ? publicUser.id : user.id;
+
+        // Update norms based on user targets if available
+        const currentNorms = JSON.parse(JSON.stringify(NUTRITION_NORMS));
+        if (publicUser?.target_calories) {
+            if (publicUser.target_protein) currentNorms.protein.norm = publicUser.target_protein;
+            if (publicUser.target_fat) currentNorms.fat.norm = publicUser.target_fat;
+            if (publicUser.target_carbs) currentNorms.carbs.norm = publicUser.target_carbs;
+        }
+
+        const localizedNutritionNorms: any = { ...currentNorms };
+        Object.keys(localizedNutritionNorms).forEach(key => {
+            const unitKey = localizedNutritionNorms[key].unit === 'г' ? 'unitGram' : 
+                          localizedNutritionNorms[key].unit === 'мг' ? 'unitMg' : 'unitMcg';
+            localizedNutritionNorms[key].unit = t(unitKey);
+        });
 
         const userTz = publicUser?.timezone || 'Europe/Moscow';
         
@@ -137,7 +145,10 @@ export default async function LifestylePage({
             habitsMonth,
             totalWater, lastSleep, lastActivity, totalCalories, totalSteps,
             nutritionNorms: localizedNutritionNorms,
-            nutrientNames: localizedNutrientNames
+            nutrientNames: localizedNutrientNames,
+            targetCalories: publicUser?.target_calories || 2200,
+            targetSteps: publicUser?.target_steps || 10000,
+            targetWater: publicUser?.target_water || 2000
         }
 
         return (

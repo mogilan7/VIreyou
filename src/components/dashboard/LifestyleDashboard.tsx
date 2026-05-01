@@ -52,7 +52,8 @@ const LifestyleDashboard = ({
     nutritionWeek, activityWeek, habitsWeek, sleepWeek, hydrationWeek,
     habitsMonth,
     totalWater, lastSleep, lastActivity, totalCalories, totalSteps,
-    nutritionNorms, nutrientNames
+    nutritionNorms, nutrientNames,
+    targetCalories, targetSteps, targetWater
   } = data;
 
   // Helper to get local date string yyyy-mm-dd
@@ -227,8 +228,8 @@ const LifestyleDashboard = ({
             label={t('water')} 
             value={totalWater.toLocaleString()} 
             unit={t('ml')} 
-            target="/ 2000"
-            progress={(totalWater / 2000) * 100}
+            target={`/ ${targetWater || 2000}`}
+            progress={(totalWater / (targetWater || 2000)) * 100}
             color="bg-blue-500"
             history={hydrationWeek}
             userTz={userTz}
@@ -255,8 +256,8 @@ const LifestyleDashboard = ({
             label={t('steps')} 
             value={totalSteps.toLocaleString()} 
             unit="" 
-            target="/ 10k"
-            progress={(totalSteps / 10000) * 100}
+            target={`/ ${targetSteps || 10000}`}
+            progress={(totalSteps / (targetSteps || 10000)) * 100}
             color="bg-[#60B76F]"
             history={activityWeek}
             userTz={userTz}
@@ -270,8 +271,8 @@ const LifestyleDashboard = ({
             label={t('nutrition')} 
             value={totalCalories.toLocaleString()} 
             unit={t('kcal')} 
-            target="/ 2200"
-            progress={(totalCalories / 2200) * 100}
+            target={`/ ${targetCalories || 2200}`}
+            progress={(totalCalories / (targetCalories || 2200)) * 100}
             color="bg-orange-500"
             history={nutritionWeek}
             userTz={userTz}
