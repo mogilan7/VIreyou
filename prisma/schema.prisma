@@ -569,6 +569,7 @@ model User {
   telegram_id         String?
   telegram_username   String?
   language            String?            @default("ru")
+  created_at          DateTime           @default(now())
   reminder_time1      String?            @default("21:00")
   reminder_time2      String?
   reminder_time3      String?

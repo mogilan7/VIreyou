@@ -825,47 +825,63 @@ async function sendWelcomeMenu(ctx: any, user: any) {
   const lang = ctx.state?.lang || 'ru';
   const caption = t(lang, 'Menu.caption', { name });
 
+  const isPro = user.subscription_expires_at && new Date(user.subscription_expires_at) > new Date();
+  const createdDate = user.created_at ? new Date(user.created_at) : new Date();
+  const daysSinceCreated = (new Date().getTime() - createdDate.getTime()) / (1000 * 3600 * 24);
+  const isTrial = daysSinceCreated <= 3;
+
+  const dashboardUrl = lang === 'en' ? 'https://vireyou.com/en/cabinet/lifestyle' : 'https://vireyou.com/ru/cabinet/lifestyle';
+  
+  const menuButtons = [
+      [Markup.button.callback(t(lang, 'Menu.nutrition'), 'menu_nutrition')],
+      [Markup.button.callback(t(lang, 'Menu.activity'), 'menu_activity')],
+      [Markup.button.callback(t(lang, 'Menu.sleep'), 'menu_sleep')],
+      [Markup.button.callback(t(lang, 'Menu.water'), 'menu_water')],
+      [Markup.button.callback(t(lang, 'Menu.habits'), 'menu_habits')]
+  ];
+
+  if (isPro || isTrial) {
+      menuButtons.push([Markup.button.callback('✨ PRO', 'menu_pro')]);
+  }
+
+  menuButtons.push([Markup.button.webApp(t(lang, 'Menu.dashboard'), dashboardUrl)]);
+  menuButtons.push([Markup.button.callback(t(lang, 'Menu.settings'), 'menu_settings')]);
+
   try {
       if (fs.existsSync(imagePath)) {
           await ctx.replyWithPhoto({ source: fs.createReadStream(imagePath) }, {
               caption: caption,
               parse_mode: 'Markdown',
-              ...Markup.inlineKeyboard([
-                  [Markup.button.callback(t(lang, 'Menu.recommendations'), 'menu_checklist')],
-                  [Markup.button.callback(t(lang, 'Menu.nutrition'), 'menu_nutrition')],
-                  [Markup.button.callback(t(lang, 'Menu.activity'), 'menu_activity')],
-                  [Markup.button.callback(t(lang, 'Menu.sleep'), 'menu_sleep')],
-                  [Markup.button.callback(t(lang, 'Menu.water'), 'menu_water')],
-                  [Markup.button.callback(t(lang, 'Menu.habits'), 'menu_habits')],
-                  [Markup.button.callback(lang === 'en' ? '👥 My Squad' : '👥 Мой Squad', 'menu_my_squad')],
-                  [Markup.button.callback(lang === 'en' ? '🛒 Shop Assistant' : '🛒 Помощник в магазине', 'menu_shop_assistant')],
-                  [Markup.button.callback(lang === 'en' ? '🍽️ What to eat next?' : '🍽️ Что съесть дальше?', 'menu_what_to_eat')],
-                  [Markup.button.webApp(t(lang, 'Menu.dashboard'), lang === 'en' ? 'https://vireyou.com/en/cabinet/lifestyle' : 'https://vireyou.com/ru/cabinet/lifestyle')],
-                  [Markup.button.callback(t(lang, 'Menu.settings'), 'menu_settings')]
-              ])
+              ...Markup.inlineKeyboard(menuButtons)
           });
       } else {
            await ctx.reply(caption, {
               parse_mode: 'Markdown',
-              ...Markup.inlineKeyboard([
-                  [Markup.button.callback(t(lang, 'Menu.recommendations'), 'menu_checklist')],
-                  [Markup.button.callback(t(lang, 'Menu.nutrition'), 'menu_nutrition')],
-                  [Markup.button.callback(t(lang, 'Menu.activity'), 'menu_activity')],
-                  [Markup.button.callback(t(lang, 'Menu.sleep'), 'menu_sleep')],
-                  [Markup.button.callback(t(lang, 'Menu.water'), 'menu_water')],
-                  [Markup.button.callback(t(lang, 'Menu.habits'), 'menu_habits')],
-                  [Markup.button.callback(lang === 'en' ? '👥 My Squad' : '👥 Мой Squad', 'menu_my_squad')],
-                  [Markup.button.callback(lang === 'en' ? '🛒 Shop Assistant' : '🛒 Помощник в магазине', 'menu_shop_assistant')],
-                  [Markup.button.callback(lang === 'en' ? '🍽️ What to eat next?' : '🍽️ Что съесть дальше?', 'menu_what_to_eat')],
-                  [Markup.button.webApp(t(lang, 'Menu.dashboard'), lang === 'en' ? 'https://vireyou.com/en/cabinet/lifestyle' : 'https://vireyou.com/ru/cabinet/lifestyle')],
-                  [Markup.button.callback(t(lang, 'Menu.settings'), 'menu_settings')]
-              ])
+              ...Markup.inlineKeyboard(menuButtons)
           });
       }
   } catch (err) {
       console.error("Send Menu error:", err);
   }
 }
+
+bot.action('menu_pro', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const lang = ctx.state.lang || 'ru';
+    await ctx.reply(lang === 'en' ? '🌟 PRO Functions' : '🌟 Функции PRO', 
+        Markup.inlineKeyboard([
+            [Markup.button.callback(lang === 'en' ? '👥 My Marathon' : '👥 Мой Марафон', 'menu_my_squad')],
+            [Markup.button.callback(lang === 'en' ? '🛒 Shop Assistant' : '🛒 Помощник в магазине', 'menu_shop_assistant')],
+            [Markup.button.callback(lang === 'en' ? '🍽️ What to eat next?' : '🍽️ Что съесть дальше?', 'menu_what_to_eat')],
+            [Markup.button.callback(lang === 'en' ? '⬅️ Back' : '⬅️ Назад', 'menu_main')]
+        ])
+    );
+});
+
+bot.action('menu_main', async (ctx: any) => {
+    ctx.answerCbQuery();
+    await sendWelcomeMenu(ctx, ctx.state.user);
+});
 
 /**
  * Сохраняет расширенные данные о питании в базу данных.
