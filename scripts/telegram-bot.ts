@@ -6,6 +6,7 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import cron from "node-cron";
+import jwt from "jsonwebtoken";
 
 if (process.env.DATABASE_URL) {
   process.env.DATABASE_URL = process.env.DATABASE_URL + (process.env.DATABASE_URL.includes('?') ? '&' : '?') + 'connection_limit=30&pool_timeout=40';
@@ -830,8 +831,10 @@ async function sendWelcomeMenu(ctx: any, user: any) {
   const daysSinceCreated = (new Date().getTime() - createdDate.getTime()) / (1000 * 3600 * 24);
   const isTrial = daysSinceCreated <= 3;
 
-  const dashboardUrl = lang === 'en' ? 'https://vireyou.com/en/cabinet/lifestyle' : 'https://vireyou.com/ru/cabinet/lifestyle';
-  
+  const secret = process.env.JWT_SECRET || process.env.YOOKASSA_SECRET_KEY || 'default_secret';
+  const token = jwt.sign({ email: user.email }, secret, { expiresIn: '5m' });
+  const dashboardUrl = `https://vireyou.com/api/auth/telegram-login?token=${token}&locale=${lang}`;
+
   const menuButtons: any[][] = [
       [Markup.button.callback(t(lang, 'Menu.nutrition'), 'menu_nutrition')],
       [Markup.button.callback(t(lang, 'Menu.activity'), 'menu_activity')],
