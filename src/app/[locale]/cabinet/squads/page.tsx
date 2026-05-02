@@ -152,13 +152,3 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
         </div>
     );
 }
-                    Баллы начисляются автоматически каждый день за выполнение норм сна, воды и ведение дневника питания.
-                            </p>
-                        </section>
-                    </>
-                )}
-
-            </main>
-        </div>
-    );
-}
