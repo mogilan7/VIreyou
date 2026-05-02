@@ -79,6 +79,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
         { name: t('cArch'), href: "/cabinet/archive", icon: <FileText size={18} /> },
         { name: t('cAssgn'), href: "/cabinet/lifestyle", icon: <Heart size={18} /> },
         { name: t('cCons'), href: "/cabinet/consultations", icon: <MessageSquare size={18} /> },
+        { name: t('cSquads'), href: "/cabinet/squads", icon: <Users size={18} /> },
         { name: t('cProf'), href: "/cabinet/profile", icon: <Settings size={18} /> },
     ];
 
