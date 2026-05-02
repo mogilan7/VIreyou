@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import Sidebar from '@/components/dashboard/Sidebar';
 import { Users, Trophy, Flame, Plus } from 'lucide-react';
 import SquadInviteButton from '@/components/dashboard/SquadInviteButton';
+import { CreateSquadButton, RemoveParticipantButton } from '@/components/dashboard/SquadActions';
 
 export default async function SquadsPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
