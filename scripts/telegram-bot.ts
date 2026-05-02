@@ -1387,31 +1387,119 @@ bot.action('menu_my_squad', async (ctx: any) => {
     const lang = ctx.state.lang || 'ru';
     
     try {
-        const { getSquadLeaderboard } = await import('../src/lib/squads/squadService');
-        
-        // Find if user is in an active squad
-        const participant = await prisma.squadParticipant.findFirst({
-            where: { user_id: user.id },
-            include: { squad: true },
-            orderBy: { joined_at: 'desc' }
+        const participations = await prisma.squadParticipant.findMany({
+            where: { user_id: user.id, squad: { is_active: true } },
+            include: { squad: true }
         });
+
+        const buttons = participations.map(p => [
+            Markup.button.callback(`${p.squad.name}`, `view_squad_${p.squad.id}`)
+        ]);
         
-        if (participant && participant.squad.is_active) {
-            const leaderboard = await getSquadLeaderboard(participant.squad_id);
-            const inviteLink = `https://t.me/vireyou_bot?start=sq_${participant.squad_id}`;
-            await ctx.reply(`${leaderboard}\n\n🔗 Пригласить друзей: <code>${inviteLink}</code>`, { parse_mode: 'HTML' });
-        } else {
-            await ctx.reply(lang === 'en' 
-                ? "You don't have an active Squad. Do you want to create one?" 
-                : "У вас нет активного марафона (Сквада). Хотите создать?",
-                Markup.inlineKeyboard([
-                    [Markup.button.callback(lang === 'en' ? "➕ Create Squad" : "➕ Создать Сквад", 'create_squad')]
-                ])
-            );
-        }
+        buttons.push([Markup.button.callback(lang === 'en' ? "➕ Create New Squad" : "➕ Создать новый Сквад", 'create_squad')]);
+
+        const text = lang === 'en' 
+            ? "👥 **Your Active Squads:**\nSelect a squad to view results or manage participants."
+            : "👥 **Ваши активные Марафоны:**\nВыберите группу, чтобы посмотреть результаты или управлять участниками.";
+
+        await ctx.reply(text, {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard(buttons)
+        });
     } catch (e) {
         console.error(e);
-        await ctx.reply(lang === 'en' ? "Error loading squad." : "Ошибка загрузки сквада.");
+        await ctx.reply(lang === 'en' ? "Error loading squads." : "Ошибка загрузки сквадов.");
+    }
+});
+
+bot.action(/^view_squad_(.+)$/, async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    const squadId = ctx.match[1];
+    const lang = ctx.state.lang || 'ru';
+
+    try {
+        const { getSquadLeaderboard } = await import('../src/lib/squads/squadService');
+        const squad = await prisma.squad.findUnique({ where: { id: squadId } });
+        if (!squad || !squad.is_active) return ctx.reply(lang === 'en' ? "Squad not found." : "Марафон не найден.");
+
+        const leaderboard = await getSquadLeaderboard(squadId);
+        const inviteLink = `https://t.me/vireyou_bot?start=sq_${squadId}`;
+        
+        const buttons = [];
+        if (squad.creator_id === user.id) {
+            buttons.push([Markup.button.callback(lang === 'en' ? "⚙️ Manage Participants" : "⚙️ Управление участниками", `manage_squad_${squadId}`)]);
+        }
+        buttons.push([Markup.button.callback(lang === 'en' ? "⬅️ Back to list" : "⬅️ К списку марафонов", 'menu_my_squad')]);
+
+        await ctx.reply(`${leaderboard}\n\n🔗 ${lang === 'en' ? 'Invite link' : 'Пригласить друзей'}: <code>${inviteLink}</code>`, { 
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard(buttons)
+        });
+    } catch (e) {
+        console.error(e);
+        ctx.reply(lang === 'en' ? "Error." : "Ошибка.");
+    }
+});
+
+bot.action(/^manage_squad_(.+)$/, async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    const squadId = ctx.match[1];
+    const lang = ctx.state.lang || 'ru';
+
+    try {
+        const squad = await prisma.squad.findUnique({ where: { id: squadId } });
+        if (!squad || squad.creator_id !== user.id) return ctx.reply("Denied.");
+
+        const participants = await prisma.squadParticipant.findMany({
+            where: { squad_id: squadId },
+            include: { user: true }
+        });
+
+        const buttons = participants
+            .filter(p => p.user_id !== user.id) // Cannot remove self (creator)
+            .map(p => [
+                Markup.button.callback(`❌ ${p.user.full_name || p.user.email || 'User'}`, `rem_p_${squadId}_${p.user_id}`)
+            ]);
+        
+        buttons.push([Markup.button.callback(lang === 'en' ? "⬅️ Back" : "⬅️ Назад", `view_squad_${squadId}`)]);
+
+        await ctx.reply(lang === 'en' ? "Select a participant to remove:" : "Выберите участника для удаления:", 
+            Markup.inlineKeyboard(buttons));
+    } catch (e) {
+        console.error(e);
+        ctx.reply("Error.");
+    }
+});
+
+bot.action(/^rem_p_(.+)_(.+)$/, async (ctx: any) => {
+    const squadId = ctx.match[1];
+    const userIdToRemove = ctx.match[2];
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+
+    try {
+        const { removeParticipant } = await import('../src/lib/squads/squadService');
+        await removeParticipant(squadId, userIdToRemove, user.id);
+        
+        ctx.answerCbQuery(lang === 'en' ? "Participant removed." : "Участник удален.");
+        // Refresh management list
+        const squad = await prisma.squad.findUnique({ where: { id: squadId } });
+        const participants = await prisma.squadParticipant.findMany({
+            where: { squad_id: squadId },
+            include: { user: true }
+        });
+        const buttons = participants
+            .filter(p => p.user_id !== user.id)
+            .map(p => [Markup.button.callback(`❌ ${p.user.full_name || p.user.email || 'User'}`, `rem_p_${squadId}_${p.user_id}`)]);
+        buttons.push([Markup.button.callback(lang === 'en' ? "⬅️ Back" : "⬅️ Назад", `view_squad_${squadId}`)]);
+        
+        await ctx.editMessageText(lang === 'en' ? "Select a participant to remove:" : "Выберите участника для удаления:", 
+            Markup.inlineKeyboard(buttons));
+    } catch (e) {
+        console.error(e);
+        ctx.answerCbQuery("Error: " + e.message);
     }
 });
 
@@ -1423,14 +1511,17 @@ bot.action('create_squad', async (ctx: any) => {
 
     try {
         const { createSquad } = await import('../src/lib/squads/squadService');
-        const squadName = `Squad of ${user.full_name || 'User'}`;
-        const newSquad = await createSquad(user.id, squadName);
         
+        // Count existing squads to name it properly
+        const squadCount = await prisma.squad.count({ where: { creator_id: user.id } });
+        const squadName = lang === 'en' ? `Squad #${squadCount + 1} of ${user.full_name || 'User'}` : `Марафон #${squadCount + 1} (${user.full_name || 'User'})`;
+        
+        const newSquad = await createSquad(user.id, squadName);
         const inviteLink = `https://t.me/vireyou_bot?start=sq_${newSquad.id}`;
         
         await ctx.reply(lang === 'en' 
-            ? `✅ Squad created!\n\nInvite link:\n<code>${inviteLink}</code>` 
-            : `✅ Марафон успешно создан!\n\nОтправьте эту ссылку друзьям:\n<code>${inviteLink}</code>`, 
+            ? `✅ Squad "${squadName}" created!\n\nInvite link:\n<code>${inviteLink}</code>` 
+            : `✅ Марафон "${squadName}" успешно создан!\n\nОтправьте эту ссылку друзьям:\n<code>${inviteLink}</code>`, 
             { parse_mode: 'HTML' });
             
     } catch (e) {
@@ -1438,6 +1529,7 @@ bot.action('create_squad', async (ctx: any) => {
         await ctx.reply(lang === 'en' ? "Failed to create." : "Ошибка создания.");
     }
 });
+
 
 const TEST_NAMES: Record<string, Record<string, string>> = {
     'systemic-bio-age': { ru: 'Системный Биовозраст', en: 'Systemic Biological Age' },
@@ -1730,7 +1822,7 @@ cron.schedule('* * * * *', async () => {
                         const name = p.user.full_name || 'друг';
                         
                         // Generate group summary report personalized for this user
-                        const groupSummary = await generateMarathonDailyReport(name);
+                        const groupSummary = await generateMarathonDailyReport(name, squad.id);
 
                         if (groupSummary) {
                             let msg = groupSummary;
@@ -2019,53 +2111,105 @@ async function generateDailyReport(userId: string, lang: string = 'ru') {
         }
     });
 
+    if (logs.length === 0) {
+        return t(lang, 'Nutrition.noDataToday');
+    }
+
     const dateStr = today.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU');
-    let report = t(lang, 'Nutrition.reportTitle', { date: dateStr });
-    let hasData = false;
+    
+    // Определение групп нутриентов
+    const groups = {
+        min: ['trans_fat', 'sugar_fast', 'sodium'],
+        balance: ['vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K', 'fat', 'calcium', 'iron', 'zinc', 'selenium', 'iodine', 'phosphorus'],
+        max: ['protein', 'fiber', 'omega_3', 'potassium', 'magnesium', 'vitamin_C', 'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B5', 'vitamin_B6', 'vitamin_B7', 'vitamin_B9', 'vitamin_B12', 'carbs', 'cholesterol', 'omega_6', 'copper', 'manganese']
+    };
 
-    // Считаем КБЖУ отдельно
-    const kbtu: any = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
-    logs.forEach((log: any) => {
-        kbtu.calories += Number(log.calories || 0);
-        kbtu.protein += Number(log.protein || 0);
-        kbtu.carbs += Number(log.carbs || 0);
-        kbtu.fat += Number(log.fat || 0);
-        kbtu.fiber += Number(log.fiber || 0);
-    });
-
-    if (logs.length > 0) hasData = true;
-
-    report += t(lang, 'Nutrition.calLine', { cal: kbtu.calories.toFixed(1) });
+    const growthZones: string[] = [];
+    const wellDone: string[] = [];
+    const neededForRec: string[] = [];
 
     for (const [key, config] of Object.entries(NUTRITION_NORMS) as any) {
         const pct = (sum[key] / config.norm) * 100;
-        let emoji = '🔴';
-        if (pct >= 80) emoji = '🟢';
-        else if (pct >= 50) emoji = '🟡';
+        const name = (lang === 'en' ? (key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')) : (NUTRIENT_NAMES[key] || key));
         
-        const nutrientName = lang === 'en' ? 
-            (key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')) : 
-            (NUTRIENT_NAMES[key] || key);
+        let emoji = '🟢';
+        let status: 'ideal' | 'limit' | 'danger' | 'excess' | 'deficiency' | 'low' = 'ideal';
 
-        report += `${emoji} **${nutrientName}**: ${sum[key].toFixed(1)} / ${config.norm} ${config.unit} (${pct.toFixed(0)}%)\n`;
+        if (groups.min.includes(key)) {
+            if (pct <= 50) { emoji = '🟢'; status = 'ideal'; }
+            else if (pct <= 100) { emoji = '🟡'; status = 'limit'; }
+            else { emoji = '🔴'; status = 'danger'; }
+        } else if (groups.balance.includes(key)) {
+            if (pct >= 80 && pct <= 115) { emoji = '🟢'; status = 'ideal'; }
+            else if (pct < 80) { emoji = '🔴'; status = 'deficiency'; }
+            else { emoji = '🟡'; status = 'excess'; }
+        } else {
+            // Group Max
+            if (pct >= 85) { emoji = '🟢'; status = 'ideal'; }
+            else { emoji = '🟡'; status = 'low'; }
+        }
+
+        const line = `${emoji} **${name}**: ${pct.toFixed(0)}%`;
+        
+        if (emoji === '🟢') {
+            wellDone.push(line);
+        } else {
+            growthZones.push(line);
+            if (status === 'deficiency' || status === 'low' || status === 'danger') {
+                neededForRec.push(name);
+            }
+        }
     }
 
-    if (!hasData) {
-        report += t(lang, 'Nutrition.noDataToday');
+    let report = `📊 **Отчет за ${dateStr}**\n\n`;
+
+    if (growthZones.length > 0) {
+        report += `📉 **Зоны роста (Дефициты и Переборы)**:\n${growthZones.join('\n')}\n\n`;
+    }
+
+    if (wellDone.length > 0) {
+        report += `🌟 **Ты молодец!**:\n${wellDone.join('\n')}\n\n`;
+    }
+
+    // Блок 3: Рекомендация
+    const foodRecommendations: Record<string, string> = {
+        'Белки': 'куриную грудку, яйца или творог',
+        'Клетчатка': 'овощной салат или отруби',
+        'Омега-3': 'жирную рыбу или семена льна',
+        'Калий': 'банан или запеченный картофель',
+        'Магний': 'тыквенные семечки или горький шоколад',
+        'Железо': 'говяжью печень или чечевицу',
+        'Кальций': 'кунжут или сыр',
+        'Витамин С': 'болгарский перец или киви',
+        'Трансжиры': 'избегайте фастфуда и выпечки',
+        'Простые углеводы': 'сократите сладости и газировку',
+        'Натрий': 'используйте меньше соли'
+    };
+
+    if (neededForRec.length > 0) {
+        const selected = neededForRec.slice(0, 2);
+        const foods = selected.map(n => foodRecommendations[n] || 'разнообразные овощи и белок').join(' и ');
+        report += `💡 **Рекомендация**: Завтра добавьте в рацион **${foods}**, чтобы исправить баланс.`;
+    } else {
+        report += `💡 **Рекомендация**: Рацион идеально сбалансирован! Продолжайте в том же духе.`;
     }
 
     return report;
 }
 
+
+
+
 /**
  * Генерирует анонимный отчет по марафону для канала.
  */
-export async function generateMarathonDailyReport(name?: string) {
-    console.log("[MARATHON] Generating daily report...");
+export async function generateMarathonDailyReport(name?: string, squadId?: string) {
+    console.log(`[MARATHON] Generating daily report for squad: ${squadId || 'ALL'}...`);
     try {
-        // Fetch all unique users in active squads
         const activeSquadParticipants = await prisma.squadParticipant.findMany({
-            where: { squad: { is_active: true } },
+            where: squadId 
+                ? { squad_id: squadId } 
+                : { squad: { is_active: true } },
             select: { user_id: true },
             distinct: ['user_id']
         });
@@ -2089,7 +2233,6 @@ export async function generateMarathonDailyReport(name?: string) {
         let countSteps10kActive30 = 0;
 
         const participantSummaries = await Promise.all(participants.map(async (p) => {
-            // 1. Check all 4 diaries (Nutrition, Sleep, Water, Activity)
             const [nutrition, sleep, water, activity] = await Promise.all([
                 prisma.nutritionLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } }),
                 prisma.sleepLog.findFirst({ where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } } }),
@@ -2099,22 +2242,18 @@ export async function generateMarathonDailyReport(name?: string) {
 
             if (nutrition && sleep && water && activity) countDiaries++;
 
-            // 2. Water 2L
             const hydrationLogs = await prisma.hydrationLog.findMany({
                 where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } }
             });
             const totalWater = hydrationLogs.reduce((s, l) => s + l.volume_ml, 0);
             if (totalWater >= 2000) countWater2L++;
 
-            // 3. Sleep 7-8h
             const sleepLogs = await prisma.sleepLog.findMany({
                 where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } }
             });
-            // Берем либо среднее, либо максимальное. Пользователь обычно присылает один лог утром за прошлую ночь.
             const totalSleep = sleepLogs.reduce((s, l) => s + (l.duration_hrs || 0), 0);
             if (totalSleep >= 7 && totalSleep <= 8) countSleep7_8++;
 
-            // 4. Steps 10k + Active 30m
             const activityLogs = await prisma.activityLog.findMany({
                 where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } }
             });
@@ -2122,7 +2261,6 @@ export async function generateMarathonDailyReport(name?: string) {
             const totalActive = activityLogs.reduce((s, l) => s + (l.active_minutes || 0), 0);
             if (totalSteps >= 10000 && totalActive >= 30) countSteps10kActive30++;
 
-            // 5. Nutrients (for deficiencies calculation)
             const nutritionLogs = await prisma.nutritionLog.findMany({
                 where: { user_id: p.id, created_at: { gte: startOfDay, lte: endOfDay } }
             });
@@ -2133,45 +2271,67 @@ export async function generateMarathonDailyReport(name?: string) {
             return nutSum;
         }));
 
-        // Nutrient deficiency calculation (existing logic)
-        const avgScores: { key: string, name: string, pct: number }[] = [];
+        const groups = {
+            min: ['trans_fat', 'sugar_fast', 'sodium'],
+            balance: ['vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K', 'fat', 'calcium', 'iron', 'zinc', 'selenium', 'iodine', 'phosphorus'],
+            max: ['protein', 'fiber', 'omega_3', 'potassium', 'magnesium', 'vitamin_C', 'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B5', 'vitamin_B6', 'vitamin_B7', 'vitamin_B9', 'vitamin_B12']
+        };
+
+        const growthZones: string[] = [];
+        const wellDone: string[] = [];
+
         for (const [key, config] of Object.entries(NUTRITION_NORMS) as any) {
             const totalSum = participantSummaries.reduce((s, pSum) => s + (pSum[key] || 0), 0);
             const avgVal = totalSum / participants.length;
             const pct = (avgVal / config.norm) * 100;
-            avgScores.push({
-                key,
-                name: (ruMessages as any).Bot?.NUTRIENT_NAMES?.[key] || (NUTRIENT_NAMES as any)[key] || key,
-                pct: Math.min(pct, 200)
-            });
-        }
-        avgScores.sort((a, b) => a.pct - b.pct);
-        const top5Deficiencies = avgScores.slice(0, 5);
+            const name = (ruMessages as any).Bot?.NUTRIENT_NAMES?.[key] || (NUTRIENT_NAMES as any)[key] || key;
+            
+            let emoji = '🟢';
+            if (groups.min.includes(key)) {
+                if (pct <= 50) emoji = '🟢';
+                else if (pct <= 100) emoji = '🟡';
+                else emoji = '🔴';
+            } else if (groups.balance.includes(key)) {
+                if (pct >= 80 && pct <= 115) emoji = '🟢';
+                else if (pct < 80) emoji = '🔴';
+                else emoji = '🟡';
+            } else if (groups.max.includes(key)) {
+                if (pct >= 85) emoji = '🟢';
+                else emoji = '🟡';
+            } else {
+                continue; 
+            }
 
-        const lang: string = 'ru'; // Default to ru for group summary
+            const line = `${emoji} **${name}**: ~${pct.toFixed(0)}%`;
+            if (emoji === '🟢') wellDone.push(line);
+            else growthZones.push(line);
+        }
+
+        const lang: string = 'ru'; 
         const dateStr = yest.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU');
         let report = name 
-            ? (lang === 'en' ? `📊 **Marathon results for ${dateStr} for ${name}** 🚀\n\n` : `📊 **${name}, вот итоги марафона за ${dateStr}** 🚀\n\nВчера наши участники показали отличные результаты! Вот статистика по группе:`)
-            : t(lang, 'Marathon.reportHeader', { date: dateStr });
+            ? `📊 **${name}, вот итоги марафона за ${dateStr}** 🚀\n\n`
+            : `📊 **Итоги марафона за ${dateStr}** 🚀\n\nВчера наши участники показали отличные результаты! Вот статистика по группе:\n\n`;
 
-        report += "\n";
+        report += `✅ **Активность и дисциплина**:\n`;
+        report += `- Заполнили все 4 дневника: ${countDiaries} чел.\n`;
+        report += `- Прошли 10,000 шагов + 30 мин активности: ${countSteps10kActive30} чел. 🏃‍♂️\n\n`;
         
-        // Add new metrics
-        report += t(lang, 'Marathon.metricDiaries', { count: countDiaries }) + "\n";
-        report += t(lang, 'Marathon.metricActivity', { count: countSteps10kActive30 }) + "\n";
-        report += t(lang, 'Marathon.metricWater', { count: countWater2L }) + "\n";
-        report += t(lang, 'Marathon.metricSleep', { count: countSleep7_8 }) + "\n";
+        report += `💧 **Гидратация**:\n`;
+        report += `- Выпили норму в 2 литра воды: ${countWater2L} чел. 🥤\n\n`;
+        
+        report += `🛌 **Сон**:\n`;
+        report += `- Качественно отдохнули (7-8 часов): ${countSleep7_8} чел. 😴\n\n`;
 
-        // Add deficiencies
-        report += t('ru', 'Marathon.topDeficiencies');
-        top5Deficiencies.forEach((item, index) => {
-            let emoji = '🔴';
-            if (item.pct >= 50) emoji = '🟡';
-            if (item.pct >= 80) emoji = '🟢';
-            report += `${index + 1}. ${emoji} **${item.name}**: ~${item.pct.toFixed(0)}% от нормы\n`;
-        });
+        if (growthZones.length > 0) {
+            report += `📉 **Зоны роста группы** (Дефициты и переборы):\n${growthZones.slice(0, 5).join('\n')}\n\n`;
+        }
+        
+        if (wellDone.length > 0) {
+            report += `🌟 **Общие успехи**:\n${wellDone.slice(0, 5).join('\n')}\n\n`;
+        }
 
-        report += t('ru', 'Marathon.reportFooter');
+        report += `💡 **Рекомендация группе**: Обратите внимание на продукты из зон роста, чтобы завтра результаты были еще лучше!`;
 
         return report;
     } catch (error) {
@@ -2179,6 +2339,10 @@ export async function generateMarathonDailyReport(name?: string) {
         return null;
     }
 }
+
+
+
+
 
 bot.action('menu_nutrition', async (ctx: any) => {
     ctx.answerCbQuery();

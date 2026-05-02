@@ -130,3 +130,29 @@ export async function calculateDailyScore(userId: string, dateStart: Date, dateE
 
     return { score: dailyScore, details };
 }
+
+/**
+ * Removes a participant from a Squad. Only the creator can do this.
+ */
+export async function removeParticipant(squadId: string, userIdToRemove: string, requesterId: string) {
+    const squad = await prisma.squad.findUnique({ where: { id: squadId } });
+    if (!squad) throw new Error("Squad not found.");
+    if (squad.creator_id !== requesterId) throw new Error("Only the creator can remove participants.");
+    if (userIdToRemove === squad.creator_id) throw new Error("The creator cannot be removed from their own squad.");
+
+    await prisma.squadParticipant.delete({
+        where: { squad_id_user_id: { squad_id: squadId, user_id: userIdToRemove } }
+    });
+    return true;
+}
+
+/**
+ * Gets all participants of a squad with their names.
+ */
+export async function getSquadParticipants(squadId: string) {
+    return await prisma.squadParticipant.findMany({
+        where: { squad_id: squadId },
+        include: { user: true }
+    });
+}
+

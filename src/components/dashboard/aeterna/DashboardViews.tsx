@@ -829,9 +829,12 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                 </div>
                             </div>
 
-                            {/* Питание */}
+                             {/* Питание */}
                             <div className="dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl p-6 shadow-md transition-colors duration-300">
-                                <h3 className="font-semibold dark:text-slate-300 text-brand-text mb-6">Цели и Нутриенты</h3>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="font-semibold dark:text-slate-300 text-brand-text">Цели и Нутриенты</h3>
+                                    <span className="text-[10px] opacity-40 uppercase tracking-widest">Сегодня</span>
+                                </div>
                                 
                                 {user?.target_calories ? (
                                     <div className="space-y-6">
@@ -863,70 +866,106 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                                 <p className="text-lg font-bold text-center">{user.target_carbs}г</p>
                                             </div>
                                         </div>
-
-                                        <div className="pt-4 border-t dark:border-white/5 border-brand-sage/30">
-                                            <div className="flex justify-between text-xs mb-2">
-                                                <span className="opacity-60">Нутрицевтическая плотность</span>
-                                                <span className="font-medium">{healthData?.nutrient_density_pct || 92}%</span>
-                                            </div>
-                                            <div className="w-full h-1.5 dark:bg-slate-700 bg-brand-sage/20 rounded-full">
-                                                <div className={`h-full ${accentBg}`} style={{ width: `${healthData?.nutrient_density_pct || 92}%` }}></div>
-                                            </div>
-                                        </div>
                                     </div>
                                 ) : (
-                                    <>
-                                        <div className="flex justify-around items-center mb-8">
-                                            <div className="relative w-32 h-32 flex items-center justify-center">
-                                                <svg className="w-full h-full transform -rotate-90">
-                                                    <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" className="dark:text-slate-700 text-brand-sage/20" />
-                                                    <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray="364.4" strokeDashoffset="120" className={theme === 'dark' ? 'text-teal-400' : 'text-brand-leaf'} />
-                                                </svg>
-                                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                                    <span className="text-xs opacity-50">Окно</span>
-                                                    <span className="text-xl font-bold">16:8</span>
-                                                </div>
-                                            </div>
-                                            <div className="text-sm space-y-2">
-                                                <p className="flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${accentBg}`}></span> Фаза голодания: 11:20</p>
-                                                <p className="text-xs opacity-40">Окно: {healthData?.fasting_window || "16:8"}</p>
+                                    <div className="flex justify-around items-center mb-6">
+                                        <div className="relative w-28 h-28 flex items-center justify-center">
+                                            <svg className="w-full h-full transform -rotate-90">
+                                                <circle cx="56" cy="56" r="50" stroke="currentColor" strokeWidth="6" fill="transparent" className="dark:text-slate-700 text-brand-sage/20" />
+                                                <circle cx="56" cy="56" r="50" stroke="currentColor" strokeWidth="6" fill="transparent" strokeDasharray="314" strokeDashoffset="100" className={theme === 'dark' ? 'text-teal-400' : 'text-brand-leaf'} />
+                                            </svg>
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                                <span className="text-[10px] opacity-50">Окно</span>
+                                                <span className="text-lg font-bold">16:8</span>
                                             </div>
                                         </div>
-
-                                        <div className="space-y-4">
-                                            <div>
-                                                <div className="flex justify-between text-xs mb-1">
-                                                    <span className="opacity-60">Нутрицевтическая плотность</span>
-                                                    <span className="font-medium">{healthData?.nutrient_density_pct || 92}%</span>
-                                                </div>
-                                                <div className="w-full h-1.5 dark:bg-slate-700 bg-brand-sage/20 rounded-full">
-                                                    <div className={`h-full ${accentBg}`} style={{ width: `${healthData?.nutrient_density_pct || 92}%` }}></div>
-                                                </div>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <div className="flex justify-between text-[10px] mb-1 opacity-50">
-                                                        <span>ИНДЕКС САХАРА</span>
-                                                        <span>LOW</span>
-                                                    </div>
-                                                    <div className="w-full h-1 dark:bg-slate-700 bg-brand-sage/20 rounded-full">
-                                                        <div className={`h-full ${accentBg} w-[30%]`}></div>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="flex justify-between text-[10px] mb-1 opacity-50">
-                                                        <span>КЛЕТЧАТКА</span>
-                                                        <span>32g</span>
-                                                    </div>
-                                                    <div className="w-full h-1 dark:bg-slate-700 bg-brand-sage/20 rounded-full">
-                                                        <div className={`h-full ${accentBg} w-[85%]`}></div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        <div className="text-xs space-y-2">
+                                            <p className="flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${accentBg}`}></span> Фаза голодания</p>
+                                            <p className="text-[10px] opacity-40">Начало: 20:00</p>
                                         </div>
-                                    </>
+                                    </div>
                                 )}
+
+                                {/* Новая секция сбалансированности нутриентов */}
+                                <div className="mt-6 pt-6 border-t dark:border-white/5 border-brand-sage/30 space-y-4">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h4 className="text-xs font-bold uppercase tracking-widest opacity-60">Баланс нутриентов</h4>
+                                        <span className="text-[9px] px-2 py-0.5 bg-brand-sage/10 rounded italic">Traffic Light System</span>
+                                    </div>
+
+                                    {(() => {
+                                        // Logic consistent with the bot
+                                        const norms: any = {
+                                            calories: { norm: 2300, group: 'max' },
+                                            protein: { norm: 100, group: 'max' },
+                                            fat: { norm: 70, group: 'balance' },
+                                            fiber: { norm: 30, group: 'max' },
+                                            sugar_fast: { norm: 40, group: 'min' },
+                                            trans_fat: { norm: 2, group: 'min' },
+                                            omega_3: { norm: 1.5, group: 'max' },
+                                            sodium: { norm: 2300, group: 'min' },
+                                            vitamin_D: { norm: 20, group: 'balance' },
+                                            magnesium: { norm: 400, group: 'max' }
+                                        };
+
+                                        // Names map
+                                        const names: any = {
+                                            calories: 'Калории',
+                                            protein: 'Белки',
+                                            fat: 'Жиры',
+                                            fiber: 'Клетчатка',
+                                            sugar_fast: 'Сахар',
+                                            trans_fat: 'Трансжиры',
+                                            omega_3: 'Омега-3',
+                                            sodium: 'Натрий',
+                                            vitamin_D: 'Вит. D',
+                                            magnesium: 'Магний'
+                                        };
+
+                                        // Calculate today's sums
+                                        const today = new Date();
+                                        const todayLogs = (nutritionLogs || []).filter(log => {
+                                            const d = new Date(log.date || log.created_at);
+                                            return d.getDate() === today.getDate() && d.getMonth() === today.getMonth();
+                                        });
+
+                                        return Object.entries(norms).map(([key, config]: any) => {
+                                            const val = todayLogs.reduce((s, l) => s + (Number(l[key]) || 0), 0);
+                                            const pct = (val / config.norm) * 100;
+                                            
+                                            let colorClass = 'bg-green-500';
+                                            if (config.group === 'min') {
+                                                if (pct <= 50) colorClass = 'bg-green-500';
+                                                else if (pct <= 100) colorClass = 'bg-amber-400';
+                                                else colorClass = 'bg-red-500';
+                                            } else if (config.group === 'balance') {
+                                                if (pct >= 80 && pct <= 115) colorClass = 'bg-green-500';
+                                                else if (pct < 80) colorClass = 'bg-red-500';
+                                                else colorClass = 'bg-amber-400';
+                                            } else if (config.group === 'max') {
+                                                if (pct >= 85) colorClass = 'bg-green-500';
+                                                else colorClass = 'bg-amber-400';
+                                            }
+
+                                            return (
+                                                <div key={key} className="space-y-1">
+                                                    <div className="flex justify-between text-[11px]">
+                                                        <span className="opacity-60">{names[key]}</span>
+                                                        <span className="font-bold">{Math.round(pct)}%</span>
+                                                    </div>
+                                                    <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700/50 rounded-full overflow-hidden">
+                                                        <div 
+                                                            className={`h-full ${colorClass} transition-all duration-700`} 
+                                                            style={{ width: `${Math.min(100, pct)}%` }} 
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        });
+                                    })()}
+                                </div>
                             </div>
+
 
                             {/* Активность */}
                             <div className="dark:bg-slate-800 bg-white border dark:border-white/5 border-brand-sage/30 rounded-2xl p-6 shadow-md transition-colors duration-300">
