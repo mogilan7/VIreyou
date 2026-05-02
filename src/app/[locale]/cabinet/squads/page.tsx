@@ -19,7 +19,10 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
     });
 
     if (!user) {
-         return <div className="p-8">Пользов    // Find all active squad participations
+         return <div className="p-8">Пользователь не найден</div>;
+    }
+
+    // Find all active squad participations
     const participations = await prisma.squadParticipant.findMany({
         where: { user_id: user.id, squad: { is_active: true } },
         include: { 

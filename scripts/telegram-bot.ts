@@ -1460,7 +1460,7 @@ bot.action(/^manage_squad_(.+)$/, async (ctx: any) => {
         const buttons = participants
             .filter(p => p.user_id !== user.id) // Cannot remove self (creator)
             .map(p => [
-                Markup.button.callback(`❌ ${p.user.full_name || p.user.email || 'User'}`, `rem_p_${squadId}_${p.user_id}`)
+                Markup.button.callback(`❌ ${p.user.full_name || p.user.email || 'User'}`, `rem_p_${p.id}`)
             ]);
         
         buttons.push([Markup.button.callback(lang === 'en' ? "⬅️ Back" : "⬅️ Назад", `view_squad_${squadId}`)]);
@@ -1473,13 +1473,24 @@ bot.action(/^manage_squad_(.+)$/, async (ctx: any) => {
     }
 });
 
-bot.action(/^rem_p_(.+)_(.+)$/, async (ctx: any) => {
-    const squadId = ctx.match[1];
-    const userIdToRemove = ctx.match[2];
+bot.action(/^rem_p_(.+)$/, async (ctx: any) => {
+    const participantId = ctx.match[1];
     const user = ctx.state.user;
     const lang = ctx.state.lang || 'ru';
 
     try {
+        const participant = await prisma.squadParticipant.findUnique({
+            where: { id: participantId },
+            include: { squad: true }
+        });
+
+        if (!participant || participant.squad.creator_id !== user.id) {
+            return ctx.answerCbQuery(lang === 'en' ? "Denied." : "Отказано.");
+        }
+
+        const squadId = participant.squad_id;
+        const userIdToRemove = participant.user_id;
+
         const { removeParticipant } = await import('../src/lib/squads/squadService');
         await removeParticipant(squadId, userIdToRemove, user.id);
         
