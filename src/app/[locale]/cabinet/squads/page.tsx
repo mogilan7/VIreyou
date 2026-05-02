@@ -3,11 +3,13 @@ import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
 import Sidebar from '@/components/dashboard/Sidebar';
 import { Users, Trophy, Flame, Plus } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 import SquadInviteButton from '@/components/dashboard/SquadInviteButton';
 import { CreateSquadButton, RemoveParticipantButton } from '@/components/dashboard/SquadActions';
 
 export default async function SquadsPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
+    const t = await getTranslations('Squads');
     const supabase = await createClient();
     const { data: { user: authUser } } = await supabase.auth.getUser();
 
@@ -48,8 +50,8 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
             <main className="flex-1 lg:ml-64 px-4 md:px-8 pt-8 space-y-8 w-full max-w-4xl mx-auto min-w-0">
                 <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="space-y-1">
-                        <h1 className="font-serif text-3xl font-bold tracking-tight">Марафоны</h1>
-                        <p className="text-slate-500 text-sm">Ваши активные группы и результаты</p>
+                        <h1 className="font-serif text-3xl font-bold tracking-tight">{t('title')}</h1>
+                        <p className="text-slate-500 text-sm">{t('subtitle')}</p>
                     </div>
                     <CreateSquadButton />
                 </header>
@@ -60,8 +62,8 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
                             <Users size={32} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold mb-2">У вас нет активного Марафона</h2>
-                            <p className="text-slate-500 text-sm">Создайте свой 7-дневный челлендж или попросите друга прислать приглашение, чтобы соревноваться вместе!</p>
+                            <h2 className="text-xl font-bold mb-2">{t('noActive')}</h2>
+                            <p className="text-slate-500 text-sm">{t('noActiveDesc')}</p>
                         </div>
                         <CreateSquadButton />
                     </section>
@@ -100,7 +102,7 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
 
                                     <section className="space-y-4">
                                         <h3 className="font-bold text-xl flex items-center gap-2 px-2">
-                                            🏆 Таблица лидеров
+                                            🏆 {t('leaderboard')}
                                         </h3>
                                         
                                         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden">
@@ -125,7 +127,7 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
                                                             <p className="font-bold text-lg text-slate-700 dark:text-slate-300 leading-none">
                                                                 {p.score}
                                                             </p>
-                                                            <p className="text-[10px] font-normal opacity-50 uppercase tracking-tighter">баллов</p>
+                                                            <p className="text-[10px] font-normal opacity-50 uppercase tracking-tighter">{t('points')}</p>
                                                         </div>
                                                         {isCreator && p.user_id !== user.id && (
                                                             <RemoveParticipantButton 
@@ -144,8 +146,7 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
                         })}
                         
                         <p className="text-xs text-slate-400 text-center px-4 max-w-md mx-auto">
-                            Баллы начисляются автоматически каждый день за выполнение норм сна, воды и ведение дневника питания. 
-                            Обновление происходит в 07:00.
+                            {t('footer')}
                         </p>
                     </div>
                 )}

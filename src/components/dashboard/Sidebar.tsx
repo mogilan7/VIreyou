@@ -174,13 +174,9 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                     </div>
 
                     {/* Theme Toggle */}
-                    <button
-                        onClick={toggleTheme}
-                        className={`w-full flex items-center justify-between gap-3 px-4 py-3 mb-4 rounded-2xl text-sm font-medium transition-all ${theme === 'dark' ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-brand-sage/10 text-brand-gray hover:bg-brand-sage/20 hover:text-brand-text'}`}
-                    >
                         <div className="flex items-center gap-3">
                             {theme === 'dark' ? <Sun size={18} strokeWidth={1.5} /> : <Moon size={18} strokeWidth={1.5} />}
-                            <span>{theme === 'dark' ? 'Светлая тема' : 'Темная тема'}</span>
+                            <span>{theme === 'dark' ? t('lightTheme') : t('darkTheme')}</span>
                         </div>
                     </button>
 
@@ -190,7 +186,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                                 <img src={avatarUrl || "/andrei-avatar.png"} alt={profileName || "User"} width={44} height={44} className="object-cover w-full h-full rounded-full" />
                             </div>
                             <div className="overflow-hidden">
-                                <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{fetchedName || profileName || "Пользователь"}</p>
+                                <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{fetchedName || profileName || t('userFallback')}</p>
 
 
                                 <p className="text-[10px] text-brand-gray tracking-widest uppercase mt-1 opacity-60 font-medium">{t('cPlan')}</p>
@@ -202,7 +198,7 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                                 <img src={avatarUrl || "/hero-specialist.png"} alt="Dr. Valentina" width={44} height={44} className="object-cover w-full h-full rounded-full" />
                             </div>
                             <div className="overflow-hidden">
-                                <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{fetchedName || profileName || "Специалист"}</p>
+                                <p className="text-sm font-bold dark:text-slate-50 text-brand-text leading-tight truncate">{fetchedName || profileName || t('specFallback')}</p>
 
 
                                 <p className="text-[10px] text-brand-gray tracking-widest uppercase mt-1 opacity-60 font-medium">{t('sRole')}</p>

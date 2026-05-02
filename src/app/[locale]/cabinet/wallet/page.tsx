@@ -11,6 +11,7 @@ import UpgradeButton from '@/components/dashboard/UpgradeButton';
 
 export default async function WalletPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
+    const t = await getTranslations('Wallet');
     const supabase = await createClient();
     const { data: { user: authUser } } = await supabase.auth.getUser();
 
@@ -38,8 +39,8 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
 
             <main className="flex-1 lg:ml-64 px-4 md:px-8 pt-8 space-y-6 w-full max-w-4xl mx-auto min-w-0">
                 <header className="space-y-2">
-                    <h1 className="font-serif text-3xl font-bold tracking-tight">Кошелек</h1>
-                    <p className="text-slate-500 text-sm">Ваш внутренний баланс и бонусы</p>
+                    <h1 className="font-serif text-3xl font-bold tracking-tight">{t('title')}</h1>
+                    <p className="text-slate-500 text-sm">{t('subtitle')}</p>
                 </header>
 
                 {/* Balance Card */}

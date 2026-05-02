@@ -619,7 +619,11 @@
             "sAnalyt": "Analytics",
             "sSet": "Settings",
             "cPlan": "Premium Plan",
-            "sRole": "Specialist"
+            "sRole": "Specialist",
+            "lightTheme": "Light Theme",
+            "darkTheme": "Dark Theme",
+            "userFallback": "User",
+            "specFallback": "Specialist"
         },
         "Client": {
             "greeting1": "Good morning,",
@@ -1369,6 +1373,19 @@
             "selenium": "Selenium",
             "iodine": "Iodine"
         }
+    },
+    "Wallet": {
+        "title": "Wallet",
+        "subtitle": "Your internal balance and bonuses"
+    },
+    "Squads": {
+        "title": "Marathons",
+        "subtitle": "Your active squads and results",
+        "noActive": "You have no active Marathons",
+        "noActiveDesc": "Create your own 7-day challenge or ask a friend for an invitation to compete together!",
+        "leaderboard": "Leaderboard",
+        "points": "points",
+        "footer": "Points are awarded automatically every day for meeting sleep, water, and food diary goals. Updates occur at 07:00."
     },
     "Bot": {
         "Auth": {
