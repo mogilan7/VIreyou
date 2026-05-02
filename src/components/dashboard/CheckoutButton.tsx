@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface CheckoutButtonProps {
     plan: string;
@@ -11,6 +12,7 @@ interface CheckoutButtonProps {
 
 export default function CheckoutButton({ plan, amount, className, children }: CheckoutButtonProps) {
     const [loading, setLoading] = useState(false);
+    const t = useTranslations('Wallet');
 
     const handleCheckout = async () => {
         setLoading(true);
@@ -26,11 +28,11 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
             if (data.confirmation_url) {
                 window.location.href = data.confirmation_url;
             } else {
-                alert(`Ошибка при создании платежа: ${data.details || 'неизвестная ошибка'}`);
+                alert(`${t('paymentError')}: ${data.details || t('paymentUnknown')}`);
             }
         } catch (error) {
             console.error('Checkout error:', error);
-            alert('Произошла ошибка. Проверьте подключение к интернету.');
+            alert(t('networkError'));
         } finally {
             setLoading(false);
         }
@@ -45,7 +47,7 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
             {loading ? (
                 <div className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    <span>Загрузка...</span>
+                    <span>{t('loading')}</span>
                 </div>
             ) : children}
         </button>

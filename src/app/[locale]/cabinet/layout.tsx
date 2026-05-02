@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { DashboardThemeProvider, ThemeWrapper } from '@/components/dashboard/ThemeContext';
 import prisma from '@/lib/prisma';
 import React from 'react';
+import { cookies } from 'next/headers';
 
 export default async function CabinetLayout({
     children,
@@ -29,6 +30,22 @@ export default async function CabinetLayout({
 
     if (!dbUser && user.email) {
         console.log(`[AUTH] Syncing new user to Prisma: ${user.email}`);
+        
+        // Check for referral code in cookies
+        const cookieStore = await cookies();
+        const referralCode = cookieStore.get('referral_code')?.value;
+        let referrerId = null;
+
+        if (referralCode) {
+            const referrer = await prisma.user.findUnique({
+                where: { id: referralCode }
+            });
+            if (referrer) {
+                referrerId = referrer.id;
+                console.log(`[AUTH] Setting referrer ${referrerId} for new user ${user.email}`);
+            }
+        }
+
         await prisma.user.create({
             data: {
                 id: user.id,
@@ -36,7 +53,8 @@ export default async function CabinetLayout({
                 role: 'client',
                 full_name: user.user_metadata?.full_name || 'Пользователь',
                 balance: 0,
-                language: locale
+                language: locale,
+                referrer_id: referrerId
             }
         });
     } else if (dbUser && dbUser.id !== user.id) {

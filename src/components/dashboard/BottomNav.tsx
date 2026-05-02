@@ -17,9 +17,9 @@ export default function BottomNav() {
     }, [pathname]);
 
     const links = [
-        { name: "Дневник", href: "/cabinet/lifestyle", icon: <Heart size={20} /> },
-        { name: "Кошелек", href: "/cabinet/wallet", icon: <Wallet size={20} /> },
-        { name: "Марафоны", href: "/cabinet/squads", icon: <Users size={20} /> },
+        { name: t('cAssgn'), href: "/cabinet/lifestyle", icon: <Heart size={20} /> },
+        { name: t('cWallet'), href: "/cabinet/wallet", icon: <Wallet size={20} /> },
+        { name: t('cSquads'), href: "/cabinet/squads", icon: <Users size={20} /> },
     ];
 
     return (

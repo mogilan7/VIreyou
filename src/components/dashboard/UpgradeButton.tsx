@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Zap } from 'lucide-react';
 import UpgradeModal from './UpgradeModal';
+import { useTranslations } from 'next-intl';
 
 interface UpgradeButtonProps {
     currentPlan: string;
@@ -10,6 +11,7 @@ interface UpgradeButtonProps {
 
 export default function UpgradeButton({ currentPlan }: UpgradeButtonProps) {
     const [open, setOpen] = useState(false);
+    const t = useTranslations('Wallet');
 
     return (
         <>
@@ -26,7 +28,7 @@ export default function UpgradeButton({ currentPlan }: UpgradeButtonProps) {
                 {/* Animated pulse ring */}
                 <span className="absolute inset-0 rounded-full animate-ping opacity-20 bg-emerald-400" />
                 <Zap className="w-3.5 h-3.5 fill-white relative z-10" />
-                <span className="relative z-10">Доступен апгрейд</span>
+                <span className="relative z-10">{t('upgradeAvailable')}</span>
             </button>
 
             <UpgradeModal

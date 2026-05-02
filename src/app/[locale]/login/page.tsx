@@ -4,10 +4,21 @@ import React, { useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { login, signup } from './actions/auth';
 import { Mail, Lock, AlertCircle, ArrowRight, ShieldCheck, CheckCircle } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function LoginPage() {
     const t = useTranslations('Auth');
     const locale = useLocale();
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        const ref = searchParams.get('ref');
+        if (ref) {
+            // Store referral code in a cookie for 30 days
+            document.cookie = `referral_code=${ref}; path=/; max-age=${30 * 24 * 60 * 60}`;
+        }
+    }, [searchParams]);
 
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
