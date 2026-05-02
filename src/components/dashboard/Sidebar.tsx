@@ -174,6 +174,10 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
                     </div>
 
                     {/* Theme Toggle */}
+                    <button
+                        onClick={toggleTheme}
+                        className={`w-full flex items-center justify-between gap-3 px-4 py-3 mb-4 rounded-2xl text-sm font-medium transition-all ${theme === 'dark' ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-brand-sage/10 text-brand-gray hover:bg-brand-sage/20 hover:text-brand-text'}`}
+                    >
                         <div className="flex items-center gap-3">
                             {theme === 'dark' ? <Sun size={18} strokeWidth={1.5} /> : <Moon size={18} strokeWidth={1.5} />}
                             <span>{theme === 'dark' ? t('lightTheme') : t('darkTheme')}</span>
