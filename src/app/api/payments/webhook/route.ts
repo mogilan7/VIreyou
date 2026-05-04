@@ -10,9 +10,23 @@ export async function POST(req: NextRequest) {
         
         if (body.event === 'payment.succeeded') {
             const payment = body.object;
+            const paymentId = payment.id;
             const userId = payment.metadata.user_id;
             const plan = payment.metadata.plan;
             const amount = parseFloat(payment.amount.value);
+
+            // 0. Check for idempotency: has this payment already been processed?
+            const existingTx = await prisma.transaction.findFirst({
+                where: {
+                    user_id: userId,
+                    description: { contains: paymentId }
+                }
+            });
+
+            if (existingTx) {
+                console.log(`[PAYMENT] Payment ${paymentId} already processed. Skipping.`);
+                return NextResponse.json({ status: 'ok' });
+            }
 
             // 1. Обновляем подписку пользователя
             const user = await prisma.user.findUnique({
@@ -22,7 +36,7 @@ export async function POST(req: NextRequest) {
 
             if (!user) {
                 console.error('Webhook Error: User not found', userId);
-                return NextResponse.json({ status: 'ok' }); // Все равно 200, чтобы ЮKassa не слала повторно
+                return NextResponse.json({ status: 'ok' });
             }
 
             // Продлеваем на 30 дней от текущей даты или даты окончания (если она в будущем)
@@ -40,13 +54,13 @@ export async function POST(req: NextRequest) {
                 }
             });
 
-            // 2. Логируем транзакцию покупки
+            // 2. Логируем транзакцию покупки (включаем paymentId для идемпотентности)
             await prisma.transaction.create({
                 data: {
                     user_id: user.id,
                     amount: -amount,
                     type: 'SUBSCRIPTION',
-                    description: `Оплата подписки ${plan}`
+                    description: `Оплата подписки ${plan} (ID: ${paymentId})`
                 }
             });
 
@@ -63,7 +77,7 @@ export async function POST(req: NextRequest) {
                         user_id: user.referrer_id,
                         amount: l1Bonus,
                         type: 'REFERRAL_BONUS',
-                        description: `Бонус 10% за приглашение ${user.full_name || user.email}`
+                        description: `Бонус 10% за приглашение ${user.full_name || user.email} (Payment: ${paymentId})`
                     }
                 });
 

@@ -223,27 +223,58 @@ bot.command('start', async (ctx: any) => {
       if (squad) refId = squad.creator_id;
   }
 
-  // Automatic user creation for seamless Telegram onboarding
-  if (!ctx.state.user && (refId || squadId)) {
-      const autoEmail = `tg_${ctx.from.id}@vireyou.com`;
-      let newUser = await prisma.user.findUnique({ where: { email: autoEmail } });
+  // Referral and User Handling Logic
+  const handleUserReferral = async (currentUser: any, rId: string | null) => {
+      if (!rId || rId === currentUser?.id) return currentUser;
+
+      // If user doesn't have a referrer, try to set one
+      if (currentUser && !currentUser.referrer_id) {
+          const referrer = await prisma.user.findUnique({ where: { id: rId } });
+          if (referrer && referrer.id !== currentUser.id) {
+              console.log(`[AUTH] Updating referrer for existing user ${currentUser.id} -> ${referrer.id}`);
+              return await prisma.user.update({
+                  where: { id: currentUser.id },
+                  data: { referrer_id: referrer.id }
+              });
+          }
+      }
+      return currentUser;
+  };
+
+  // Automatic user creation or update for seamless Telegram onboarding
+  if (refId || squadId) {
+      const tgId = ctx.from.id.toString();
+      const autoEmail = `tg_${tgId}@vireyou.com`;
       
-      if (!newUser) {
-          newUser = await prisma.user.create({
+      let userRecord = await prisma.user.findFirst({ 
+          where: { 
+              OR: [
+                  { telegram_id: tgId },
+                  { email: autoEmail }
+              ]
+          } 
+      });
+      
+      if (!userRecord) {
+          userRecord = await prisma.user.create({
               data: {
                   email: autoEmail,
-                  telegram_id: ctx.from.id.toString(),
+                  telegram_id: tgId,
                   role: 'client',
                   full_name: ctx.from.first_name || 'Спортсмен',
                   language: detectTimezoneFromLang(ctx.from.language_code) === 'Europe/Moscow' ? 'ru' : 'en',
                   timezone: detectTimezoneFromLang(ctx.from.language_code),
-                  referrer_id: refId || null,
+                  referrer_id: (refId && refId !== tgId) ? refId : null,
                   subscription_expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // 3 days free trial
               }
           });
+      } else {
+          // Check if we can update the referrer for an existing user
+          userRecord = await handleUserReferral(userRecord, refId);
       }
-      ctx.state.user = newUser;
-      ctx.state.lang = newUser.language || 'ru';
+      
+      ctx.state.user = userRecord;
+      ctx.state.lang = userRecord.language || 'ru';
   }
 
   // 2. Иначе интерпретируем payload как email (для связки аккаунтов)

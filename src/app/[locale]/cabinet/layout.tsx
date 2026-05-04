@@ -36,7 +36,7 @@ export default async function CabinetLayout({
         const referralCode = cookieStore.get('referral_code')?.value;
         let referrerId = null;
 
-        if (referralCode) {
+        if (referralCode && referralCode !== user.id) {
             const referrer = await prisma.user.findUnique({
                 where: { id: referralCode }
             });
@@ -57,10 +57,29 @@ export default async function CabinetLayout({
                 referrer_id: referrerId
             }
         });
-    } else if (dbUser && dbUser.id !== user.id) {
-        // Optional: Update ID if it's different (e.g. if we used email-only lookup before)
-        // But usually we don't want to change IDs.
-        console.warn(`[AUTH] User ID mismatch for ${user.email}: Supabase=${user.id}, Prisma=${dbUser.id}`);
+    } else if (dbUser) {
+        // If user exists but has no referrer, check if we have a referral code in cookies
+        if (!dbUser.referrer_id) {
+            const cookieStore = await cookies();
+            const referralCode = cookieStore.get('referral_code')?.value;
+            
+            if (referralCode && referralCode !== dbUser.id) {
+                const referrer = await prisma.user.findUnique({
+                    where: { id: referralCode }
+                });
+                if (referrer && referrer.id !== dbUser.id) {
+                    console.log(`[AUTH] Updating referrer ${referrer.id} for existing user ${dbUser.email}`);
+                    await prisma.user.update({
+                        where: { id: dbUser.id },
+                        data: { referrer_id: referrer.id }
+                    });
+                }
+            }
+        }
+
+        if (dbUser.id !== user.id) {
+            console.warn(`[AUTH] User ID mismatch for ${user.email}: Supabase=${user.id}, Prisma=${dbUser.id}`);
+        }
     }
 
     return (

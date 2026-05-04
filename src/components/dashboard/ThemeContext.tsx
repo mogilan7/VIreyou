@@ -16,6 +16,14 @@ export function DashboardThemeProvider({ children }: { children: React.ReactNode
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        // Referral tracking logic: capture 'ref' from URL anywhere in the dashboard
+        const params = new URLSearchParams(window.location.search);
+        const ref = params.get('ref');
+        if (ref) {
+            console.log(`[AUTH] Referral code detected in URL: ${ref}`);
+            document.cookie = `referral_code=${ref}; path=/; max-age=${30 * 24 * 60 * 60}`;
+        }
+
         const savedTheme = localStorage.getItem('dashboard-theme') as Theme;
         if (savedTheme) {
             setTheme(savedTheme);
