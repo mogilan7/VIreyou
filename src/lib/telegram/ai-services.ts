@@ -385,7 +385,7 @@ export async function analyzeDailyNutritionWithAI(nutrients: any, userProfile: a
 Knowledge Base Instructions:
 1. Standards: Use physiological standards for nutrients. Consider user's gender (${userProfile.gender}), age (${userProfile.age}), weight (${userProfile.weight}kg), and activity level (${userProfile.activity_level}).
 2. Interaction: Consider nutrient synergies (e.g., Vitamin C + Iron).
-3. Current Time: The local time is ${currentTimeStr}. Recommend a meal type (e.g., dinner, evening snack) suitable for this time.
+3. Current Time: The local time is ${currentTimeStr}. Recommend a meal type (e.g., dinner, evening snack) suitable for this time. CRITICAL: If it is late at night (after 21:00), strictly advise against heavy meals to preserve sleep quality and circadian rhythms. Suggest only a very light snack (e.g. herbal tea, kefir) or advise fasting until morning, even if there is a large caloric deficit.
 4. Selection: Suggest 2-3 specific superfoods from the documents to cover identified gaps.
 
 Algorithm:
@@ -408,7 +408,7 @@ Constraints:
 
 Алгоритм работы:
 1. Анализ данных: Сравни полученные от пользователя значения с физиологическими нормами. Обязательно рассчитай норму КБЖУ с учетом пола (${userProfile.gender}), возраста (${userProfile.age}), веса (${userProfile.weight} кг) и активности (${userProfile.activity_level}).
-2. Текущее время: У пользователя сейчас ${currentTimeStr}. Рекомендуй прием пищи (ужин, перекус), подходящий под это время.
+2. Текущее время: У пользователя сейчас ${currentTimeStr}. Рекомендуй прием пищи, подходящий под это время. КРИТИЧЕСКИ ВАЖНО: Если время позднее (после 21:00), строго предостерегай от плотного приема пищи, чтобы не нарушать качество сна и циркадные ритмы. В этом случае предложи максимум легкий перекус (травяной чай, кефир) или посоветуй оставить дефицит КБЖУ на завтрашний день.
 3. Выявление дефицитов: ТЫ ОБЯЗАН вывести четкий список/таблицу с микронутриентами (витаминами и минералами), показав сколько получено и сколько осталось до нормы (в мг/мкг). Не используй общие фразы — нужны цифры.
 4. Подбор блюд: Предложи 2–3 продукта-суперфуда или блюдо, закрывающее эти дефициты.
 5. Учет синергии: Сочетай нутриенты правильно (например, железо + витамин С).
