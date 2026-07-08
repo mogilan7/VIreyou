@@ -2062,7 +2062,7 @@ bot.action('menu_nutrition_reco', async (ctx: any) => {
         console.log(`[NutritionAnalysis] User: ${ctx.from?.id}, Lang: ${lang}, Action: Fetching daily recommendations`);
         const recommendation = await analyzeDailyNutritionWithAI(activeTotals, userProfile, currentTimeStr, lang);
 
-        await ctx.reply(recommendation, { parse_mode: 'Markdown' });
+        await ctx.reply(recommendation);
 
     } catch (e) {
         console.error("Nutrition Reco Error:", e);
