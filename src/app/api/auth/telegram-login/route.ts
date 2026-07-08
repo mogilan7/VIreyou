@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { createClient } from '@supabase/supabase-js';
+import prisma from '@/lib/prisma';
+
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
@@ -45,11 +47,26 @@ export async function GET(req: NextRequest) {
 
         // Auto-create user if not found
         if (linkError && (linkError.message.includes('User not found') || linkError.status === 422)) {
-            await supabaseAdmin.auth.admin.createUser({
+            const newUserRes = await supabaseAdmin.auth.admin.createUser({
                 email,
                 email_confirm: true,
                 user_metadata: { source: 'telegram_bot' }
             });
+            
+            // 🚀 ID SYNC FIX: Ensure Prisma ID matches Supabase Auth ID
+            if (newUserRes.data?.user?.id) {
+                const newAuthId = newUserRes.data.user.id;
+                try {
+                    const prismaUser = await prisma.user.findFirst({ where: { email } });
+                    if (prismaUser && prismaUser.id !== newAuthId) {
+                        await prisma.$executeRawUnsafe(`UPDATE "User" SET id = '${newAuthId}' WHERE email = '${email}'`);
+                        console.log(`[AUTH] Synced Prisma ID to ${newAuthId} for ${email}`);
+                    }
+                } catch (syncErr) {
+                    console.error('[AUTH] Failed to sync Prisma ID:', syncErr);
+                }
+            }
+
             const retry = await supabaseAdmin.auth.admin.generateLink({
                 type: 'magiclink',
                 email,
