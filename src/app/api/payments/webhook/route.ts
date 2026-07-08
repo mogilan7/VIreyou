@@ -54,6 +54,24 @@ export async function POST(req: NextRequest) {
                 }
             });
 
+            // Отправляем уведомление в Telegram (если привязан)
+            if (user.telegram_id) {
+                const botToken = process.env.VIREYOU_BOT_TOKEN || '8648031032:AAGZtpsxrxqYyDEn7iLCk0r_xCCjt98YnfE';
+                const messageText = `🎉 Поздравляем, ваша подписка ${plan === 'PRO' ? 'PRO' : 'Standard'} успешно активирована!`;
+                try {
+                    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: user.telegram_id,
+                            text: messageText
+                        })
+                    });
+                } catch (e) {
+                    console.error('Failed to send telegram notification:', e);
+                }
+            }
+
             // 2. Логируем транзакцию покупки (включаем paymentId для идемпотентности)
             await prisma.transaction.create({
                 data: {
