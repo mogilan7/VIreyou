@@ -117,6 +117,6 @@ export async function GET(req: NextRequest) {
 
     } catch (err: any) {
         console.error('[AUTH] Error:', err.message);
-        return NextResponse.redirect(new URL(`/${locale}/login?error=error`, req.url));
+        return NextResponse.json({ error: err.message, stack: err.stack }, { status: 500 });
     }
 }
