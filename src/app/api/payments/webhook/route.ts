@@ -57,7 +57,8 @@ export async function POST(req: NextRequest) {
             // Отправляем уведомление в Telegram (если привязан)
             if (user.telegram_id) {
                 const botToken = process.env.VIREYOU_BOT_TOKEN || '8648031032:AAHEJ-6KQqIS_I5_VenJXR4uPCYnPk63jiM';
-                const messageText = `🎉 Поздравляем, ваша подписка ${plan === 'PRO' ? 'PRO' : 'Standard'} успешно активирована!`;
+                const formattedDate = newExpiry.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const messageText = `🎉 Поздравляем, ваша подписка ${plan === 'PRO' ? 'PRO' : 'Standard'} успешно активирована!\n\n📅 Действует до: ${formattedDate}`;
                 try {
                     await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                         method: 'POST',
