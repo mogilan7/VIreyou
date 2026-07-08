@@ -13,7 +13,7 @@ if (process.env.DATABASE_URL) {
 }
 
 import prisma from "../src/lib/prisma";
-import { analyzeFoodWithAI, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI, analyzeProductLabelWithAI, getProactiveNutritionAdvice } from "../src/lib/telegram/ai-services";
+import { analyzeFoodWithAI, getIngredientNutrientsWithAI, calculateTotalNutrients, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI, analyzeProductLabelWithAI, getProactiveNutritionAdvice } from "../src/lib/telegram/ai-services";
 import { generatePeriodicReport } from "../src/lib/reportGenerator";
 
 const ruMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/ru.json'), 'utf8'));
@@ -279,7 +279,11 @@ bot.command('start', async (ctx: any) => {
 
   // 2. Иначе интерпретируем payload как email (для связки аккаунтов)
   let email = null;
-  if (payload && !refId && !squadId && payload !== 'marathon') {
+  let linkUserId = null;
+  
+  if (payload && payload.startsWith('link_')) {
+      linkUserId = payload.replace('link_', '');
+  } else if (payload && !refId && !squadId && payload !== 'marathon') {
       email = payload;
       try {
           const decoded = Buffer.from(payload, 'base64').toString('utf8');
@@ -324,7 +328,43 @@ bot.command('start', async (ctx: any) => {
 
          return sendWelcomeMenu(ctx, user);
     }
-    return ctx.reply(t(ctx.state.lang, 'Auth.welcomeUnlinked'));
+    
+    // Unlinked user - offer WebApp for login/registration
+    const NEXT_PUBLIC_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://vireyou.com';
+    return ctx.reply(
+        "👋 Привет! Я твой ассистент по долголетию.\n\nДля работы со мной нужно привязать аккаунт.\nОткрой платформу прямо здесь в Telegram, чтобы автоматически зарегистрироваться и привязать профиль, либо введи команду вида:\n`/start твой_email@example.com`",
+        {
+            parse_mode: 'Markdown',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: "Открыть платформу / Войти", web_app: { url: `${NEXT_PUBLIC_SITE_URL}/ru/login?from=telegram` } }]
+                ]
+            }
+        }
+    );
+  }
+
+  // Handle deep link from web platform
+  if (linkUserId) {
+    try {
+        const user = await prisma.user.findUnique({ where: { id: linkUserId } });
+        if (!user) {
+            return ctx.reply("❌ Аккаунт не найден. Попробуйте еще раз с сайта.");
+        }
+        
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { telegram_id: ctx.from.id.toString(), telegram_username: ctx.from.username || null }
+        });
+        
+        ctx.state.user = user;
+        ctx.state.lang = user.language || 'ru';
+        await ctx.reply("✅ Telegram успешно привязан! Добро пожаловать.");
+        return sendWelcomeMenu(ctx, user);
+    } catch (e) {
+        console.error("Deep link error:", e);
+        return ctx.reply("❌ Произошла ошибка при привязке. Пожалуйста, обратитесь в поддержку.");
+    }
   }
 
   try {
@@ -495,7 +535,7 @@ bot.command('marathon_status', async (ctx: any) => {
 
 bot.command('marathon_test', async (ctx: any) => {
     const lang = ctx.state.lang || 'ru';
-    const report = await generateMarathonDailyReport();
+    const report = await generateMarathonDailyReport(undefined, undefined, lang);
     if (!report) return ctx.reply("Нет данных для отчета или участников.");
     ctx.reply(report, { parse_mode: 'Markdown' });
 });
@@ -846,6 +886,73 @@ function calculateKBJU(params: any) {
     };
 }
 
+/**
+ * Проверяет уровень подписки пользователя.
+ * @param requiredPlan - 'standard' (фото еды, анализ) или 'pro' (советник, марафон)
+ * 
+ * Логика:
+ * - Триал (3 дня) = доступно всё
+ * - 'standard' подписка = доступны standard-фичи, но не pro
+ * - 'pro' подписка = доступно всё
+ * - Нет подписки = ничего не доступно
+ * 
+ * Если доступа нет — отправляет CTA-сообщение и возвращает false.
+ */
+async function checkSubscriptionLevel(ctx: any, user: any, requiredPlan: 'standard' | 'pro'): Promise<boolean> {
+  console.log("[DEBUG] Check Sub:", { tgId: ctx.from.id, email: user.email, expires: user.subscription_expires_at });
+  const hasActiveSub = user.subscription_expires_at && new Date(user.subscription_expires_at) > new Date();
+  const createdDate = user.created_at ? new Date(user.created_at) : new Date();
+  const daysSinceCreated = (new Date().getTime() - createdDate.getTime()) / (1000 * 3600 * 24);
+  const isTrial = daysSinceCreated <= 3;
+
+  // Во время триала — всё разрешено
+  if (isTrial) return true;
+
+  // Нет активной подписки
+  if (!hasActiveSub) {
+    const lang = ctx.state?.lang || 'ru';
+    const secret = process.env.JWT_SECRET || process.env.YOOKASSA_SECRET_KEY || 'default_secret';
+    const token = jwt.sign({ email: user.email }, secret, { expiresIn: '1h' });
+    const dashboardUrl = `https://vireyou.com/api/auth/telegram-login?token=${token}&locale=${lang}`;
+
+    const msg = lang === 'en'
+      ? `⏳ Your 3-day free trial has ended.\n\nTo continue using AI features — get a subscription.\n\n🔥 Standard — food photo recognition & product analysis.\n💎 Pro — everything in Standard + AI nutrition coach & group challenges.`
+      : `⏳ Ваш бесплатный пробный период (3 дня) завершён.\n\nЧтобы продолжать пользоваться ИИ-функциями — оформите подписку.\n\n🔥 Standard — распознавание еды и анализ продуктов.\n💎 Pro — всё из Standard + ИИ-советник и командные челленджи.`;
+
+    await ctx.reply(msg, Markup.inlineKeyboard([
+      [Markup.button.webApp(lang === 'en' ? '💳 Choose a plan' : '💳 Выбрать тариф', dashboardUrl)]
+    ]));
+    return false;
+  }
+
+  // Есть подписка — проверяем уровень
+  const userPlan: string = (user.role === 'PRO' || user.role === 'admin' || user.role === 'employee') ? 'pro' : 'standard';
+
+  if (requiredPlan === 'pro' && userPlan !== 'pro') {
+    // У пользователя Standard, а нужен Pro
+    const lang = ctx.state?.lang || 'ru';
+    const secret = process.env.JWT_SECRET || process.env.YOOKASSA_SECRET_KEY || 'default_secret';
+    const token = jwt.sign({ email: user.email }, secret, { expiresIn: '1h' });
+    const dashboardUrl = `https://vireyou.com/api/auth/telegram-login?token=${token}&locale=${lang}`;
+
+    const msg = lang === 'en'
+      ? `💎 This feature is available on the Pro plan only.\n\nYour current plan: Standard.\n\nUpgrade to Pro to unlock:\n• 🍽️ AI nutrition advisor («What to eat next?»)\n• 🏃 Group challenges & marathons`
+      : `💎 Эта функция доступна только в тарифе Pro.\n\nВаш текущий тариф: Standard.\n\nUpgrade до Pro открывает:\n• 🍽️ ИИ-советник по питанию («Что съесть дальше?»)\n• 🏃 Командные челленджи и марафоны`;
+
+    await ctx.reply(msg, Markup.inlineKeyboard([
+      [Markup.button.webApp(lang === 'en' ? '💎 Upgrade to Pro' : '💎 Перейти на Pro', dashboardUrl)]
+    ]));
+    return false;
+  }
+
+  return true;
+}
+
+// Алиас для обратной совместимости (используется в обработчике фото)
+async function checkSubscription(ctx: any, user: any): Promise<boolean> {
+  return checkSubscriptionLevel(ctx, user, 'standard');
+}
+
 // Вспомогательная функция для отображения меню
 async function sendWelcomeMenu(ctx: any, user: any) {
   const imagePath = path.join(__dirname, '../public/bot_assistant_avatar.png');
@@ -985,7 +1092,7 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
 
     tempLog[user.id] = { 
         type: parsedData.type, 
-        data: parsedData.data, 
+        data: { ...parsedData.data, description: parsedData.description }, 
         description: parsedData.description,
         date_offset_days: parsedData.date_offset_days,
         habit_key: parsedData.habit_key,
@@ -1039,6 +1146,9 @@ bot.on('photo', async (ctx: any) => {
   const photo = ctx.message.photo[ctx.message.photo.length - 1]; // Самое большое
   const tempPath = path.join('/tmp', `photo_${photo.file_id}.jpg`);
   const lang = ctx.state.lang || 'ru';
+
+  // Проверяем подписку перед вызовом платного AI
+  if (!(await checkSubscription(ctx, user))) return;
 
   await ctx.reply(t(lang, 'Processing.photoWait'));
 
@@ -1097,13 +1207,36 @@ bot.on('photo', async (ctx: any) => {
     } else {
         // Пробуем распознать как еду
         const foodData = await analyzeFoodWithAI(base64, ctx.message.caption, getUserLocalDate(ctx.state.user?.timezone), lang);
+        console.log("[STEP1] Recognition result:", JSON.stringify(foodData, null, 2));
 
-        if (foodData.status === "SUCCESS") {
+        if (foodData.status === "NEEDS_CLARIFICATION") {
+            userStates[user.id] = 'WAITING_FOR_FOOD_CLARIFICATION';
+            tempLog[user.id] = { base64, caption: ctx.message.caption };
+            await ctx.reply(foodData.clarification_question || (lang === 'en' ? "Please clarify." : "Уточните, пожалуйста."));
+        } else if (foodData.status === "SUCCESS") {
+            await ctx.reply(lang === 'en' ? "🔍 Calculating exact nutrients..." : "🔍 Ищу точные данные в базе...");
+            const ingredientsData = [];
+            for (const item of foodData.ingredients || []) {
+                let cleanName = item.name || "";
+                if (/белый спирт|white spirit|уайт-спирит/i.test(cleanName)) {
+                    cleanName = "этиловый спирт";
+                }
+                const dbData = await getIngredientNutrientsWithAI(cleanName);
+                console.log(`[STEP2] DB lookup for "${cleanName}" (${item.grams}g):`, JSON.stringify(dbData));
+                ingredientsData.push({ grams: item.grams, nutrientsPer100g: dbData });
+            }
+            const totalNutrients = calculateTotalNutrients(ingredientsData);
+            totalNutrients.dish = foodData.dish;
+            totalNutrients.description = foodData.description;
+            totalNutrients.date_offset_days = foodData.date_offset_days;
+            totalNutrients.habit_key = foodData.habit_key;
+
             await sendConfirmationMessage(ctx, {
                 type: "NUTRITION",
-                data: foodData,
+                data: totalNutrients,
                 description: foodData.description,
-                date_offset_days: foodData.date_offset_days
+                date_offset_days: foodData.date_offset_days,
+                habit_key: foodData.habit_key
             });
         } else {
             await ctx.reply(t(lang, 'Processing.photoUnknown'));
@@ -1136,10 +1269,67 @@ bot.on('voice', async (ctx: any) => {
     console.log(`[VOICE] Transcription text: ${text}`);
     await ctx.reply(t(lang, 'Processing.voiceTranscription', { text }));
 
+    const user = ctx.state.user;
+
+    // Если пользователь в режиме правки — перенаправляем текст в LOG_EDIT обработчик
+    if (user && userStates[user.id] === 'LOG_EDIT' && tempLog[user.id]) {
+        console.log(`[VOICE] Redirecting to LOG_EDIT handler`);
+        await ctx.reply(t(lang, 'Processing.editWait'));
+        try {
+            const previousData = JSON.stringify(tempLog[user.id].data);
+            const parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON.`, getUserLocalDate(ctx.state.user?.timezone), lang);
+
+            if (parsedData.status === "SUCCESS") {
+                userStates[user.id] = '';
+                if (parsedData.type === "NUTRITION" && parsedData.data?.ingredients?.length) {
+                    await ctx.reply(lang === 'en' ? "🔍 Calculating exact nutrients..." : "🔍 Ищу точные данные в базе...");
+                    const ingredientsData = [];
+                    for (const item of parsedData.data.ingredients) {
+                        const dbData = await getIngredientNutrientsWithAI(item.name);
+                        ingredientsData.push({ grams: item.grams, nutrientsPer100g: dbData });
+                    }
+                    const totalNutrients = calculateTotalNutrients(ingredientsData);
+                    totalNutrients.dish = parsedData.data?.dish;
+                    totalNutrients.description = parsedData.description;
+                    totalNutrients.date_offset_days = parsedData.date_offset_days;
+                    totalNutrients.habit_key = parsedData.habit_key;
+                    parsedData.data = totalNutrients;
+                }
+                await sendConfirmationMessage(ctx, parsedData);
+            } else {
+                await ctx.reply(t(lang, 'Processing.editUnknown'));
+            }
+        } catch (err) {
+            console.error("Voice Edit Error:", err);
+            await ctx.reply(t(lang, 'Processing.editError'));
+        }
+        return;
+    }
+
     const parsedData = await analyzeTextWithAI(text, getUserLocalDate(ctx.state.user?.timezone), lang);
     console.log(`[VOICE] AI Analysis status: ${parsedData.status}`);
 
     if (parsedData.status === "SUCCESS") {
+        if (parsedData.type === "NUTRITION" && parsedData.data?.ingredients?.length) {
+            await ctx.reply(lang === 'en' ? "🔍 Calculating exact nutrients..." : "🔍 Ищу точные данные в базе...");
+            const ingredientsData = [];
+            for (const item of parsedData.data.ingredients) {
+                let cleanName = item.name || "";
+                if (/белый спирт|white spirit|уайт-спирит/i.test(cleanName)) {
+                    cleanName = "этиловый спирт";
+                }
+                const dbData = await getIngredientNutrientsWithAI(cleanName);
+                console.log(`[VOICE-STEP2] DB lookup for "${cleanName}" (${item.grams}g):`, JSON.stringify(dbData));
+                ingredientsData.push({ grams: item.grams, nutrientsPer100g: dbData });
+            }
+            const totalNutrients = calculateTotalNutrients(ingredientsData);
+            totalNutrients.dish = parsedData.data?.dish;
+            totalNutrients.description = parsedData.description;
+            totalNutrients.date_offset_days = parsedData.date_offset_days;
+            totalNutrients.habit_key = parsedData.habit_key;
+            
+            parsedData.data = totalNutrients;
+        }
         await sendConfirmationMessage(ctx, parsedData);
     } else {
         await ctx.reply(t(lang, 'Processing.voiceUnknown'));
@@ -1197,6 +1387,52 @@ bot.on('text', async (ctx: any) => {
       }
   }
 
+  // Обработка уточнения блюда
+  if (userStates[user.id] === 'WAITING_FOR_FOOD_CLARIFICATION' && tempLog[user.id]) {
+      await ctx.reply(lang === 'en' ? "🔍 Analyzing with your clarification..." : "🔍 Анализирую с учетом вашего уточнения...");
+      try {
+          const { base64, caption } = tempLog[user.id];
+          const combinedCaption = (caption ? caption + "\n" : "") + "Уточнение пользователя: " + text;
+          
+          const foodData = await analyzeFoodWithAI(base64, combinedCaption, getUserLocalDate(ctx.state.user?.timezone), lang);
+          
+          if (foodData.status === "NEEDS_CLARIFICATION") {
+               await ctx.reply(foodData.clarification_question || "Уточните еще раз.");
+               tempLog[user.id].caption = combinedCaption;
+               return;
+          } else if (foodData.status === "SUCCESS") {
+              userStates[user.id] = ''; // Сброс
+              await ctx.reply(lang === 'en' ? "🔍 Calculating exact nutrients..." : "🔍 Ищу точные данные в базе...");
+              const ingredientsData = [];
+              for (const item of foodData.ingredients || []) {
+                  const dbData = await getIngredientNutrientsWithAI(item.name);
+                  ingredientsData.push({ grams: item.grams, nutrientsPer100g: dbData });
+              }
+              const totalNutrients = calculateTotalNutrients(ingredientsData);
+              totalNutrients.dish = foodData.dish;
+              totalNutrients.description = foodData.description;
+              totalNutrients.date_offset_days = foodData.date_offset_days;
+              totalNutrients.habit_key = foodData.habit_key;
+  
+              await sendConfirmationMessage(ctx, {
+                  type: "NUTRITION",
+                  data: totalNutrients,
+                  description: foodData.description,
+                  date_offset_days: foodData.date_offset_days,
+                  habit_key: foodData.habit_key
+              });
+          } else {
+              userStates[user.id] = '';
+              await ctx.reply(t(lang, 'Processing.photoUnknown'));
+          }
+      } catch (err) {
+          console.error("Clarification Error:", err);
+          userStates[user.id] = '';
+          await ctx.reply(t(lang, 'Processing.textError'));
+      }
+      return;
+  }
+
   // Обработка правок (LOG_EDIT)
   if (userStates[user.id] === 'LOG_EDIT' && tempLog[user.id]) {
       await ctx.reply(t(lang, 'Processing.editWait'));
@@ -1206,6 +1442,20 @@ bot.on('text', async (ctx: any) => {
 
           if (parsedData.status === "SUCCESS") {
               userStates[user.id] = ''; // Сброс статуса
+              if (parsedData.type === "NUTRITION" && parsedData.data?.ingredients?.length) {
+                  await ctx.reply(lang === 'en' ? "🔍 Calculating exact nutrients..." : "🔍 Ищу точные данные в базе...");
+                  const ingredientsData = [];
+                  for (const item of parsedData.data.ingredients) {
+                      const dbData = await getIngredientNutrientsWithAI(item.name);
+                      ingredientsData.push({ grams: item.grams, nutrientsPer100g: dbData });
+                  }
+                  const totalNutrients = calculateTotalNutrients(ingredientsData);
+                  totalNutrients.dish = parsedData.data?.dish;
+                  totalNutrients.description = parsedData.description;
+                  totalNutrients.date_offset_days = parsedData.date_offset_days;
+                  totalNutrients.habit_key = parsedData.habit_key;
+                  parsedData.data = totalNutrients;
+              }
               await sendConfirmationMessage(ctx, parsedData);
           } else {
               await ctx.reply(t(lang, 'Processing.editUnknown'));
@@ -1262,6 +1512,25 @@ bot.on('text', async (ctx: any) => {
   try {
       const parsedData = await analyzeTextWithAI(text, getUserLocalDate(ctx.state.user?.timezone), lang);
       if (parsedData.status === "SUCCESS") {
+          if (parsedData.type === "NUTRITION") {
+              await ctx.reply(lang === 'en' ? "🔍 Calculating exact nutrients..." : "🔍 Ищу точные данные в базе...");
+              const ingredientsData = [];
+              for (const item of parsedData.data?.ingredients || []) {
+                  let cleanName = item.name || "";
+                  if (/белый спирт|white spirit|уайт-спирит/i.test(cleanName)) {
+                      cleanName = "этиловый спирт";
+                  }
+                  const dbData = await getIngredientNutrientsWithAI(cleanName);
+                  ingredientsData.push({ grams: item.grams, nutrientsPer100g: dbData });
+              }
+              const totalNutrients = calculateTotalNutrients(ingredientsData);
+              totalNutrients.dish = parsedData.data?.dish;
+              totalNutrients.description = parsedData.description;
+              totalNutrients.date_offset_days = parsedData.date_offset_days;
+              totalNutrients.habit_key = parsedData.habit_key;
+              
+              parsedData.data = totalNutrients; // replace the data with calculated nutrients
+          }
           await sendConfirmationMessage(ctx, parsedData);
       } else {
           await ctx.reply(t(lang, 'Processing.textUnknown'));
@@ -1304,31 +1573,56 @@ bot.action('save_log_confirm', async (ctx: any) => {
                 });
             }
         } else if (cached.type === "SLEEP") {
+            const startOfDay = new Date(date);
+            startOfDay.setHours(0,0,0,0);
+            const endOfDay = new Date(date);
+            endOfDay.setHours(23,59,59,999);
+
+            const existing = await prisma.sleepLog.findFirst({
+                where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
+            });
+
             const sleepData: any = {
                 user_id: user.id,
-                duration_hrs: cached.data.duration_hrs ? Number(cached.data.duration_hrs) : 0,
-                deep_hrs: cached.data.deep_hrs ? Number(cached.data.deep_hrs) : 0,
-                rem_hrs: cached.data.rem_hrs ? Number(cached.data.rem_hrs) : 0,
-                light_hrs: cached.data.light_hrs ? Number(cached.data.light_hrs) : 0,
-                hrv: cached.data.hrv ? Number(cached.data.hrv) : null,
-                resting_heart_rate: cached.data.resting_heart_rate ? Number(cached.data.resting_heart_rate) : null,
-                notes: cached.description,
+                duration_hrs: cached.data.duration_hrs !== undefined ? Number(cached.data.duration_hrs) : (existing?.duration_hrs || 0),
+                deep_hrs: cached.data.deep_hrs !== undefined ? Number(cached.data.deep_hrs) : (existing?.deep_hrs || 0),
+                rem_hrs: cached.data.rem_hrs !== undefined ? Number(cached.data.rem_hrs) : (existing?.rem_hrs || 0),
+                light_hrs: cached.data.light_hrs !== undefined ? Number(cached.data.light_hrs) : (existing?.light_hrs || 0),
+                hrv: cached.data.hrv !== undefined ? Number(cached.data.hrv) : (existing?.hrv || null),
+                resting_heart_rate: cached.data.resting_heart_rate !== undefined ? Number(cached.data.resting_heart_rate) : (existing?.resting_heart_rate || null),
+                notes: cached.description || existing?.notes,
                 created_at: date
             };
-            await prisma.sleepLog.create({
-                data: sleepData
-            });
+
+            if (existing) {
+                await prisma.sleepLog.update({ where: { id: existing.id }, data: sleepData });
+            } else {
+                await prisma.sleepLog.create({ data: sleepData });
+            }
         } else if (cached.type === "ACTIVITY") {
-            await prisma.activityLog.create({
-                data: {
-                    user_id: user.id,
-                    steps: cached.data.steps ? Number(cached.data.steps) : 0,
-                    active_minutes: cached.data.active_minutes ? Number(cached.data.active_minutes) : 0,
-                    calories_burned: cached.data.calories_burned ? Number(cached.data.calories_burned) : 0,
-                    notes: cached.description,
-                    created_at: date
-                }
+            const startOfDay = new Date(date);
+            startOfDay.setHours(0,0,0,0);
+            const endOfDay = new Date(date);
+            endOfDay.setHours(23,59,59,999);
+
+            const existing = await prisma.activityLog.findFirst({
+                where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
             });
+
+            const activityData: any = {
+                user_id: user.id,
+                steps: cached.data.steps !== undefined ? Number(cached.data.steps) : (existing?.steps || 0),
+                active_minutes: cached.data.active_minutes !== undefined ? Number(cached.data.active_minutes) : (existing?.active_minutes || 0),
+                calories_burned: cached.data.calories_burned !== undefined ? Number(cached.data.calories_burned) : (existing?.calories_burned || 0),
+                notes: cached.description || existing?.notes,
+                created_at: date
+            };
+
+            if (existing) {
+                await prisma.activityLog.update({ where: { id: existing.id }, data: activityData });
+            } else {
+                await prisma.activityLog.create({ data: activityData });
+            }
         } else if (cached.type === "HABIT") {
             await prisma.habitLog.create({
                 data: {
@@ -1368,7 +1662,10 @@ bot.action('menu_shop_assistant', async (ctx: any) => {
     const user = ctx.state.user;
     if (!user) return;
     const lang = ctx.state.lang || 'ru';
-    
+
+    // Проверяем подписку
+    if (!(await checkSubscription(ctx, user))) return;
+
     userStates[user.id] = 'WAITING_FOR_PRODUCT_PHOTO';
     await ctx.reply(lang === 'en' 
         ? "📸 Send me a photo of a product label or nutrition facts from the store." 
@@ -1380,7 +1677,10 @@ bot.action('menu_what_to_eat', async (ctx: any) => {
     const user = ctx.state.user;
     if (!user) return;
     const lang = ctx.state.lang || 'ru';
-    
+
+    // Советник — только Pro
+    if (!(await checkSubscriptionLevel(ctx, user, 'pro'))) return;
+
     await ctx.reply(lang === 'en' ? "⏳ Analyzing your day..." : "⏳ Анализирую ваш рацион за сегодня...");
 
     try {
@@ -1616,6 +1916,8 @@ bot.action('menu_checklist', async (ctx: any) => {
     if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
 
     try {
+        const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+        if (!uuidRegex.test(user.id)) return;
         const results = await prisma.test_results.findMany({
             where: { user_id: user.id },
             orderBy: { created_at: 'desc' }
@@ -1627,7 +1929,7 @@ bot.action('menu_checklist', async (ctx: any) => {
         const keyboard = {
             inline_keyboard: [
                 [{ text: t(lang, 'Checklist.nutritionReco'), callback_data: 'menu_nutrition_reco' }],
-                [{ text: t(lang, 'Checklist.cabinetBtn'), url: `https://vireyou.com/${lang}/cabinet` }],
+                [{ text: t(lang, 'Checklist.cabinetBtn'), web_app: { url: `https://vireyou.com/api/auth/telegram-login?token=${jwt.sign({ email: user.email }, process.env.JWT_SECRET || process.env.YOOKASSA_SECRET_KEY || 'default_secret', { expiresIn: '1h' })}&locale=${lang}` } }],
                 [{ text: t(lang, 'Settings.back'), callback_data: "main_menu" }]
             ]
         };
@@ -1665,7 +1967,7 @@ bot.action('menu_checklist', async (ctx: any) => {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: t(lang, 'Checklist.nutritionReco'), callback_data: 'menu_nutrition_reco' }],
-                    [{ text: t(lang, 'Checklist.cabinetBtn'), url: `https://vireyou.com/${lang}/cabinet` }],
+                    [{ text: t(lang, 'Checklist.cabinetBtn'), web_app: { url: `https://vireyou.com/api/auth/telegram-login?token=${jwt.sign({ email: user.email }, process.env.JWT_SECRET || process.env.YOOKASSA_SECRET_KEY || 'default_secret', { expiresIn: '1h' })}&locale=${lang}` } }],
                     [{ text: t(lang, 'Settings.back'), callback_data: "main_menu" }]
                 ]
             }
@@ -1682,6 +1984,18 @@ bot.action('menu_nutrition_reco', async (ctx: any) => {
     const user = ctx.state.user;
     const lang = ctx.state.lang || 'ru';
     if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
+
+    if (!user.age || !user.weight || !user.gender || !user.activity_level) {
+        await ctx.reply(
+            "Для точного расчёта вашей нормы КБЖУ и персональной рекомендации нам необходимо знать ваши физические параметры. Давайте заполним их (это нужно сделать один раз)."
+        );
+        userStates[user.id] = ONBOARDING_STATES.GENDER;
+        tempLog[user.id] = { name: user.full_name || user.first_name || 'User' };
+        
+        return ctx.reply(t(lang, 'Onboarding.askGender'), Markup.inlineKeyboard([
+            [Markup.button.callback('Мужчина 👨', 'onboarding_gender:male'), Markup.button.callback('Женщина 👩', 'onboarding_gender:female')]
+        ]));
+    }
 
     try {
         await ctx.reply(t(lang, 'Checklist.nutritionWait'));
@@ -1735,25 +2049,18 @@ bot.action('menu_nutrition_reco', async (ctx: any) => {
             if (v && (v as number) > 0) activeTotals[k] = (v as number).toFixed(2);
         });
 
-        // Fetch user profile for age/gender
-        const authUser = await (prisma as any).users.findFirst({
-            where: { email: { equals: user.email, mode: 'insensitive' } }
-        });
-        
-        let profile = null;
-        if (authUser) {
-            profile = await (prisma as any).profiles.findUnique({ where: { id: authUser.id } });
-        }
-
         const userProfile = {
-            gender: profile?.gender === 'male' ? 'Мужской' : (profile?.gender === 'female' ? 'Женский' : 'не указан'),
-            age: profile?.date_of_birth ? Math.floor((new Date().getTime() - new Date(profile.date_of_birth).getTime()) / 31557600000) : 'не указан',
-            weight: (profile as any)?.weight || 'не указан'
+            gender: user.gender === 'male' ? 'Мужской' : (user.gender === 'female' ? 'Женский' : 'не указан'),
+            age: user.age || 'не указан',
+            weight: user.weight || 'не указан',
+            activity_level: user.activity_level || 'moderate'
         };
+
+        const currentTimeStr = now.toLocaleTimeString('ru-RU', { timeZone: userTz, hour: '2-digit', minute: '2-digit' });
 
         // Call AI
         console.log(`[NutritionAnalysis] User: ${ctx.from?.id}, Lang: ${lang}, Action: Fetching daily recommendations`);
-        const recommendation = await analyzeDailyNutritionWithAI(activeTotals, userProfile, lang);
+        const recommendation = await analyzeDailyNutritionWithAI(activeTotals, userProfile, currentTimeStr, lang);
 
         await ctx.reply(recommendation, { parse_mode: 'Markdown' });
 
@@ -1776,6 +2083,8 @@ bot.action('main_menu', async (ctx: any) => {
  */
 async function getPendingTestsList(userId: string, lang: string): Promise<string> {
     try {
+        const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+        if (!uuidRegex.test(userId)) return "";
         const results = await prisma.test_results.findMany({
             where: { user_id: userId },
             orderBy: { created_at: 'desc' }
@@ -1864,7 +2173,7 @@ cron.schedule('* * * * *', async () => {
                         const name = p.user.full_name || 'друг';
                         
                         // Generate group summary report personalized for this user
-                        const groupSummary = await generateMarathonDailyReport(name, squad.id);
+                        const groupSummary = await generateMarathonDailyReport(name, squad.id, lang);
 
                         if (groupSummary) {
                             let msg = groupSummary;
@@ -1908,7 +2217,8 @@ cron.schedule('* * * * *', async () => {
                 for (const p of participants) {
                     if (p.user.telegram_id) {
                         try {
-                            const { markdown } = await generatePeriodicReport(p.user_id, 7, p.user.full_name || undefined);
+                            const lang = (p.user as any).language || "ru";
+                            const { markdown } = await generatePeriodicReport(p.user_id, 7, p.user.full_name || undefined, undefined, lang);
                             await bot.telegram.sendMessage(p.user.telegram_id, markdown, { parse_mode: 'Markdown' });
                         } catch (e) {
                             console.error(`[CRON] Failed to send final report to ${p.user.id}:`, e);
@@ -2245,8 +2555,8 @@ async function generateDailyReport(userId: string, lang: string = 'ru') {
 /**
  * Генерирует анонимный отчет по марафону для канала.
  */
-export async function generateMarathonDailyReport(name?: string, squadId?: string) {
-    console.log(`[MARATHON] Generating daily report for squad: ${squadId || 'ALL'}...`);
+export async function generateMarathonDailyReport(name?: string, squadId?: string, lang: string = 'ru') {
+    console.log(`[MARATHON] Generating daily report for squad: ${squadId || 'ALL'}... language: ${lang}`);
     try {
         const activeSquadParticipants = await prisma.squadParticipant.findMany({
             where: squadId 
@@ -2326,7 +2636,7 @@ export async function generateMarathonDailyReport(name?: string, squadId?: strin
             const totalSum = participantSummaries.reduce((s, pSum) => s + (pSum[key] || 0), 0);
             const avgVal = totalSum / participants.length;
             const pct = (avgVal / config.norm) * 100;
-            const name = (ruMessages as any).Bot?.NUTRIENT_NAMES?.[key] || (NUTRIENT_NAMES as any)[key] || key;
+            const nutrientName = t(lang, `NUTRIENT_NAMES.${key}`);
             
             let emoji = '🟢';
             if (groups.min.includes(key)) {
@@ -2344,36 +2654,35 @@ export async function generateMarathonDailyReport(name?: string, squadId?: strin
                 continue; 
             }
 
-            const line = `${emoji} **${name}**: ~${pct.toFixed(0)}%`;
+            const line = `${emoji} **${nutrientName}**: ~${pct.toFixed(0)}%`;
             if (emoji === '🟢') wellDone.push(line);
             else growthZones.push(line);
         }
 
-        const lang: string = 'ru'; 
         const dateStr = yest.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU');
         let report = name 
-            ? `📊 **${name}, вот итоги марафона за ${dateStr}** 🚀\n\n`
-            : `📊 **Итоги марафона за ${dateStr}** 🚀\n\nВчера наши участники показали отличные результаты! Вот статистика по группе:\n\n`;
+            ? t(lang, 'Marathon.dailyTitle', { name, date: dateStr })
+            : t(lang, 'Marathon.dailyTitleGlobal', { date: dateStr });
 
-        report += `✅ **Активность и дисциплина**:\n`;
-        report += `- Заполнили все 4 дневника: ${countDiaries} чел.\n`;
-        report += `- Прошли 10,000 шагов + 30 мин активности: ${countSteps10kActive30} чел. 🏃‍♂️\n\n`;
+        report += `✅ **${t(lang, 'Marathon.activityDiscipline')}**:\n`;
+        report += `${t(lang, 'Marathon.diariesCount', { count: countDiaries })}\n`;
+        report += `${t(lang, 'Marathon.stepsCount', { count: countSteps10kActive30 })}\n\n`;
         
-        report += `💧 **Гидратация**:\n`;
-        report += `- Выпили норму в 2 литра воды: ${countWater2L} чел. 🥤\n\n`;
+        report += `💧 **${t(lang, 'Marathon.hydration')}**:\n`;
+        report += `${t(lang, 'Marathon.waterCount', { count: countWater2L })}\n\n`;
         
-        report += `🛌 **Сон**:\n`;
-        report += `- Качественно отдохнули (7-8 часов): ${countSleep7_8} чел. 😴\n\n`;
+        report += `🛌 **${t(lang, 'Marathon.sleep')}**:\n`;
+        report += `${t(lang, 'Marathon.sleepCount', { count: countSleep7_8 })}\n\n`;
 
         if (growthZones.length > 0) {
-            report += `📉 **Зоны роста группы** (Дефициты и переборы):\n${growthZones.slice(0, 5).join('\n')}\n\n`;
+            report += `📉 **${t(lang, 'Marathon.growthZones')}**\n${growthZones.slice(0, 5).join('\n')}\n\n`;
         }
         
         if (wellDone.length > 0) {
-            report += `🌟 **Общие успехи**:\n${wellDone.slice(0, 5).join('\n')}\n\n`;
+            report += `🌟 **${t(lang, 'Marathon.wellDone')}**\n${wellDone.slice(0, 5).join('\n')}\n\n`;
         }
 
-        report += `💡 **Рекомендация группе**: Обратите внимание на продукты из зон роста, чтобы завтра результаты были еще лучше!`;
+        report += t(lang, 'Marathon.recommendation');
 
         return report;
     } catch (error) {
@@ -2381,11 +2690,6 @@ export async function generateMarathonDailyReport(name?: string, squadId?: strin
         return null;
     }
 }
-
-
-
-
-
 bot.action('menu_nutrition', async (ctx: any) => {
     ctx.answerCbQuery();
     const lang = ctx.state.lang || 'ru';
