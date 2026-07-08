@@ -4,6 +4,7 @@ import { DashboardThemeProvider, ThemeWrapper } from '@/components/dashboard/The
 import prisma from '@/lib/prisma';
 import React from 'react';
 import { cookies } from 'next/headers';
+import { TelegramAutoLinker } from '@/components/dashboard/TelegramAutoLinker';
 
 export default async function CabinetLayout({
     children,
@@ -87,6 +88,7 @@ export default async function CabinetLayout({
             <ThemeWrapper>
                 <div className="min-h-screen font-sans w-full">
                     <div className="flex w-full">
+                        <TelegramAutoLinker />
                         {children}
                     </div>
                 </div>
