@@ -23,6 +23,15 @@ export async function linkTelegramAction(telegramId: string, telegramUsername?: 
 
         // Only update if it's currently null or different
         if (user.telegram_id !== telegramId || user.telegram_username !== telegramUsername) {
+            // Clear this telegram_id from any other auto-generated or old accounts
+            await prisma.user.updateMany({
+                where: { 
+                    telegram_id: telegramId,
+                    id: { not: user.id }
+                },
+                data: { telegram_id: null }
+            });
+
             await prisma.user.update({
                 where: { id: user.id },
                 data: {
