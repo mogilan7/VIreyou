@@ -14,7 +14,7 @@ export async function linkTelegramAction(telegramId: string, telegramUsername?: 
 
     try {
         const user = await prisma.user.findUnique({
-            where: { id: authUser.id }
+            where: { email: authUser.email || undefined }
         });
 
         if (!user) {
