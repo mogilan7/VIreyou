@@ -1681,6 +1681,18 @@ bot.action('menu_what_to_eat', async (ctx: any) => {
     // Советник — только Pro
     if (!(await checkSubscriptionLevel(ctx, user, 'pro'))) return;
 
+    if (!user.age || !user.weight || !user.gender || !user.activity_level) {
+        await ctx.reply(
+            "Для точной ИИ-рекомендации по КБЖУ и нутриентам, пожалуйста, укажите ваши физические параметры. Это нужно сделать один раз."
+        );
+        userStates[user.id] = ONBOARDING_STATES.GENDER;
+        tempLog[user.id] = { name: user.full_name || user.first_name || 'User' };
+        
+        return ctx.reply(t(lang, 'Onboarding.askGender'), Markup.inlineKeyboard([
+            [Markup.button.callback('Мужчина 👨', 'onboarding_gender:male'), Markup.button.callback('Женщина 👩', 'onboarding_gender:female')]
+        ]));
+    }
+
     await ctx.reply(lang === 'en' ? "⏳ Analyzing your day..." : "⏳ Анализирую ваш рацион за сегодня...");
 
     try {
@@ -1701,10 +1713,18 @@ bot.action('menu_what_to_eat', async (ctx: any) => {
             return acc;
         }, { calories: 0, protein: 0, fat: 0, carbs: 0 });
 
-        const profile = await prisma.profiles.findUnique({ where: { id: user.id } }) || { gender: 'unknown', age: 30 };
+        const profile = {
+            gender: user.gender === 'male' ? 'Мужской' : (user.gender === 'female' ? 'Женский' : 'не указан'),
+            age: user.age || 'не указан',
+            weight: user.weight || 'не указан',
+            activity_level: user.activity_level || 'moderate'
+        };
+        const userTz = user.timezone || 'Europe/Moscow';
+        const now = new Date();
+        const currentTimeStr = now.toLocaleTimeString('ru-RU', { timeZone: userTz, hour: '2-digit', minute: '2-digit' });
         
-        const advice = await getProactiveNutritionAdvice(currentNutrients, profile, lang);
-        await ctx.reply(advice, { parse_mode: 'Markdown' });
+        const advice = await getProactiveNutritionAdvice(currentNutrients, profile, currentTimeStr, lang);
+        await ctx.reply(advice);
     } catch (e) {
         console.error("Proactive AI Error:", e);
         await ctx.reply(lang === 'en' ? "Failed to analyze." : "Ошибка анализа.");
