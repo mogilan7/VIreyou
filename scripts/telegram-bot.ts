@@ -1392,6 +1392,33 @@ bot.on('text', async (ctx: any) => {
       }
   }
 
+  // Обработка сообщения в Службу заботы
+  if (userStates[user.id] === 'WAITING_FOR_SUPPORT_MESSAGE') {
+      userStates[user.id] = ''; // Сброс статуса
+      
+      const admins = await prisma.user.findMany({ where: { role: 'admin' } });
+      const supportText = ctx.message.text || ctx.message.caption || "<Медиафайл>";
+      const usernameInfo = ctx.message.from.username ? `(@${ctx.message.from.username})` : "";
+      
+      for (const admin of admins) {
+          if (!admin.telegram_id) continue;
+          try {
+              await bot.telegram.sendMessage(
+                  admin.telegram_id, 
+                  `🚨 **Новое сообщение в Службу заботы**\n\nОт: ${user.full_name || 'Пользователь'} ${usernameInfo}\nID: \`${user.telegram_id}\`\n\nСообщение:\n${supportText}`,
+                  { parse_mode: 'Markdown' }
+              );
+              // Если это пересылаемое сообщение, фото, видео и тд
+              if (ctx.message.message_id) {
+                  await bot.telegram.forwardMessage(admin.telegram_id, ctx.chat.id, ctx.message.message_id);
+              }
+          } catch (e) {
+              console.error(`Failed to send support message to admin ${admin.id}`, e);
+          }
+      }
+      return ctx.reply(t(lang, 'Settings.supportSent'));
+  }
+
   // Обработка уточнения блюда
   if (userStates[user.id] === 'WAITING_FOR_FOOD_CLARIFICATION' && tempLog[user.id]) {
       await ctx.reply(lang === 'en' ? "🔍 Analyzing with your clarification..." : "🔍 Анализирую с учетом вашего уточнения...");
@@ -2818,7 +2845,20 @@ bot.action('menu_settings', async (ctx: any) => {
         [Markup.button.callback(t(lang, 'Settings.rem0'), 'set_count_0')],
         [Markup.button.callback(`${t(lang, 'Settings.timezone')} (${tzPref})`, 'menu_timezone')],
         [Markup.button.callback(t(lang, 'Settings.languageBtn'), 'settings_language')],
-        [Markup.button.callback(t(lang, 'Settings.profileBtn'), 'menu_profile')]
+        [Markup.button.callback(t(lang, 'Settings.profileBtn'), 'menu_profile')],
+        [Markup.button.callback(t(lang, 'Settings.supportBtn'), 'support_care')]
+    ]));
+});
+
+bot.action('support_care', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (user) {
+        userStates[user.id] = 'WAITING_FOR_SUPPORT_MESSAGE';
+    }
+    await ctx.reply(t(lang, 'Settings.supportPrompt'), Markup.inlineKeyboard([
+        [Markup.button.callback(t(lang, 'Settings.back'), 'menu_settings')]
     ]));
 });
 
