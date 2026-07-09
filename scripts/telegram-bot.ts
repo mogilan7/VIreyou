@@ -1776,7 +1776,12 @@ bot.action('menu_what_to_eat', async (ctx: any) => {
             gender: user.gender === 'male' ? 'Мужской' : (user.gender === 'female' ? 'Женский' : 'не указан'),
             age: user.age || 'не указан',
             weight: user.weight || 'не указан',
-            activity_level: user.activity_level || 'moderate'
+            activity_level: user.activity_level || 'moderate',
+            timezone: user.timezone || 'Europe/Moscow',
+            target_calories: user.target_calories,
+            target_protein: user.target_protein,
+            target_fat: user.target_fat,
+            target_carbs: user.target_carbs
         };
         const userTz = user.timezone || 'Europe/Moscow';
         const now = new Date();
