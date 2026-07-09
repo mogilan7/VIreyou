@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
-export async function linkTelegramAction(telegramId: string, telegramUsername?: string) {
+export async function linkTelegramAction(telegramId: string, telegramUsername?: string, timezone?: string) {
     const supabase = await createClient();
     const { data: { user: authUser } } = await supabase.auth.getUser();
 
@@ -22,7 +22,7 @@ export async function linkTelegramAction(telegramId: string, telegramUsername?: 
         }
 
         // Only update if it's currently null or different
-        if (user.telegram_id !== telegramId || user.telegram_username !== telegramUsername) {
+        if (user.telegram_id !== telegramId || user.telegram_username !== telegramUsername || (timezone && user.timezone !== timezone)) {
             // Clear this telegram_id from any other auto-generated or old accounts
             await prisma.user.updateMany({
                 where: { 
@@ -36,10 +36,11 @@ export async function linkTelegramAction(telegramId: string, telegramUsername?: 
                 where: { id: user.id },
                 data: {
                     telegram_id: telegramId,
-                    telegram_username: telegramUsername || null
+                    telegram_username: telegramUsername || null,
+                    ...(timezone ? { timezone } : {})
                 }
             });
-            console.log(`[AUTH] Linked Telegram ID ${telegramId} for user ${user.email}`);
+            console.log(`[AUTH] Linked Telegram ID ${telegramId} for user ${user.email} with TZ ${timezone || 'unknown'}`);
             revalidatePath('/'); // Refresh paths to update UI
         }
 

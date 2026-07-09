@@ -17,10 +17,11 @@ export function TelegramAutoLinker() {
             if (tg?.initDataUnsafe?.user) {
                 const user = tg.initDataUnsafe.user;
                 if (user.id) {
-                    console.log('[TelegramAutoLinker] Found Telegram User:', user.id);
-                    linkTelegramAction(user.id.toString(), user.username).then(res => {
+                    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    console.log('[TelegramAutoLinker] Found Telegram User:', user.id, 'TZ:', tz);
+                    linkTelegramAction(user.id.toString(), user.username, tz).then(res => {
                         if (res.success) {
-                            console.log('[TelegramAutoLinker] Successfully linked Telegram account!');
+                            console.log('[TelegramAutoLinker] Successfully linked Telegram account and timezone!');
                             setIsLinked(true);
                         }
                     });
