@@ -13,21 +13,21 @@ const prisma = new PrismaClient();
 function getModel(modelName: string = "gemini-2.5-flash", temperature: number = 0.2) {
     return genAI.getGenerativeModel({
         model: modelName,
-        generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as any,
         generationConfig: {
             temperature: temperature,
             responseMimeType: "application/json",
-        }
+            thinkingConfig: { thinkingBudget: 0 }
+        } as any
     });
 }
 
 function getTextModel(modelName: string = "gemini-2.5-flash", temperature: number = 0.2) {
     return genAI.getGenerativeModel({
         model: modelName,
-        generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as any,
         generationConfig: {
             temperature: temperature,
-        }
+            thinkingConfig: { thinkingBudget: 0 }
+        } as any
     });
 }
 
@@ -180,7 +180,12 @@ Return STRICTLY in JSON format with exactly these keys. Do not output anything e
     .replace(/```\s*/g, '')
     .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
     .trim();
-  const aiData = JSON.parse(_clean || "{}");
+  let aiData: any = {};
+  try {
+    aiData = JSON.parse(_clean || "{}");
+  } catch (e) {
+    console.error(`[AI FALLBACK ERROR] Failed to parse JSON for ingredient "${ingredientName}":`, e);
+  }
 
   // Save the new item to DB for future use and verification
   try {

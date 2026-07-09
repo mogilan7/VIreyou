@@ -1217,16 +1217,15 @@ bot.on('photo', async (ctx: any) => {
             await ctx.reply(foodData.clarification_question || (lang === 'en' ? "Please clarify." : "Уточните, пожалуйста."));
         } else if (foodData.status === "SUCCESS") {
             await ctx.reply(lang === 'en' ? "🔍 Calculating exact nutrients..." : "🔍 Ищу точные данные в базе...");
-            const ingredientsData = [];
-            for (const item of foodData.ingredients || []) {
+            const ingredientsData = await Promise.all((foodData.ingredients || []).map(async (item: any) => {
                 let cleanName = item.name || "";
                 if (/белый спирт|white spirit|уайт-спирит/i.test(cleanName)) {
                     cleanName = "этиловый спирт";
                 }
                 const dbData = await getIngredientNutrientsWithAI(cleanName);
                 console.log(`[STEP2] DB lookup for "${cleanName}" (${item.grams}g):`, JSON.stringify(dbData));
-                ingredientsData.push({ grams: item.grams, nutrientsPer100g: dbData });
-            }
+                return { grams: item.grams, nutrientsPer100g: dbData };
+            }));
             const totalNutrients = calculateTotalNutrients(ingredientsData);
             totalNutrients.dish = foodData.dish;
             totalNutrients.description = foodData.description;
