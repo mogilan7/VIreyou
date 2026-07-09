@@ -1374,16 +1374,20 @@ bot.on('text', async (ctx: any) => {
 
   // Выбор Часового Пояса
   if (userStates[user.id] === 'WAITING_FOR_TIMEZONE') {
+      if (text.length < 2) return ctx.reply('Пожалуйста, напишите название города корректно.');
+      
+      await ctx.reply("⏳ Настраиваем часовой пояс...");
+      const city = text.trim();
+      const tz = await determineTimezoneFromCity(city);
+      
       userStates[user.id] = ''; // Сброс статуса
       try {
-           if (!text.includes('/')) {
-               return ctx.reply("❌ Invalid timezone format.");
-           }
            await prisma.user.update({
                where: { id: user.id },
-               data: { timezone: text } as any
+               data: { timezone: tz }
            });
-           return ctx.reply(t(lang, 'Settings.tzSaved', { tzName: text }));
+           if (ctx.state.user) ctx.state.user.timezone = tz;
+           return ctx.reply(`Ваш часовой пояс установлен на: ${tz}`);
       } catch (e) {
            return ctx.reply(t(lang, 'Settings.tzError'));
       }
@@ -2827,11 +2831,7 @@ bot.action('menu_timezone', async (ctx: any) => {
         userStates[user.id] = 'WAITING_FOR_TIMEZONE';
     }
     
-    await ctx.reply(t(lang, 'Settings.tzPrompt'), Markup.inlineKeyboard([
-        [Markup.button.callback(t(lang, 'Settings.tzMsk'), 'set_tz_moscow')],
-        [Markup.button.callback(t(lang, 'Settings.tzYek'), 'set_tz_yekt')],
-        [Markup.button.callback(t(lang, 'Settings.tzNov'), 'set_tz_novt')],
-        [Markup.button.callback(t(lang, 'Settings.tzVla'), 'set_tz_vlat')],
+    await ctx.reply('Напишите название вашего города (например, Москва, Алматы, Новосибирск), чтобы я настроил ваш местный часовой пояс:', Markup.inlineKeyboard([
         [Markup.button.callback(t(lang, 'Settings.back'), 'menu_settings')]
     ]));
 });
