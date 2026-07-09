@@ -515,3 +515,23 @@ export async function getProactiveNutritionAdvice(currentNutrients: any, userPro
 
   return result.response.text();
 }
+
+export async function determineTimezoneFromCity(city: string): Promise<string> {
+  if (!apiKey) return 'Europe/Moscow';
+  try {
+    const prompt = `Пользователь указал свой город или регион: "${city}". 
+Определи его часовой пояс в формате IANA (например, "Europe/Moscow", "Asia/Almaty", "Asia/Yangon"). 
+Выведи ТОЛЬКО название часового пояса без кавычек и лишнего текста. 
+Если город неизвестен или не удалось определить, выведи "Europe/Moscow".`;
+    
+    const model = getTextModel("gemini-2.5-flash", 0.1);
+    const result = await model.generateContent([{ text: prompt }]);
+    const tz = result.response.text().trim();
+    
+    if (tz.includes('/')) return tz;
+    return 'Europe/Moscow';
+  } catch (e) {
+    console.error("TZ detection error:", e);
+    return 'Europe/Moscow';
+  }
+}

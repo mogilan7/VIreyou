@@ -13,7 +13,7 @@ if (process.env.DATABASE_URL) {
 }
 
 import prisma from "../src/lib/prisma";
-import { analyzeFoodWithAI, getIngredientNutrientsWithAI, calculateTotalNutrients, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI, analyzeProductLabelWithAI, getProactiveNutritionAdvice } from "../src/lib/telegram/ai-services";
+import { analyzeFoodWithAI, getIngredientNutrientsWithAI, calculateTotalNutrients, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI, analyzeProductLabelWithAI, getProactiveNutritionAdvice, determineTimezoneFromCity } from "../src/lib/telegram/ai-services";
 import { generatePeriodicReport } from "../src/lib/reportGenerator";
 
 const ruMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/ru.json'), 'utf8'));
@@ -127,7 +127,8 @@ const ONBOARDING_STATES = {
     WEIGHT: 'ONBOARDING_WEIGHT',
     HEIGHT: 'ONBOARDING_HEIGHT',
     ACTIVITY: 'ONBOARDING_ACTIVITY',
-    GOAL: 'ONBOARDING_GOAL'
+    GOAL: 'ONBOARDING_GOAL',
+    CITY: 'ONBOARDING_CITY'
 };
 
 // ----------------------------------------------------
@@ -535,9 +536,9 @@ bot.command('marathon_status', async (ctx: any) => {
 
 bot.command('marathon_test', async (ctx: any) => {
     const lang = ctx.state.lang || 'ru';
-    const report = await generateMarathonDailyReport(undefined, undefined, lang);
-    if (!report) return ctx.reply("Нет данных для отчета или участников.");
-    ctx.reply(report, { parse_mode: 'Markdown' });
+    // const report = await generateMarathonDailyReport(undefined, undefined, lang);
+    // if (!report) return ctx.reply("Нет данных для отчета или участников.");
+    // ctx.reply(report, { parse_mode: 'Markdown' });
 });
 
 bot.command('marathon_invite', async (ctx: any) => {
@@ -765,6 +766,7 @@ async function startOnboarding(ctx: any) {
     userStates[user.id] = ONBOARDING_STATES.NAME;
     await ctx.reply(t(lang, 'Onboarding.askName'));
 }
+
 
 bot.action(/^onboarding_gender:(.+)$/, async (ctx: any) => {
     const gender = ctx.match[1];
@@ -1503,6 +1505,59 @@ bot.on('text', async (ctx: any) => {
               [Markup.button.callback(t(lang, 'Onboarding.actActive'), 'onboarding_act:active')],
               [Markup.button.callback(t(lang, 'Onboarding.actVeryActive'), 'onboarding_act:very_active')]
           ]));
+      }
+      
+      if (state === ONBOARDING_STATES.CITY) {
+          if (text.length < 2) return ctx.reply('Пожалуйста, напишите название города корректно.');
+          
+          await ctx.reply("⏳ Настраиваем часовой пояс...");
+          const city = text.trim();
+          const tz = await determineTimezoneFromCity(city);
+          
+          tempLog[user.id] = { ...tempLog[user.id], city, timezone: tz };
+          userStates[user.id] = '';
+          
+          await ctx.reply(t(lang, 'Onboarding.calculating'));
+          
+          const data = tempLog[user.id];
+          const kbju = calculateKBJU(data);
+          
+          try {
+              const updatedUser = await prisma.user.update({
+                  where: { id: user.id },
+                  data: {
+                      full_name: data.name,
+                      gender: data.gender,
+                      age: data.age,
+                      weight: data.weight,
+                      height: data.height,
+                      activity_level: data.activity,
+                      goal: data.goal,
+                      timezone: data.timezone,
+                      target_calories: kbju.calories,
+                      target_protein: kbju.protein,
+                      target_fat: kbju.fat,
+                      target_carbs: kbju.carbs
+                  }
+              });
+              
+              // Return updated user 
+              ctx.state.user = updatedUser;
+
+              const welcomeText = `${t(lang, 'Onboarding.success_1')}\n\n` +
+                  `${t(lang, 'Onboarding.success_cal')} ${Math.round(kbju.calories)} ${t(lang, 'Onboarding.success_kcal')}\n` +
+                  `${t(lang, 'Onboarding.success_p')} ${Math.round(kbju.protein)} ${t(lang, 'Onboarding.success_g')}\n` +
+                  `${t(lang, 'Onboarding.success_f')} ${Math.round(kbju.fat)} ${t(lang, 'Onboarding.success_g')}\n` +
+                  `${t(lang, 'Onboarding.success_c')} ${Math.round(kbju.carbs)} ${t(lang, 'Onboarding.success_g')}\n\n` +
+                  `Ваш часовой пояс установлен на: ${data.timezone}\n\n` +
+                  `${t(lang, 'Onboarding.success_2')}`;
+
+              await ctx.reply(welcomeText);
+              await sendWelcomeMenu(ctx, updatedUser);
+          } catch (e) {
+              console.error("Onboarding Save Error:", e);
+              await ctx.reply(t(lang, 'Confirmation.error'));
+          }
       }
       return;
   }
