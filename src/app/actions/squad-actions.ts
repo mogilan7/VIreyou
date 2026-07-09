@@ -44,7 +44,7 @@ export async function removeParticipantAction(squadId: string, participantId: st
         throw new Error('Only the creator can remove participants');
     }
 
-    await removeParticipant(squadId, participantId);
+    await removeParticipant(squadId, participantId, user.id);
     
     revalidatePath('/[locale]/cabinet/squads', 'page');
     return { success: true };
