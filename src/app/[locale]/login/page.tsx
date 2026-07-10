@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { login, signup } from './actions/auth';
+import { login, signup, resetPasswordForEmail } from './actions/auth';
 import { Mail, Lock, AlertCircle, ArrowRight, ShieldCheck, CheckCircle } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
@@ -20,7 +20,7 @@ export default function LoginPage() {
         }
     }, [searchParams]);
 
-    const [isLogin, setIsLogin] = useState(true);
+    const [viewState, setViewState] = useState<'login' | 'signup' | 'forgot_password'>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -36,13 +36,22 @@ export default function LoginPage() {
 
         const formData = new FormData();
         formData.append('email', email);
-        formData.append('password', password);
+        if (viewState !== 'forgot_password') {
+            formData.append('password', password);
+        }
 
         try {
-            if (isLogin) {
+            if (viewState === 'forgot_password') {
+                const res = await resetPasswordForEmail(formData);
+                if (res?.error) {
+                    setErrorMsg(res.error);
+                } else if (res?.success) {
+                    setSuccessMsg(t('resetSentMessage'));
+                    setViewState('login');
+                }
+            } else if (viewState === 'login') {
                 const res = await login(formData, locale);
                 if (res?.error) {
-                    // If it's a technical error like "fetch failed", show it directly
                     if (res.error.toLowerCase().includes('fetch') || res.error.includes('network')) {
                         setErrorMsg(res.error);
                     } else {
@@ -55,12 +64,11 @@ export default function LoginPage() {
                     setErrorMsg(res.error === 'User already registered' ? t('errorRegisterFailed') : res.error);
                 } else if (res?.success) {
                     setSuccessMsg(t('successRegister'));
-                    setIsLogin(true);
+                    setViewState('login');
                 }
             }
         } catch (err: unknown) {
             const error = err as any;
-            // Next.js redirect throws an error with a specific digest, we should not catch it as a real error
             if (error?.digest?.startsWith?.('NEXT_REDIRECT;')) {
                 isRedirecting = true;
                 return;
@@ -121,43 +129,74 @@ export default function LoginPage() {
                             </div>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-bold text-brand-forest uppercase tracking-widest pl-1">{t('password')}</label>
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-gray/40" />
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder={t('passwordPlaceholder')}
-                                    required
-                                    className="w-full bg-[#FAFAFA] border-2 border-transparent focus:border-brand-leaf/30 focus:bg-white rounded-2xl py-3.5 pl-12 pr-4 outline-none transition-all placeholder:text-brand-gray/40 text-brand-text font-medium"
-                                />
+                        {viewState !== 'forgot_password' && (
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between items-center pr-1">
+                                    <label className="text-sm font-bold text-brand-forest uppercase tracking-widest pl-1">{t('password')}</label>
+                                    {viewState === 'login' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setViewState('forgot_password'); setErrorMsg(null); setSuccessMsg(null); }}
+                                            className="text-xs text-brand-leaf hover:text-brand-forest transition-colors font-medium"
+                                        >
+                                            {t('forgotPassword')}
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-gray/40" />
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder={t('passwordPlaceholder')}
+                                        required
+                                        className="w-full bg-[#FAFAFA] border-2 border-transparent focus:border-brand-leaf/30 focus:bg-white rounded-2xl py-3.5 pl-12 pr-4 outline-none transition-all placeholder:text-brand-gray/40 text-brand-text font-medium"
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         <button
                             type="submit"
                             disabled={loading}
                             className={`w-full bg-brand-forest hover:bg-[#233A2D] text-white py-4 rounded-2xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 mt-4 active:scale-[0.98] ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                            {loading ? (isLogin ? t('loggingIn') : t('registering')) : (isLogin ? t('loginBtn') : t('registerBtn'))}
+                            {loading ? (
+                                viewState === 'login' ? t('loggingIn') : viewState === 'signup' ? t('registering') : t('resetBtn')
+                            ) : (
+                                viewState === 'login' ? t('loginBtn') : viewState === 'signup' ? t('registerBtn') : t('resetBtn')
+                            )}
                             {!loading && <ArrowRight className="w-5 h-5" />}
                         </button>
                     </form>
 
                     <div className="mt-8 text-center border-t border-brand-sage/20 pt-6">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setIsLogin(!isLogin);
-                                setErrorMsg(null);
-                                setSuccessMsg(null);
-                            }}
-                            className="text-sm text-brand-gray hover:text-brand-forest transition-colors font-medium border-b border-transparent hover:border-brand-forest pb-0.5"
-                        >
-                            {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-                        </button>
+                        {viewState === 'forgot_password' ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setViewState('login');
+                                    setErrorMsg(null);
+                                    setSuccessMsg(null);
+                                }}
+                                className="text-sm text-brand-gray hover:text-brand-forest transition-colors font-medium border-b border-transparent hover:border-brand-forest pb-0.5"
+                            >
+                                {t('backToLogin')}
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setViewState(viewState === 'login' ? 'signup' : 'login');
+                                    setErrorMsg(null);
+                                    setSuccessMsg(null);
+                                }}
+                                className="text-sm text-brand-gray hover:text-brand-forest transition-colors font-medium border-b border-transparent hover:border-brand-forest pb-0.5"
+                            >
+                                {viewState === 'login' ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+                            </button>
+                        )}
                     </div>
                 </div>
 

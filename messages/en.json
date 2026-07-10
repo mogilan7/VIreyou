@@ -952,7 +952,17 @@
         "errorRegisterFailed": "Registration failed. User may already exist.",
         "errorUnknown": "An unknown error occurred",
         "successLogin": "Successfully signed in!",
-        "successRegister": "Account created! Please check your email and you can now sign in."
+        "successRegister": "Registration successful! Please check your email (including the Spam folder) and click the link to confirm.",
+        "forgotPassword": "Forgot your password?",
+        "resetBtn": "Reset password",
+        "resetSentMessage": "✅ Password reset link sent! Check your email (and Spam folder).",
+        "backToLogin": "Back to login",
+        "newPasswordLabel": "New password",
+        "newPasswordPlaceholder": "Enter your new password",
+        "updatePasswordBtn": "Save new password",
+        "updatePasswordTitle": "Reset Password",
+        "updatePasswordSubtitle": "Enter your new password below.",
+        "updatePasswordSuccess": "Password updated successfully! You can now sign in."
     },
     "SarcfCalculator": {
         "title": "SARC-F Questionnaire",

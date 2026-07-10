@@ -41,7 +41,13 @@ export async function signup(formData: FormData) {
     }
 
     log(`Attempt for email: ${data.email}`);
-    const { error } = await supabase.auth.signUp(data)
+    const { error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+            emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
+        }
+    })
 
     if (error) {
         log(`Error: ${error.message}`);
@@ -60,4 +66,40 @@ export async function logout(locale: string) {
 
     revalidatePath('/', 'layout')
     redirect({ href: '/login', locale })
+}
+
+export async function resetPasswordForEmail(formData: FormData) {
+    const log = (msg: string) => fs.appendFileSync(logPath, `[${new Date().toISOString()}] AUTH RESET: ${msg}\n`);
+    const supabase = await createClient()
+    const email = formData.get('email') as string
+
+    log(`Attempt for email: ${email}`);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback?next=/update-password`,
+    })
+
+    if (error) {
+        log(`Error: ${error.message}`);
+        return { success: false, error: error.message }
+    }
+
+    log(`Success`);
+    return { success: true, message: 'Password reset email sent' }
+}
+
+export async function updateUserPassword(formData: FormData) {
+    const log = (msg: string) => fs.appendFileSync(logPath, `[${new Date().toISOString()}] AUTH UPDATE PWD: ${msg}\n`);
+    const supabase = await createClient()
+    const password = formData.get('password') as string
+
+    log(`Attempt to update password`);
+    const { error } = await supabase.auth.updateUser({ password })
+
+    if (error) {
+        log(`Error: ${error.message}`);
+        return { success: false, error: error.message }
+    }
+
+    log(`Success`);
+    return { success: true }
 }
