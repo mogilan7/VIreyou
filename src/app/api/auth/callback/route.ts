@@ -13,6 +13,11 @@ export async function GET(request: Request) {
       const isLocalEnv = process.env.NODE_ENV === 'development'
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || origin
 
+      if (next === '/cabinet') {
+        // If it's a standard email confirmation, redirect them straight to the Telegram bot!
+        return NextResponse.redirect('https://t.me/VIreyou_bot')
+      }
+
       if (isLocalEnv) {
         return NextResponse.redirect(`${origin}${next}`)
       } else {

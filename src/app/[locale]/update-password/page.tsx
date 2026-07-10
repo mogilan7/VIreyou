@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { updateUserPassword } from '../login/actions/auth';
 import { Lock, AlertCircle, CheckCircle, ShieldCheck, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export default function UpdatePasswordPage() {
     const t = useTranslations('Auth');
+    const locale = useLocale();
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -101,8 +102,8 @@ export default function UpdatePasswordPage() {
                     
                     {successMsg && (
                         <div className="mt-8 text-center border-t border-brand-sage/20 pt-6">
-                            <a href="/login" className="text-sm text-brand-forest hover:text-brand-leaf font-medium border-b border-transparent hover:border-brand-leaf pb-0.5 transition-colors">
-                                {t('backToLogin')}
+                            <a href="https://t.me/VIreyou_bot" className="text-sm text-brand-forest hover:text-brand-leaf font-medium border-b border-transparent hover:border-brand-leaf pb-0.5 transition-colors">
+                                {locale === 'ru' ? 'Открыть Telegram-бот' : 'Open Telegram bot'}
                             </a>
                         </div>
                     )}
