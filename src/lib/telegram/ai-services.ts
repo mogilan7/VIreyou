@@ -563,3 +563,43 @@ export async function determineTimezoneFromCity(city: string): Promise<string> {
     return 'Europe/Moscow';
   }
 }
+
+export async function generateSupportResponse(query: string, userContext: any, lang: string = 'ru') {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { responseMimeType: "application/json" } });
+
+    const kb = `
+FAQ / БАЗА ЗНАНИЙ VIReYou:
+1. Как работает подписка? Подписка дает доступ ко всем функциям трекера (питание, сон, активность).
+2. Я не могу найти нужную еду. Если бот неправильно распознал фото, просто напишите текстом, что вы съели.
+3. Как отменить подписку? Подписку можно отменить в личном кабинете на сайте vireyou.com.
+4. Где посмотреть дашборд? По кнопке "Мини-апп" или по ссылке vireyou.com/cabinet.
+5. Неправильные цифры калорий? ИИ сам считает порции по фото. Если неточно, напишите точный вес.
+`;
+
+    const prompt = `You are a polite, helpful L1 support assistant for the VIReYou bot (Longevity & Health tracking app).
+The user is asking a question. Try to help them using the Knowledge Base (FAQ).
+If the user explicitly asks for a human ("Позови человека", "Соедини с оператором"), or if the question is complex, out of your knowledge base, about bugs, payments failing, or refunds, you MUST escalate it.
+
+USER CONTEXT:
+Language: ${lang}
+Balance: ${userContext?.balance || 0}
+Subscription expires at: ${userContext?.subscription_expires_at || 'None'}
+User Name: ${userContext?.full_name || 'User'}
+
+KNOWLEDGE BASE:
+${kb}
+
+USER QUERY:
+"${query}"
+
+Respond in JSON format:
+{
+  "reply": "Your response to the user in their language (ru/en). If escalating, say 'Перевожу на человека...'",
+  "escalate": true/false, // Set to true if a human needs to intervene
+  "summary": "If escalate is true, write a very short summary (1 sentence) for the admin of what the user wants. Otherwise leave empty."
+}`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    return JSON.parse(text);
+}

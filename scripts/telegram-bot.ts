@@ -13,7 +13,7 @@ if (process.env.DATABASE_URL) {
 }
 
 import prisma from "../src/lib/prisma";
-import { analyzeFoodWithAI, getIngredientNutrientsWithAI, calculateTotalNutrients, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI, analyzeProductLabelWithAI, getProactiveNutritionAdvice, determineTimezoneFromCity } from "../src/lib/telegram/ai-services";
+import { analyzeFoodWithAI, getIngredientNutrientsWithAI, calculateTotalNutrients, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI, analyzeProductLabelWithAI, getProactiveNutritionAdvice, determineTimezoneFromCity, generateSupportResponse } from "../src/lib/telegram/ai-services";
 import { generatePeriodicReport } from "../src/lib/reportGenerator";
 
 const ruMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/ru.json'), 'utf8'));
@@ -192,6 +192,28 @@ bot.on('message', async (ctx: any, next) => {
             return ctx.reply(t(lang, 'Marathon.channelLinked', { id: channelId }), { parse_mode: 'Markdown' });
         }
     }
+
+    // Обработка ответа админа на сообщение пользователя
+    if (user && user.role === 'admin' && ctx.message.reply_to_message && ctx.message.reply_to_message.from?.id === bot.botInfo?.id) {
+        const repliedText = ctx.message.reply_to_message.text || ctx.message.reply_to_message.caption || "";
+        const match = repliedText.match(/ID:\s*(\d+)/);
+        if (match) {
+            const targetTelegramId = match[1];
+            try {
+                if (ctx.message.text) {
+                    await bot.telegram.sendMessage(targetTelegramId, `👨‍💻 <b>Ответ оператора:</b>\n\n${ctx.message.text}`, { parse_mode: 'HTML' });
+                } else if (ctx.message.photo || ctx.message.video || ctx.message.document) {
+                    await bot.telegram.sendMessage(targetTelegramId, `👨‍💻 <b>Ответ оператора:</b>`, { parse_mode: 'HTML' });
+                    await bot.telegram.copyMessage(targetTelegramId, ctx.chat.id, ctx.message.message_id);
+                }
+                return ctx.reply('✅ Ответ отправлен пользователю.');
+            } catch (e) {
+                console.error("Failed to send admin reply", e);
+                return ctx.reply('❌ Ошибка при отправке ответа пользователю.');
+            }
+        }
+    }
+
     return next();
 });
 
@@ -1400,28 +1422,55 @@ bot.on('text', async (ctx: any) => {
   // Обработка сообщения в Службу заботы
   if (userStates[user.id] === 'WAITING_FOR_SUPPORT_MESSAGE') {
       userStates[user.id] = ''; // Сброс статуса
-      
-      const admins = await prisma.user.findMany({ where: { role: 'admin' } });
       const supportText = ctx.message.text || ctx.message.caption || "<Медиафайл>";
       const usernameInfo = ctx.message.from.username ? `(@${ctx.message.from.username})` : "";
       
-      for (const admin of admins) {
-          if (!admin.telegram_id) continue;
-          try {
-              await bot.telegram.sendMessage(
-                  admin.telegram_id, 
-                  `🚨 <b>Новое сообщение в Службу заботы</b>\n\nОт: ${user.full_name || 'Пользователь'} ${usernameInfo}\nID: <code>${user.telegram_id}</code>\n\nСообщение:\n${supportText}`,
-                  { parse_mode: 'HTML' }
-              );
-              // Если это пересылаемое сообщение, фото, видео и тд
-              if (ctx.message.message_id) {
-                  await bot.telegram.forwardMessage(admin.telegram_id, ctx.chat.id, ctx.message.message_id);
+      const processingMsg = await ctx.reply(lang === 'en' ? "Let me check..." : "Минутку, думаю...");
+      
+      try {
+          const aiResponse = await generateSupportResponse(supportText, user, lang);
+          
+          if (aiResponse.escalate) {
+              const admins = await prisma.user.findMany({ where: { role: 'admin' } });
+              for (const admin of admins) {
+                  if (!admin.telegram_id) continue;
+                  try {
+                      await bot.telegram.sendMessage(
+                          admin.telegram_id, 
+                          `🚨 <b>Служба заботы (Эскалация)</b>\n\nОт: ${user.full_name || 'Пользователь'} ${usernameInfo}\nID: <code>${user.telegram_id}</code>\n\n<b>Саммари ИИ:</b> ${aiResponse.summary}\n\nСообщение:\n${supportText}`,
+                          { parse_mode: 'HTML' }
+                      );
+                      if (ctx.message.message_id) {
+                          await bot.telegram.forwardMessage(admin.telegram_id, ctx.chat.id, ctx.message.message_id);
+                      }
+                  } catch (e) {
+                      console.error(`Failed to send support message to admin ${admin.id}`, e);
+                  }
               }
-          } catch (e) {
-              console.error(`Failed to send support message to admin ${admin.id}`, e);
+              await bot.telegram.editMessageText(ctx.chat.id, processingMsg.message_id, undefined, aiResponse.reply || t(lang, 'Settings.supportSent'));
+          } else {
+              await bot.telegram.editMessageText(ctx.chat.id, processingMsg.message_id, undefined, aiResponse.reply, {
+                  reply_markup: {
+                      inline_keyboard: [[{ text: lang === 'en' ? '🙋‍♂️ Call Human' : '🙋‍♂️ Позвать человека', callback_data: `call_human:${ctx.message.message_id}` }]]
+                  }
+              });
           }
+      } catch (e) {
+          console.error("AI Support Error:", e);
+          const admins = await prisma.user.findMany({ where: { role: 'admin' } });
+          for (const admin of admins) {
+              if (!admin.telegram_id) continue;
+              try {
+                  await bot.telegram.sendMessage(
+                      admin.telegram_id, 
+                      `🚨 <b>Служба заботы (Фолбэк)</b>\n\nОт: ${user.full_name || 'Пользователь'} ${usernameInfo}\nID: <code>${user.telegram_id}</code>\n\nСообщение:\n${supportText}`,
+                      { parse_mode: 'HTML' }
+                  );
+              } catch (err) {}
+          }
+          await bot.telegram.editMessageText(ctx.chat.id, processingMsg.message_id, undefined, t(lang, 'Settings.supportSent'));
       }
-      return ctx.reply(t(lang, 'Settings.supportSent'));
+      return;
   }
 
   // Обработка уточнения блюда
@@ -2999,3 +3048,36 @@ console.log("✅ Bot is polling for updates");
 // Обеспечиваем корректное завершение
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+bot.action(/call_human:(.+)/, async (ctx: any) => {
+    ctx.answerCbQuery();
+    const messageId = ctx.match[1];
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    
+    // We update the original message to remove the button and say "we're connecting you"
+    await ctx.editMessageText(
+        ctx.callbackQuery.message.text + (lang === 'en' ? '\n\n👨‍💻 Escalating to a human...' : '\n\n👨‍💻 Перевожу на оператора...'),
+        { reply_markup: undefined }
+    );
+
+    const admins = await prisma.user.findMany({ where: { role: 'admin' } });
+    const usernameInfo = ctx.from.username ? `(@${ctx.from.username})` : "";
+    
+    for (const admin of admins) {
+        if (!admin.telegram_id) continue;
+        try {
+            await bot.telegram.sendMessage(
+                admin.telegram_id, 
+                `🚨 <b>Служба заботы (Запрос оператора)</b>\n\nОт: ${user.full_name || 'Пользователь'} ${usernameInfo}\nID: <code>${user.telegram_id}</code>\n\nПользователь нажал кнопку "Позвать человека".`,
+                { parse_mode: 'HTML' }
+            );
+            // We forward the original message that triggered this
+            if (messageId) {
+                await bot.telegram.forwardMessage(admin.telegram_id, ctx.chat.id, parseInt(messageId));
+            }
+        } catch (e) {
+            console.error(`Failed to send support message to admin ${admin.id}`, e);
+        }
+    }
+});
