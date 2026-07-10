@@ -28,7 +28,7 @@ export async function login(formData: FormData, locale: string) {
     log(`Success`);
 
     revalidatePath('/', 'layout')
-    redirect({ href: '/cabinet', locale })
+    redirect({ href: '/cabinet/lifestyle', locale })
 }
 
 export async function signup(formData: FormData) {
