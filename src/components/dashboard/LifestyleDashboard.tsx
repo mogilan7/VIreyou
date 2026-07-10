@@ -125,9 +125,9 @@ const LifestyleDashboard = ({
 
   // Format sleep data for chart
   const sleepChartData = [
-    { name: t('deep'), value: lastSleep?.deep_hrs || 0, color: '#1E3A8A' },
-    { name: t('rem'), value: lastSleep?.rem_hrs || 0, color: '#3B82F6' },
-    { name: t('light'), value: lastSleep?.light_hrs || ((lastSleep?.duration_hrs || 0) - (lastSleep?.deep_hrs || 0) - (lastSleep?.rem_hrs || 0)), color: '#93C5FD' },
+    { name: t('deep'), value: Number((lastSleep?.deep_hrs || 0).toFixed(1)), color: '#1E3A8A' },
+    { name: t('rem'), value: Number((lastSleep?.rem_hrs || 0).toFixed(1)), color: '#3B82F6' },
+    { name: t('light'), value: Number((lastSleep?.light_hrs || ((lastSleep?.duration_hrs || 0) - (lastSleep?.deep_hrs || 0) - (lastSleep?.rem_hrs || 0))).toFixed(1)), color: '#93C5FD' },
   ].filter(d => d.value > 0);
 
   // Nutrition Pie Data

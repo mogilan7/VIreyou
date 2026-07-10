@@ -1115,8 +1115,13 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
     } else if (parsedData.type === "SLEEP") {
         const d = parsedData.data;
         text = t(lang, 'Sleep.saved', {
-            dur: d.duration_hrs || 0, deep: d.deep_hrs || 0, rem: d.rem_hrs || 0, light: d.light_hrs || 0,
-            hr: d.resting_heart_rate || '--', hrv: d.hrv || '--', desc: parsedData.description
+            dur: d.duration_hrs ? Number(d.duration_hrs).toFixed(1) : 0, 
+            deep: d.deep_hrs ? Number(d.deep_hrs).toFixed(1) : 0, 
+            rem: d.rem_hrs ? Number(d.rem_hrs).toFixed(1) : 0, 
+            light: d.light_hrs ? Number(d.light_hrs).toFixed(1) : 0,
+            hr: d.resting_heart_rate ? Number(d.resting_heart_rate).toFixed(0) : '--', 
+            hrv: d.hrv ? Number(d.hrv).toFixed(0) : '--', 
+            desc: parsedData.description
         });
     } else if (parsedData.type === "ACTIVITY") {
         const d = parsedData.data;
