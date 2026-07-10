@@ -650,7 +650,7 @@ const MacroItem = ({ label, current, target, color, unit }: any) => (
   <div className="space-y-1">
     <div className="flex justify-between text-[10px] md:text-[11px] font-bold">
       <span className="text-slate-500 uppercase">{label}</span>
-      <span className="dark:text-white shrink-0 ml-2">{current}{unit} <span className="text-slate-400 font-normal">/ {target}{unit}</span></span>
+      <span className="dark:text-white shrink-0 ml-2">{typeof current === 'number' ? current.toFixed(1) : current}{unit} <span className="text-slate-400 font-normal">/ {target}{unit}</span></span>
     </div>
     <div className="h-1 w-full bg-slate-100 dark:bg-slate-800 rounded-full">
       <div 
