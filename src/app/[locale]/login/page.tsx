@@ -45,7 +45,11 @@ export default function LoginPage() {
             if (viewState === 'forgot_password') {
                 const res = await resetPasswordForEmail(formData);
                 if (res?.error) {
-                    setErrorMsg(res.error);
+                    if (res.error.toLowerCase().includes('rate limit')) {
+                        setErrorMsg(t('errorRateLimit'));
+                    } else {
+                        setErrorMsg(res.error);
+                    }
                 } else if (res?.success) {
                     setSuccessMsg(t('resetSentMessage'));
                     setViewState('login');
@@ -53,7 +57,9 @@ export default function LoginPage() {
             } else if (viewState === 'login') {
                 const res = await login(formData, locale);
                 if (res?.error) {
-                    if (res.error.toLowerCase().includes('fetch') || res.error.includes('network')) {
+                    if (res.error.toLowerCase().includes('rate limit')) {
+                        setErrorMsg(t('errorRateLimit'));
+                    } else if (res.error.toLowerCase().includes('fetch') || res.error.includes('network')) {
                         setErrorMsg(res.error);
                     } else {
                         setErrorMsg(t('errorInvalidLogin'));
@@ -62,7 +68,11 @@ export default function LoginPage() {
             } else {
                 const res = await signup(formData);
                 if (res?.error) {
-                    setErrorMsg(res.error === 'User already registered' ? t('errorRegisterFailed') : res.error);
+                    if (res.error.toLowerCase().includes('rate limit')) {
+                        setErrorMsg(t('errorRateLimit'));
+                    } else {
+                        setErrorMsg(res.error === 'User already registered' ? t('errorRegisterFailed') : res.error);
+                    }
                 } else if (res?.success) {
                     setSuccessMsg(t('successRegister'));
                     setViewState('login');

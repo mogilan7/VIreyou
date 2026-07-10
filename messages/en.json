@@ -950,6 +950,7 @@
         "registering": "Registering...",
         "errorInvalidLogin": "Invalid login credentials",
         "errorRegisterFailed": "Registration failed. User may already exist.",
+        "errorRateLimit": "Too many requests. Please wait a moment and try again.",
         "errorUnknown": "An unknown error occurred",
         "successLogin": "Successfully signed in!",
         "successRegister": "Registration successful! Please check your email (including the Spam folder) and click the link to confirm.",
