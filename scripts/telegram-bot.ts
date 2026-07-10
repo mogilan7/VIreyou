@@ -1405,8 +1405,8 @@ bot.on('text', async (ctx: any) => {
           try {
               await bot.telegram.sendMessage(
                   admin.telegram_id, 
-                  `🚨 **Новое сообщение в Службу заботы**\n\nОт: ${user.full_name || 'Пользователь'} ${usernameInfo}\nID: \`${user.telegram_id}\`\n\nСообщение:\n${supportText}`,
-                  { parse_mode: 'Markdown' }
+                  `🚨 <b>Новое сообщение в Службу заботы</b>\n\nОт: ${user.full_name || 'Пользователь'} ${usernameInfo}\nID: <code>${user.telegram_id}</code>\n\nСообщение:\n${supportText}`,
+                  { parse_mode: 'HTML' }
               );
               // Если это пересылаемое сообщение, фото, видео и тд
               if (ctx.message.message_id) {
