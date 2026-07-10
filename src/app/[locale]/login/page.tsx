@@ -212,7 +212,7 @@ export default function LoginPage() {
                                 }}
                                 className="text-sm text-brand-gray hover:text-brand-forest transition-colors font-medium border-b border-transparent hover:border-brand-forest pb-0.5"
                             >
-                                {viewState === 'login' ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+                                {viewState === 'login' ? t('noAccountText') : t('hasAccountText')}
                             </button>
                         )}
                     </div>

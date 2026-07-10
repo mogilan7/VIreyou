@@ -956,6 +956,8 @@
         "successRegister": "Registration successful! Please check your email (including the Spam folder) and click the link to confirm.",
         "forgotPassword": "Forgot your password?",
         "resetBtn": "Reset password",
+        "noAccountText": "Don't have an account? Sign up",
+        "hasAccountText": "Already have an account? Sign in",
         "resetSentMessage": "✅ Password reset link sent! Check your email (and Spam folder).",
         "backToLogin": "Back to login",
         "newPasswordLabel": "New password",
