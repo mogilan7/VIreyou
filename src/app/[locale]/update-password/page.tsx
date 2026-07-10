@@ -3,11 +3,12 @@
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { updateUserPassword } from '../login/actions/auth';
-import { Lock, AlertCircle, CheckCircle, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Lock, AlertCircle, CheckCircle, ShieldCheck, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export default function UpdatePasswordPage() {
     const t = useTranslations('Auth');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -71,13 +72,20 @@ export default function UpdatePasswordPage() {
                             <div className="relative">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-gray/40" />
                                 <input
-                                    type="password"
+                                    type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder={t('newPasswordPlaceholder')}
                                     required
-                                    className="w-full bg-[#FAFAFA] border-2 border-transparent focus:border-brand-leaf/30 focus:bg-white rounded-2xl py-3.5 pl-12 pr-4 outline-none transition-all placeholder:text-brand-gray/40 text-brand-text font-medium"
+                                    className="w-full bg-[#FAFAFA] border-2 border-transparent focus:border-brand-leaf/30 focus:bg-white rounded-2xl py-3.5 pl-12 pr-12 outline-none transition-all placeholder:text-brand-gray/40 text-brand-text font-medium"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-gray/40 hover:text-brand-forest transition-colors"
+                                >
+                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
                             </div>
                         </div>
 

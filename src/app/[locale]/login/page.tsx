@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { login, signup, resetPasswordForEmail } from './actions/auth';
-import { Mail, Lock, AlertCircle, ArrowRight, ShieldCheck, CheckCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, ArrowRight, ShieldCheck, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -21,6 +21,7 @@ export default function LoginPage() {
     }, [searchParams]);
 
     const [viewState, setViewState] = useState<'login' | 'signup' | 'forgot_password'>('login');
+    const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -146,13 +147,20 @@ export default function LoginPage() {
                                 <div className="relative">
                                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-gray/40" />
                                     <input
-                                        type="password"
+                                        type={showPassword ? 'text' : 'password'}
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder={t('passwordPlaceholder')}
                                         required
-                                        className="w-full bg-[#FAFAFA] border-2 border-transparent focus:border-brand-leaf/30 focus:bg-white rounded-2xl py-3.5 pl-12 pr-4 outline-none transition-all placeholder:text-brand-gray/40 text-brand-text font-medium"
+                                        className="w-full bg-[#FAFAFA] border-2 border-transparent focus:border-brand-leaf/30 focus:bg-white rounded-2xl py-3.5 pl-12 pr-12 outline-none transition-all placeholder:text-brand-gray/40 text-brand-text font-medium"
                                     />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-gray/40 hover:text-brand-forest transition-colors"
+                                    >
+                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                    </button>
                                 </div>
                             </div>
                         )}
