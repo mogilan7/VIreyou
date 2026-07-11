@@ -72,6 +72,37 @@ const BOT_VERSION = "1.2.3"; // Consistent date parsing relative to user local t
 console.log(`[START] MemoBot ${BOT_VERSION} starting...`);
 const bot = new Telegraf(botToken);
 
+function markdownToHtml(md: string): string {
+    if (!md) return "";
+    return md
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\*\*(?!\s)([^\n*]+?)(?<!\s)\*\*/g, "<b>$1</b>")
+        .replace(/\*(?!\s)([^\n*]+?)(?<!\s)\*/g, "<b>$1</b>")
+        .replace(/__(?!\s)([^\n_]+?)(?<!\s)__/g, "<u>$1</u>")
+        .replace(/_(?!\s)([^\n_]+?)(?<!\s)_/g, "<i>$1</i>")
+        .replace(/`(?!\s)([^\n`]+?)(?<!\s)`/g, "<code>$1</code>");
+}
+
+const originalSendMessage = bot.telegram.sendMessage.bind(bot.telegram);
+bot.telegram.sendMessage = async (chatId: any, text: any, extra: any) => {
+    if (extra && extra.parse_mode === 'Markdown') {
+        text = markdownToHtml(text);
+        extra.parse_mode = 'HTML';
+    }
+    return originalSendMessage(chatId, text, extra);
+};
+
+const originalEditMessageText = bot.telegram.editMessageText.bind(bot.telegram);
+bot.telegram.editMessageText = async (chatId: any, messageId: any, inlineMessageId: any, text: any, extra: any) => {
+    if (extra && extra.parse_mode === 'Markdown') {
+        text = markdownToHtml(text);
+        extra.parse_mode = 'HTML';
+    }
+    return originalEditMessageText(chatId, messageId, inlineMessageId, text, extra);
+};
+
 /**
  * Скачивает файл по его TG file_id.
  */
