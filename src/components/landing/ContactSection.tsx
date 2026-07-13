@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Mail, MessageCircle } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Mail, MessageCircle, ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { submitContactForm } from "@/app/actions/contact";
 
@@ -10,6 +10,19 @@ export default function ContactSection() {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isPending, setIsPending] = useState(false);
     const [phone, setPhone] = useState("");
+    const [messenger, setMessenger] = useState("Telegram");
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -51,22 +64,13 @@ export default function ContactSection() {
                     <div className="space-y-8">
                         {/* Telegram */}
                         <a href="https://t.me/VI_Beautylife" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-6 group w-max">
-                            <div className="w-14 h-14 bg-[#229ED9]/10 rounded-full flex items-center justify-center border border-[#229ED9]/20 group-hover:bg-[#229ED9]/30 group-hover:border-[#229ED9]/50 transition-all duration-300">
+                            <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center border border-white/10 group-hover:bg-[#229ED9]/20 group-hover:border-[#229ED9]/50 transition-all duration-300">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#229ED9]">
                                     <path d="m22 2-7 20-4-9-9-4Z" />
                                     <path d="M22 2 11 13" />
                                 </svg>
                             </div>
-                            <span className="text-white/90 font-medium tracking-wide group-hover:text-white transition-colors duration-300">Telegram</span>
-                        </a>
-                        {/* WhatsApp */}
-                        <a href="https://wa.me/" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-6 group w-max">
-                            <div className="w-14 h-14 bg-[#25D366]/10 rounded-full flex items-center justify-center border border-[#25D366]/20 group-hover:bg-[#25D366]/30 group-hover:border-[#25D366]/50 transition-all duration-300">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#25D366]">
-                                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-                                </svg>
-                            </div>
-                            <span className="text-white/90 font-medium tracking-wide group-hover:text-white transition-colors duration-300">WhatsApp</span>
+                            <span className="text-white/90 font-medium tracking-wide group-hover:text-white transition-colors duration-300">@VI_Beautylife</span>
                         </a>
                         {/* Email */}
                         <a href="mailto:cleverval23@gmail.com" className="flex items-center space-x-6 group w-max">
@@ -128,16 +132,55 @@ export default function ContactSection() {
                             <label className="block text-brand-text text-[10px] uppercase font-bold tracking-widest mb-3">
                                 {t('messengerLabel') || "Предпочитаемый мессенджер"}
                             </label>
-                            <select
-                                name="messenger"
-                                required
-                                className="w-full bg-[#FAFAFA] border border-brand-sage/40 rounded-2xl px-5 py-4 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-leaf transition-all text-sm font-medium appearance-none"
-                                defaultValue="Telegram"
-                            >
-                                <option value="Telegram">Telegram</option>
-                                <option value="WhatsApp">WhatsApp</option>
-                                <option value="Viber">Viber</option>
-                            </select>
+                            <div className="relative" ref={dropdownRef}>
+                                <input type="hidden" name="messenger" value={messenger} />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                    className="w-full bg-[#FAFAFA] border border-brand-sage/40 rounded-2xl px-5 py-4 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-leaf transition-all text-sm font-medium flex items-center justify-between"
+                                >
+                                    <span className="flex items-center gap-3">
+                                        {messenger === "Telegram" && (
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#229ED9]"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
+                                        )}
+                                        {messenger === "WhatsApp" && (
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#25D366]"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                                        )}
+                                        {messenger === "Viber" && (
+                                            <MessageCircle className="w-[18px] h-[18px] text-[#7360F2]" />
+                                        )}
+                                        {messenger}
+                                    </span>
+                                    <ChevronDown className={`w-5 h-5 text-brand-gray/50 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                
+                                {isDropdownOpen && (
+                                    <div className="absolute top-full left-0 mt-2 w-full bg-white border border-slate-100 rounded-xl shadow-xl overflow-hidden z-20">
+                                        {['Telegram', 'WhatsApp', 'Viber'].map((item) => (
+                                            <button
+                                                key={item}
+                                                type="button"
+                                                className="w-full text-left px-5 py-3 hover:bg-slate-50 transition-colors text-sm font-medium flex items-center gap-3"
+                                                onClick={() => {
+                                                    setMessenger(item);
+                                                    setIsDropdownOpen(false);
+                                                }}
+                                            >
+                                                {item === "Telegram" && (
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#229ED9]"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
+                                                )}
+                                                {item === "WhatsApp" && (
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#25D366]"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                                                )}
+                                                {item === "Viber" && (
+                                                    <MessageCircle className="w-[18px] h-[18px] text-[#7360F2]" />
+                                                )}
+                                                {item}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Request */}
