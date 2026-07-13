@@ -41,7 +41,7 @@ const NavLinks = ({ mobile = false, isCabinet, isSpecialist, t, tDashboard, setI
                         key={link.href}
                         href={link.href as "/cabinet" | "/specialist"}
                         onClick={() => setIsMenuOpen(false)}
-                        className={`hover:text-brand-leaf transition-colors ${mobile ? 'text-2xl font-serif py-4 w-full text-center text-brand-forest' : 'hover:text-brand-forest'}`}
+                        className={`hover:text-brand-leaf transition-all duration-200 ${mobile ? 'text-2xl font-serif py-4 w-full text-center text-brand-forest active:scale-95 active:opacity-70' : 'hover:text-brand-forest'}`}
                     >
                         {link.name}
                     </Link>
@@ -49,7 +49,7 @@ const NavLinks = ({ mobile = false, isCabinet, isSpecialist, t, tDashboard, setI
                 <Link
                     href="/"
                     onClick={() => setIsMenuOpen(false)}
-                    className={`hover:text-brand-leaf transition-colors font-bold ${mobile ? 'text-2xl font-serif py-4 w-full text-center text-brand-leaf' : 'text-brand-leaf'}`}
+                    className={`hover:text-brand-leaf transition-all duration-200 font-bold ${mobile ? 'text-2xl font-serif py-4 w-full text-center text-brand-leaf active:scale-95 active:opacity-70' : 'text-brand-leaf'}`}
                 >
                     {t('home')}
                 </Link>
@@ -62,21 +62,21 @@ const NavLinks = ({ mobile = false, isCabinet, isSpecialist, t, tDashboard, setI
             <Link
                 href="/#philosophy"
                 onClick={() => setIsMenuOpen(false)}
-                className={`hover:text-brand-leaf transition-colors ${mobile ? 'text-3xl font-serif py-4 w-full text-center text-brand-forest tracking-wide' : 'hover:text-brand-forest'}`}
+                className={`hover:text-brand-leaf transition-all duration-200 ${mobile ? 'text-3xl font-serif py-4 w-full text-center text-brand-forest tracking-wide active:scale-95 active:opacity-70' : 'hover:text-brand-forest'}`}
             >
                 {t('philosophy')}
             </Link>
             <Link
                 href="/diagnostics"
                 onClick={() => setIsMenuOpen(false)}
-                className={`hover:text-brand-leaf transition-colors ${mobile ? 'text-3xl font-serif py-4 w-full text-center text-brand-forest tracking-wide' : 'hover:text-brand-forest'}`}
+                className={`hover:text-brand-leaf transition-all duration-200 ${mobile ? 'text-3xl font-serif py-4 w-full text-center text-brand-forest tracking-wide active:scale-95 active:opacity-70' : 'hover:text-brand-forest'}`}
             >
                 {t('diagnostics')}
             </Link>
             <Link
                 href="/pricing"
                 onClick={() => setIsMenuOpen(false)}
-                className={`hover:text-brand-leaf transition-colors ${mobile ? 'text-3xl font-serif py-4 w-full text-center text-brand-forest tracking-wide' : 'hover:text-brand-forest'}`}
+                className={`hover:text-brand-leaf transition-all duration-200 ${mobile ? 'text-3xl font-serif py-4 w-full text-center text-brand-forest tracking-wide active:scale-95 active:opacity-70' : 'hover:text-brand-forest'}`}
             >
                 {t('pricing')}
             </Link>
@@ -127,7 +127,7 @@ export default function PublicNavbar() {
 
     return (
         <>
-            <nav className={`fixed top-0 w-full z-50 py-2 px-6 md:px-12 flex items-center justify-between bg-brand-bg/60 backdrop-blur-[10px] border-b border-brand-sage/20 transition-all duration-300 ${(isCabinet || isSpecialist) ? 'lg:hidden' : ''}`}>
+            <nav className={`fixed top-0 w-full z-[150] py-2 px-6 md:px-12 flex items-center justify-between bg-brand-bg/60 backdrop-blur-[10px] border-b border-brand-sage/20 transition-all duration-300 ${(isCabinet || isSpecialist) ? 'lg:hidden' : ''}`}>
                 {/* Brand Logo */}
                 <div className="flex items-center">
                     <Link href="/" onClick={() => setIsMenuOpen(false)}>
@@ -212,7 +212,7 @@ export default function PublicNavbar() {
                         <Link
                             href="/pricing"
                             onClick={() => setIsMenuOpen(false)}
-                            className="bg-brand-forest hover:bg-brand-leaf text-white px-8 py-5 rounded-full transition-colors flex items-center justify-center w-full text-lg mt-8 shadow-xl shadow-brand-forest/20 font-bold uppercase tracking-wider"
+                            className="bg-brand-forest hover:bg-brand-leaf text-white px-8 py-5 rounded-full transition-all duration-200 flex items-center justify-center w-full text-lg mt-8 shadow-xl shadow-brand-forest/20 font-bold uppercase tracking-wider active:scale-95 active:opacity-90"
                         >
                             {t('consultation')}
                         </Link>
