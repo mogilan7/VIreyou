@@ -100,9 +100,13 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen bg-brand-bg flex items-center justify-center p-4 pt-24 font-sans text-brand-text relative">
             {/* Top Left Home Logo */}
-            <Link href="/" className="absolute top-6 left-6 md:top-8 md:left-8 flex items-center group transition-opacity hover:opacity-80">
-                <div className="bg-brand-forest w-10 h-10 flex items-center justify-center text-white text-sm font-bold font-serif shadow-sm">
-                    VI
+            <Link href="/" className="absolute top-4 left-4 md:top-6 md:left-6 transition-opacity hover:opacity-80">
+                <div className="relative h-16 w-32">
+                    <img
+                        src="/logo.png"
+                        alt="VIReYou Logo"
+                        className="h-full w-full object-contain mix-blend-multiply brightness-[1.05] contrast-[1.05]"
+                    />
                 </div>
             </Link>
 
