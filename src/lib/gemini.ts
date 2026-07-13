@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const getGeminiModel = (
-    modelName: string = "gemini-1.5-pro", 
+    modelName: string = "gemini-2.5-flash", 
     temperature: number = 0.2, 
     jsonMode: boolean = false,
     systemInstruction?: string
