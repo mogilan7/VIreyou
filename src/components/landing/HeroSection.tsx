@@ -34,10 +34,10 @@ export default function HeroSection() {
                         >
                             {t('startAnalysis')}
                         </button>
-                        <button className="bg-transparent border border-brand-sage hover:bg-brand-sage/20 text-brand-text px-8 py-3.5 rounded-[12px] font-medium transition-all text-sm flex items-center gap-2 whitespace-nowrap">
+                        <a href="#services" className="bg-transparent border border-brand-sage hover:bg-brand-sage/20 text-brand-text px-8 py-3.5 rounded-[12px] font-medium transition-all text-sm flex items-center gap-2 whitespace-nowrap">
                             {t('ourMethod')}
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-                        </button>
+                        </a>
                     </div>
                 </div>
 
