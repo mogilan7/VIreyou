@@ -218,7 +218,7 @@ export default async function DiagnosticsPage({ params }: { params: Promise<{ lo
                         <div className="flex-1 h-[400px] w-full relative rounded-2xl overflow-hidden shadow-xl mt-8 md:mt-0">
                             <div className="absolute inset-0 bg-brand-forest/5 mix-blend-multiply z-10 rounded-2xl"></div>
                             <img
-                                src="/hero-specialist.png"
+                                src="/about-specialist-v2.png"
                                 className="w-full h-full object-cover object-[center_top] rounded-2xl"
                                 alt="Valentina Specialist"
                             />
