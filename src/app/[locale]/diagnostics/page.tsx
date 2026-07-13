@@ -45,7 +45,7 @@ export default async function DiagnosticsPage({ params }: { params: Promise<{ lo
         }
     }
 
-    const pricingUrl = `/${locale}/pricing`;
+    const pricingUrl = "/pricing";
 
     return (
         <div className="bg-brand-bg min-h-screen pt-32 pb-0 flex flex-col">
