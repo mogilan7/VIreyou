@@ -72,10 +72,8 @@ export async function generateDiagnosticReport(formData: any, locale: string = '
     - Наследственность: ${formData.heredity || 'Не указана'}.`;
 
   try {
-    const model = getGeminiModel("gemini-1.5-flash", 0.7);
-    const chat = model.startChat({
-        systemInstruction: systemPrompt
-    });
+    const model = getGeminiModel("gemini-1.5-flash", 0.7, false, systemPrompt);
+    const chat = model.startChat();
 
     const aiResponse = await chat.sendMessage(userQuery);
     const content = aiResponse.response.text() || (isEn ? "Failed to get response from AI." : "Не удалось получить ответ от ИИ.");
