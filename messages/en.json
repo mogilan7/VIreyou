@@ -1514,6 +1514,8 @@
         },
         "Nutrition": {
             "prompt": "🍎 **Nutrition Analysis**\n\nSend me a **photo of your dish**, text, or voice description.\n\nI will calculate calories, macronutrients, fiber, and micronutrients!",
+            "lifehackBtn": "💡 Lifehack",
+            "lifehackAlert": "💡 Lifehack: to help AI accurately determine the weight (in grams), try to include a regular fork, spoon, or your hand in the photo frame. This helps the neural network understand the scale of the plate! And if the exact weight is known, simply write it as text with the photo.",
             "saved": "🍎 **Nutrition**: **{dish}** ({grams}g):\n\n🔥 Calories: {cal} kcal\n🥩 Protein: {prot}g\n🍞 Carbs: {carbs}g\n🥑 Fats: {fat}g\n\n📝 {desc}\n\n_Data source: USDA FoodData Central_",
             "detectedHabit": "\n⚠️ **Habit detected**: {habit}",
             "noDataToday": "No data for today yet. Send a food photo or description!",

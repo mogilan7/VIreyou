@@ -2937,7 +2937,14 @@ export async function generateMarathonDailyReport(name?: string, squadId?: strin
 bot.action('menu_nutrition', async (ctx: any) => {
     ctx.answerCbQuery();
     const lang = ctx.state.lang || 'ru';
-    await ctx.reply(t(lang, 'Nutrition.prompt'));
+    await ctx.reply(t(lang, 'Nutrition.prompt'), Markup.inlineKeyboard([
+        [Markup.button.callback(t(lang, 'Nutrition.lifehackBtn'), 'lifehack_nutrition')]
+    ]));
+});
+
+bot.action('lifehack_nutrition', async (ctx: any) => {
+    const lang = ctx.state.lang || 'ru';
+    await ctx.answerCbQuery(t(lang, 'Nutrition.lifehackAlert'), { show_alert: true });
 });
 
 bot.action('get_nutrition_report', async (ctx: any) => {
