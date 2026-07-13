@@ -160,7 +160,7 @@ export default function ContactSection() {
                                             <button
                                                 key={item}
                                                 type="button"
-                                                className="w-full text-left px-5 py-3 hover:bg-slate-50 transition-colors text-sm font-medium flex items-center gap-3"
+                                                className="w-full text-left px-5 py-3 hover:bg-slate-50 transition-colors text-sm font-medium flex items-center gap-3 text-slate-800"
                                                 onClick={() => {
                                                     setMessenger(item);
                                                     setIsDropdownOpen(false);
