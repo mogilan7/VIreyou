@@ -117,7 +117,7 @@ export async function getIngredientNutrientsWithAI(ingredientName: string) {
       where: { name_ru: { contains: ingredientName.toLowerCase(), mode: 'insensitive' } }
     });
 
-    if (existingItem) {
+    if (existingItem && !existingItem.name_ru.includes('манго')) {
       console.log(`[DB HIT] Found "${ingredientName}" in local DB as "${existingItem.name_ru}"`);
       return {
         calories: Number(existingItem.calories), protein: Number(existingItem.protein),
@@ -153,9 +153,10 @@ Your goal is to return accurate nutritional values for exactly 100 GRAMS (or 100
 
 **CRITICAL INSTRUCTIONS:**
 1. **USDA Base Data:** Use the closest matching item from the USDA Foundation Foods or SR Legacy database.
-2. **Micronutrients are MANDATORY:** DO NOT return zeros for vitamins and minerals unless they are truly absent.
-3. **Iodine for Seaweeds:** For ingredients like seaweed (вакаме, ламинария) or seafood, you MUST estimate iodine accurately in mcg.
-4. **Accuracy:** Round to 1 decimal place.
+2. **Fresh by Default:** If the ingredient is a fruit, vegetable, or meat and no preparation method (like dried, fried, baked) is specified, you MUST default to RAW and FRESH. (e.g. "Mango" = raw mango, NOT dried mango).
+3. **Micronutrients are MANDATORY:** DO NOT return zeros for vitamins and minerals unless they are truly absent.
+4. **Iodine for Seaweeds:** For ingredients like seaweed (вакаме, ламинария) or seafood, you MUST estimate iodine accurately in mcg.
+5. **Accuracy:** Round to 1 decimal place.
 
 Return STRICTLY in JSON format with exactly these keys. Do not output anything else:
 {
