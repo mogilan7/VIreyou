@@ -41,7 +41,7 @@ const NavLinks = ({ mobile = false, isCabinet, isSpecialist, t, tDashboard, setI
                         key={link.href}
                         href={link.href as "/cabinet" | "/specialist"}
                         onClick={() => setIsMenuOpen(false)}
-                        className={`hover:text-brand-forest transition-colors ${mobile ? 'text-xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
+                        className={`hover:text-brand-leaf transition-colors ${mobile ? 'text-2xl font-serif py-4 w-full text-center text-brand-forest' : 'hover:text-brand-forest'}`}
                     >
                         {link.name}
                     </Link>
@@ -49,7 +49,7 @@ const NavLinks = ({ mobile = false, isCabinet, isSpecialist, t, tDashboard, setI
                 <Link
                     href="/"
                     onClick={() => setIsMenuOpen(false)}
-                    className={`hover:text-brand-forest transition-colors font-bold ${mobile ? 'text-xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-leaf' : 'text-brand-leaf'}`}
+                    className={`hover:text-brand-leaf transition-colors font-bold ${mobile ? 'text-2xl font-serif py-4 w-full text-center text-brand-leaf' : 'text-brand-leaf'}`}
                 >
                     {t('home')}
                 </Link>
@@ -62,21 +62,21 @@ const NavLinks = ({ mobile = false, isCabinet, isSpecialist, t, tDashboard, setI
             <Link
                 href="/#philosophy"
                 onClick={() => setIsMenuOpen(false)}
-                className={`hover:text-brand-forest transition-colors ${mobile ? 'text-2xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
+                className={`hover:text-brand-leaf transition-colors ${mobile ? 'text-3xl font-serif py-4 w-full text-center text-brand-forest tracking-wide' : 'hover:text-brand-forest'}`}
             >
                 {t('philosophy')}
             </Link>
             <Link
                 href="/diagnostics"
                 onClick={() => setIsMenuOpen(false)}
-                className={`hover:text-brand-forest transition-colors ${mobile ? 'text-2xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
+                className={`hover:text-brand-leaf transition-colors ${mobile ? 'text-3xl font-serif py-4 w-full text-center text-brand-forest tracking-wide' : 'hover:text-brand-forest'}`}
             >
                 {t('diagnostics')}
             </Link>
             <Link
                 href="/pricing"
                 onClick={() => setIsMenuOpen(false)}
-                className={`hover:text-brand-forest transition-colors ${mobile ? 'text-2xl font-serif py-4 border-b border-brand-sage/20 w-full text-center text-brand-text' : ''}`}
+                className={`hover:text-brand-leaf transition-colors ${mobile ? 'text-3xl font-serif py-4 w-full text-center text-brand-forest tracking-wide' : 'hover:text-brand-forest'}`}
             >
                 {t('pricing')}
             </Link>
@@ -97,7 +97,7 @@ const LangSwitcher = ({ mobile = false, pathname, toggleLocale, locale, setIsMen
         href={pathname}
         locale={toggleLocale}
         onClick={() => setIsMenuOpen(false)}
-        className={`text-brand-gray/60 hover:text-brand-forest font-bold ${mobile ? 'text-xl py-6 border-b border-brand-sage/20 w-full text-center text-brand-text' : 'text-[10px] tracking-widest'}`}
+        className={`text-brand-gray/60 hover:text-brand-leaf font-bold ${mobile ? 'text-lg py-4 w-full text-center text-brand-forest/60' : 'text-[10px] tracking-widest hover:text-brand-forest'}`}
     >
         {locale === 'en' ? 'RU' : 'EN'}
     </Link>
@@ -198,8 +198,8 @@ export default function PublicNavbar() {
             </nav>
 
             {/* Mobile Menu Overlay */}
-            <div className={`fixed inset-0 bg-white z-[200] transition-all duration-500 md:hidden flex flex-col items-center justify-start overflow-y-auto pt-24 pb-12 px-8 ${isMenuOpen ? 'opacity-100 visible shadow-2xl' : 'opacity-0 invisible pointer-events-none'} ${(isCabinet || isSpecialist) ? 'lg:hidden' : ''}`}>
-                <div className={`flex flex-col items-center gap-1 w-full max-w-xs transition-transform duration-500 transform ${isMenuOpen ? 'translate-y-0' : '-translate-y-10'}`}>
+            <div className={`fixed inset-0 bg-brand-bg/98 backdrop-blur-2xl z-[100] transition-all duration-500 md:hidden flex flex-col items-center justify-start overflow-y-auto pt-32 pb-12 px-8 ${isMenuOpen ? 'opacity-100 visible shadow-2xl' : 'opacity-0 invisible pointer-events-none'} ${(isCabinet || isSpecialist) ? 'lg:hidden' : ''}`}>
+                <div className={`flex flex-col items-center gap-4 w-full max-w-xs transition-all duration-700 transform ${isMenuOpen ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
                     <NavLinks
                         mobile
                         isCabinet={isCabinet}
@@ -212,7 +212,7 @@ export default function PublicNavbar() {
                         <Link
                             href="/pricing"
                             onClick={() => setIsMenuOpen(false)}
-                            className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-8 py-4 rounded-full transition-colors flex items-center justify-center w-full text-lg mt-8 shadow-lg shadow-brand-leaf/20 font-bold"
+                            className="bg-brand-forest hover:bg-brand-leaf text-white px-8 py-5 rounded-full transition-colors flex items-center justify-center w-full text-lg mt-8 shadow-xl shadow-brand-forest/20 font-bold uppercase tracking-wider"
                         >
                             {t('consultation')}
                         </Link>
