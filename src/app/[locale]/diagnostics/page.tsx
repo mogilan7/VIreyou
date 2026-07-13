@@ -3,8 +3,6 @@ import PublicFooter from "@/components/layout/PublicFooter";
 import {
     Zap, Hourglass, Activity,
     Moon,
-    ArrowRight,
-    PlayCircle,
     Brain,
     HeartPulse,
     GlassWater,
@@ -14,13 +12,40 @@ import {
     Check,
     Cigarette,
     BrainCircuit,
-    ClipboardList
+    ClipboardList,
+    Crown
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/routing";
+import { createClient } from "@/utils/supabase/server";
+import prisma from "@/lib/prisma";
 
-export default function DiagnosticsPage() {
-    const t = useTranslations('Diagnostics');
+export default async function DiagnosticsPage({ params }: { params: Promise<{ locale: string }> }) {
+    const { locale } = await params;
+    const t = await getTranslations('Diagnostics');
+
+    // Server-side subscription check
+    const supabase = await createClient();
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+
+    let hasActiveSubscription = false;
+    if (authUser?.email) {
+        const user = await prisma.user.findUnique({
+            where: { email: authUser.email },
+            select: { subscription_expires_at: true, role: true, created_at: true }
+        });
+        if (user) {
+            const isAdmin = user.role === 'admin' || user.role === 'employee';
+            const hasValidSub = user.subscription_expires_at && new Date(user.subscription_expires_at) > new Date();
+            const daysSinceCreated = user.created_at
+                ? (Date.now() - new Date(user.created_at).getTime()) / (1000 * 3600 * 24)
+                : 999;
+            const isTrial = daysSinceCreated <= 3;
+            hasActiveSubscription = isAdmin || !!hasValidSub || isTrial;
+        }
+    }
+
+    const pricingUrl = `/${locale}/pricing`;
 
     return (
         <div className="bg-brand-bg min-h-screen pt-32 pb-0 flex flex-col">
@@ -98,138 +123,75 @@ export default function DiagnosticsPage() {
                         </div>
                     </div>
 
+                    {/* Locked banner for non-subscribers */}
+                    {!hasActiveSubscription && (
+                        <div className="mb-8 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <div className="flex-shrink-0 bg-orange-100 p-3 rounded-xl">
+                                <Crown size={24} className="text-orange-500" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="font-bold text-brand-text text-sm mb-1">{t('lockTitle')}</p>
+                                <p className="text-brand-gray text-xs leading-relaxed">{t('lockDesc')}</p>
+                            </div>
+                            <Link
+                                href={pricingUrl}
+                                className="flex-shrink-0 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-5 py-2.5 rounded-full transition-colors whitespace-nowrap shadow-sm"
+                            >
+                                {t('lockBtn')}
+                            </Link>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-                        {/* Card 1 - SCORE Calculator */}
-                        <Link href="/diagnostics/score" className="block outline-none">
-                            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
-                                <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><ShieldAlert size={20} className="fill-brand-leaf/20" /></div>
-                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p1Title')}</h4>
-                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p1Desc')}</p>
-                                <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
-                                    {t('evalText')}
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Card 2 - Mini Cog */}
-                        <Link href="/diagnostics/mini-cog" className="block outline-none">
-                            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
-                                <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><Brain size={20} className="fill-brand-leaf/20" /></div>
-                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p2Title')}</h4>
-                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p2Desc')}</p>
-                                <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
-                                    {t('evalText')}
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Card 3 - Circadian Rhythm Calculator */}
-                        <Link href="/diagnostics/circadian" className="block outline-none">
-                            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
-                                <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><Activity size={20} className="fill-brand-leaf/20" /></div>
-                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p3Title')}</h4>
-                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p3Desc')}</p>
-                                <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
-                                    {t('evalText')}
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Card 4 - Insomnia Index */}
-                        <Link href="/diagnostics/insomnia" className="block outline-none">
-                            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
-                                <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><Moon size={20} className="fill-brand-leaf/20" /></div>
-                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p4Title')}</h4>
-                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p4Desc')}</p>
-                                <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
-                                    {t('evalText')}
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Card 5 - Alcohol Assessment */}
-                        <Link href="/diagnostics/alcohol" className="block outline-none">
-                            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
-                                <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><GlassWater size={20} className="fill-brand-leaf/20" /></div>
-                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p5Title')}</h4>
-                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p5Desc')}</p>
-                                <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
-                                    {t('evalText')}
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Card 6 - Nicotine Assessment */}
-                        <Link href="/diagnostics/nicotine" className="block outline-none">
-                            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
-                                <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><Cigarette size={20} className="fill-brand-leaf/20" /></div>
-                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p6Title')}</h4>
-                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p6Desc')}</p>
-                                <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
-                                    {t('evalText')}
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Card 7 - SARC-F Assessment */}
-                        <Link href="/diagnostics/sarc-f" className="block outline-none">
-                            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
-                                <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><Activity size={20} className="fill-brand-leaf/20" /></div>
-                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p7Title')}</h4>
-                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p7Desc')}</p>
-                                <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
-                                    {t('evalText')}
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Card 8 - Systemic Bio-Age Calculator */}
-                        <Link href="/diagnostics/systemic-bio-age" className="block outline-none">
-                            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
-                                <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><Hourglass size={20} className="fill-brand-leaf/20" /></div>
-                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p8Title')}</h4>
-                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p8Desc')}</p>
-                                <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
-                                    {t('evalText')}
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Card 9 - Greene Climacteric Scale */}
-                        <Link href="/diagnostics/greene-scale" className="block outline-none">
-                            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
-                                <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><BrainCircuit size={20} className="fill-brand-leaf/20" /></div>
-                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p9Title')}</h4>
-                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p9Desc')}</p>
-                                <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
-                                    {t('evalText')}
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Card 10 - IPSS Questionnaire */}
-                        <Link href="/diagnostics/ipss" className="block outline-none">
-                            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
-                                <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><ClipboardList size={20} className="fill-brand-leaf/20" /></div>
-                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p10Title')}</h4>
-                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p10Desc')}</p>
-                                <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
-                                    {t('evalText')}
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Card 11 - MIEF-5 Questionnaire */}
-                        <Link href="/diagnostics/mief-5" className="block outline-none">
-                            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
-                                <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors"><HeartPulse size={20} className="fill-brand-leaf/20" /></div>
-                                <h4 className="font-bold text-sm text-brand-text mb-2">{t('p11Title')}</h4>
-                                <p className="text-brand-gray text-xs leading-relaxed mb-6">{t('p11Desc')}</p>
-                                <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
-                                    {t('evalText')}
-                                </div>
-                            </div>
-                        </Link>
+                        {[
+                            { href: "/diagnostics/score", icon: <ShieldAlert size={20} className="fill-brand-leaf/20" />, title: t('p1Title'), desc: t('p1Desc') },
+                            { href: "/diagnostics/mini-cog", icon: <Brain size={20} className="fill-brand-leaf/20" />, title: t('p2Title'), desc: t('p2Desc') },
+                            { href: "/diagnostics/circadian", icon: <Activity size={20} className="fill-brand-leaf/20" />, title: t('p3Title'), desc: t('p3Desc') },
+                            { href: "/diagnostics/insomnia", icon: <Moon size={20} className="fill-brand-leaf/20" />, title: t('p4Title'), desc: t('p4Desc') },
+                            { href: "/diagnostics/alcohol", icon: <GlassWater size={20} className="fill-brand-leaf/20" />, title: t('p5Title'), desc: t('p5Desc') },
+                            { href: "/diagnostics/nicotine", icon: <Cigarette size={20} className="fill-brand-leaf/20" />, title: t('p6Title'), desc: t('p6Desc') },
+                            { href: "/diagnostics/sarc-f", icon: <Activity size={20} className="fill-brand-leaf/20" />, title: t('p7Title'), desc: t('p7Desc') },
+                            { href: "/diagnostics/systemic-bio-age", icon: <Hourglass size={20} className="fill-brand-leaf/20" />, title: t('p8Title'), desc: t('p8Desc') },
+                            { href: "/diagnostics/greene-scale", icon: <BrainCircuit size={20} className="fill-brand-leaf/20" />, title: t('p9Title'), desc: t('p9Desc') },
+                            { href: "/diagnostics/ipss", icon: <ClipboardList size={20} className="fill-brand-leaf/20" />, title: t('p10Title'), desc: t('p10Desc') },
+                            { href: "/diagnostics/mief-5", icon: <HeartPulse size={20} className="fill-brand-leaf/20" />, title: t('p11Title'), desc: t('p11Desc') },
+                        ].map((card) => (
+                            hasActiveSubscription ? (
+                                /* UNLOCKED — clickable card */
+                                <Link key={card.href} href={card.href} className="block outline-none">
+                                    <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-brand-sage/60 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md cursor-pointer group h-full flex flex-col">
+                                        <div className="mb-4 text-brand-leaf group-hover:text-brand-forest transition-colors">{card.icon}</div>
+                                        <h4 className="font-bold text-sm text-brand-text mb-2">{card.title}</h4>
+                                        <p className="text-brand-gray text-xs leading-relaxed mb-6">{card.desc}</p>
+                                        <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf tracking-widest font-bold uppercase">
+                                            {t('evalText')}
+                                        </div>
+                                    </div>
+                                </Link>
+                            ) : (
+                                /* LOCKED — non-clickable with overlay */
+                                <Link key={card.href} href={pricingUrl} className="block outline-none group">
+                                    <div className="relative bg-white/60 backdrop-blur-md rounded-2xl p-6 border border-orange-100 shadow-sm h-full flex flex-col overflow-hidden transition-all hover:-translate-y-1 hover:shadow-md">
+                                        {/* Blur overlay */}
+                                        <div className="absolute inset-0 bg-white/50 backdrop-blur-[2px] z-10 rounded-2xl flex flex-col items-center justify-center gap-2">
+                                            <div className="bg-orange-100 p-2 rounded-full">
+                                                <Lock size={16} className="text-orange-500" />
+                                            </div>
+                                            <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest text-center px-2">
+                                                {t('lckText')}
+                                            </span>
+                                        </div>
+                                        {/* Blurred content behind */}
+                                        <div className="mb-4 text-brand-leaf/50">{card.icon}</div>
+                                        <h4 className="font-bold text-sm text-brand-text/50 mb-2">{card.title}</h4>
+                                        <p className="text-brand-gray/40 text-xs leading-relaxed mb-6">{card.desc}</p>
+                                        <div className="mt-auto flex items-center gap-1.5 text-[10px] text-brand-leaf/40 tracking-widest font-bold uppercase">
+                                            {t('evalText')}
+                                        </div>
+                                    </div>
+                                </Link>
+                            )
+                        ))}
                     </div>
 
                     {/* Bottom Deep Dive Banner */}
@@ -258,9 +220,8 @@ export default function DiagnosticsPage() {
                             <img
                                 src="/hero-specialist.png"
                                 className="w-full h-full object-cover object-[center_top] rounded-2xl"
-                                alt=" Valentina Specialist"
+                                alt="Valentina Specialist"
                             />
-
                             {/* Badge overlay over image */}
                             <div className="absolute bottom-6 right-6 z-20 bg-white/90 backdrop-blur-md px-4 py-3 rounded-xl shadow-lg border border-white flex items-center gap-3">
                                 <div className="bg-brand-leaf p-1.5 rounded-full"><Check size={12} className="text-white" strokeWidth={3} /></div>
