@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getGeminiModel } from "@/lib/gemini";
 import prisma from "@/lib/prisma";
 import fs from 'fs';
 
@@ -9,24 +9,22 @@ export async function extractHealthData(docId: string) {
 
     log(`Starting OpenAI extraction for doc ${docId}`);
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.BOT_OPENAI_API_KEY;
     if (!apiKey) {
-        log(`CRITICAL ERROR: OPENAI_API_KEY is not defined in environment`);
+        log(`CRITICAL ERROR: GEMINI_API_KEY is not defined in environment`);
         // Fallback: save error to DB so user sees it
         await prisma.medicalDocument.update({
             where: { id: docId },
             data: {
                 status: 'FAILED',
                 extracted_data: JSON.stringify({
-                    error: "OPENAI_API_KEY missing. Please add it to .env.local and Vercel.",
+                    error: "GEMINI_API_KEY missing. Please add it to .env.local and Vercel.",
                     timestamp: new Date().toISOString()
                 })
             }
         }).catch(e => log(`Failed to update DB with key error: ${e.message}`));
         return;
     }
-
-    const openai = new OpenAI({ apiKey });
 
     try {
         const doc = await prisma.medicalDocument.findUnique({ where: { id: docId } });
@@ -67,38 +65,37 @@ export async function extractHealthData(docId: string) {
         const base64Content = Buffer.from(buffer).toString("base64");
         log(`File fetched: ${buffer.byteLength} bytes. Converted to base64.`);
 
-        const modelsToTry = ["gpt-4o", "gpt-4o-mini"];
+        const modelsToTry = ["gemini-1.5-pro", "gemini-1.5-flash"];
         let lastError = "";
 
         for (const modelName of modelsToTry) {
             try {
-                log(`Attempting OpenAI extraction with model: ${modelName}`);
+                log(`Attempting Gemini extraction with model: ${modelName}`);
 
-                const response = await openai.chat.completions.create({
-                    model: modelName,
-                    messages: [
-                        {
-                            role: "user",
-                            content: [
-                                { type: "text", text: prompt },
-                                {
-                                    type: "image_url",
-                                    image_url: {
-                                        url: `data:${doc.file_type || 'image/jpeg'};base64,${base64Content}`
-                                    }
-                                }
-                            ]
+                const model = getGeminiModel(modelName, 0.2, true);
+                
+                const response = await model.generateContent([
+                    prompt,
+                    {
+                        inlineData: {
+                            data: base64Content,
+                            mimeType: doc.file_type || 'image/jpeg'
                         }
-                    ],
-                    max_tokens: 4096,
-                    response_format: { type: "json_object" }
-                });
+                    }
+                ]);
 
-                const text = response.choices[0]?.message?.content;
-                if (!text) throw new Error("OpenAI returned no content.");
+                const text = response.response.text();
+                if (!text) throw new Error("Gemini returned no content.");
 
                 log(`AI response received from ${modelName}`);
-                const extractedData = JSON.parse(text);
+                let extractedData;
+                try {
+                    extractedData = JSON.parse(text);
+                } catch(e) {
+                    // Try to clean markdown
+                    const cleaned = text.replace(/^```json\s*|```$/g, "").trim();
+                    extractedData = JSON.parse(cleaned);
+                }
 
                 if (extractedData) {
                     log(`Extraction successful with ${modelName}. Setting status to REVIEW_PENDING.`);
@@ -136,11 +133,11 @@ export async function extractHealthData(docId: string) {
                 extracted_data: JSON.stringify({
                     error: errorDetail,
                     timestamp: new Date().toISOString(),
-                    hint: "Ensure the file is clear and OpenAI API key is valid / has balance."
+                hint: "Ensure the file is clear and Gemini API key is valid / has balance."
                 })
             }
         }).catch(e => log(`Failed final DB error update: ${e.message}`));
 
-        console.error("OpenAI Extraction failed:", error);
+        console.error("Gemini Extraction failed:", error);
     }
 }

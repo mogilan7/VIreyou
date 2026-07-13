@@ -1,19 +1,12 @@
 "use server";
 
-import OpenAI from "openai";
-
+import { getGeminiModel } from "@/lib/gemini";
 import { Resend } from 'resend';
 
-const apiKey = process.env.OPENAI_API_KEY;
 const resendApiKey = process.env.RESEND_API_KEY; // Add this to .env
-
-const openai = new OpenAI({ apiKey });
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 export async function talkToAssistant(messages: any[], formData: any) {
-  if (!apiKey) {
-    throw new Error("OpenAI API Key is missing");
-  }
 
   const systemPrompt = `Ты — профессиональный коуч по долголетию (Longevity Coach) и антиэйдж-стратег. Твоя цель — провести первичное интервью, собрать вводную информацию и подобрать индивидуальный набор диагностических инструментов для глубокого анализа образа жизни клиента.
 
@@ -96,16 +89,37 @@ export async function talkToAssistant(messages: any[], formData: any) {
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...formattedMessages
-      ],
-      temperature: 0.7,
+    const model = getGeminiModel("gemini-1.5-pro", 0.7);
+    
+    // Map OpenAI message format to Gemini history format
+    // We exclude the last user message to send it as the prompt
+    let lastUserMessage = "";
+    const history = [];
+    
+    for (let i = 0; i < formattedMessages.length; i++) {
+        const msg = formattedMessages[i];
+        if (msg.role === 'system') {
+           // Skip system messages for history, they are handled by systemInstruction
+           continue; 
+        }
+        
+        if (i === formattedMessages.length - 1 && msg.role === 'user') {
+            lastUserMessage = msg.content;
+        } else {
+            history.push({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.content }]
+            });
+        }
+    }
+
+    const chat = model.startChat({
+        systemInstruction: systemPrompt + (formattedMessages.find(m => m.role === 'system' && m.content.startsWith('Данные клиента'))?.content || ""),
+        history: history
     });
 
-    let fullContent = response.choices[0]?.message?.content || "";
+    const response = await chat.sendMessage(lastUserMessage || "Здравствуйте");
+    let fullContent = response.response.text() || "";
 
     // Check if the response contains the delimiters
     if (fullContent.includes('===SPECIALIST_REPORT===')) {

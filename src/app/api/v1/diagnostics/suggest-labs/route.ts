@@ -1,16 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import OpenAI from "openai";
+import { getGeminiModel } from "@/lib/gemini";
+import fs from "fs";
+import path from "path";
 
 export async function POST(req: Request) {
     try {
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            return NextResponse.json({ error: "OPENAI_API_KEY is not configured" }, { status: 500 });
-        }
-        const openai = new OpenAI({ apiKey });
-        
         const body = await req.json();
         const { userId } = body;
 
@@ -18,10 +14,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "userId is required" }, { status: 400 });
         }
 
-        const assistantId = process.env.OPENAI_ASSISTANT_ID;
-        if (!assistantId) {
-            return NextResponse.json({ error: "OPENAI_ASSISTANT_ID is not configured in .env.local" }, { status: 500 });
-        }
+        // Removed OpenAI setup
 
         // 1. Fetch Client Profile (Ensures the client exists in specialist's list)
         const profile = await prisma.profiles.findUnique({
@@ -87,13 +80,18 @@ export async function POST(req: Request) {
             currentBiomarkers: user?.healthData?.biomarkers || {}
         };
 
-        console.log(`[suggest-labs] Prompting OpenAI Assistant ${assistantId} explicitly...`);
+        console.log(`[suggest-labs] Prompting Gemini explicitly...`);
+        
+        let knowledgeBase = "";
+        try {
+            knowledgeBase = fs.readFileSync(path.join(process.cwd(), "docs/recommendations.txt"), "utf8");
+        } catch (e) {
+            console.warn("Could not load knowledge base file", e);
+        }
 
-        // 5. Create Thread and Messages
-        const thread = await openai.beta.threads.create();
-        await openai.beta.threads.messages.create(thread.id, {
-            role: "user",
-            content: `
+        const model = getGeminiModel("gemini-1.5-pro", 0.2, true);
+
+        const prompt = `
             Review the following current client status JSON. 
             Provide actionable diagnostic recommendations and justifying quotes from your Knowledge Base.
             IMPORTANT: You MUST also mention the names of all the PDF/Knowledge Base files you referenced, preferably as part of the "justificationQuote" or next to the recommendation.
@@ -116,39 +114,31 @@ export async function POST(req: Request) {
                 }
               ]
             }
-            `
-        });
 
-        // 6. Run and Poll
-        const run = await openai.beta.threads.runs.createAndPoll(thread.id, {
-            assistant_id: assistantId,
-            response_format: { type: "json_object" }
-        });
+            --- KNOWLEDGE BASE ---
+            ${knowledgeBase}
+        `;
 
-        if (run.status === "completed") {
-            const messages = await openai.beta.threads.messages.list(thread.id);
-            const content = messages.data[0].content[0];
+        const response = await model.generateContent(prompt);
+        let text = response.response.text();
+        
+        if (text) {
+            text = text.replace(/^```json\s*|```$/g, "").trim();
             
-            if (content.type === "text") {
-                let text = content.text.value;
-                text = text.replace(/^```json\s*|```$/g, "").trim();
-                
-                // Robust fallback for trailing quotes or citations outside JSON
-                const lastBraceIndex = text.lastIndexOf("}");
-                if (lastBraceIndex !== -1) {
-                    text = text.substring(0, lastBraceIndex + 1);
-                }
-
-                const parsed = JSON.parse(text);
-                
-                return NextResponse.json({
-                    success: true,
-                    data: parsed.recommendations || []
-                });
+            // Robust fallback for trailing quotes or citations outside JSON
+            const lastBraceIndex = text.lastIndexOf("}");
+            if (lastBraceIndex !== -1) {
+                text = text.substring(0, lastBraceIndex + 1);
             }
-        } else {
-            return NextResponse.json({ error: `Run ended with status: ${run.status}` }, { status: 500 });
+
+            const parsed = JSON.parse(text);
+            
+            return NextResponse.json({
+                success: true,
+                data: parsed.recommendations || []
+            });
         }
+
 
     } catch (error: any) {
         console.error("suggest-labs error:", error);

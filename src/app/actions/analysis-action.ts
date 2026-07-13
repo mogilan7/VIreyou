@@ -1,13 +1,10 @@
 "use server";
 
-import OpenAI from "openai";
 import { createClient } from "@/utils/supabase/server";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { QUESTIONNAIRE_INTERPRETATIONS } from "@/lib/clinical/interpretations";
 
-const apiKey = process.env.OPENAI_API_KEY;
-const openai = new OpenAI({ apiKey });
 
 const TEST_NAMES: Record<string, string> = {
   'systemic-bio-age': 'Системный Биовозраст',
@@ -294,12 +291,14 @@ export async function fetchAnalysisPreData() {
   }
 }
 
+import { getGeminiModel } from "@/lib/gemini";
+import fs from "fs";
+import path from "path";
+
 /**
  * Execute AI stage-2 analysis after user confirmation.
  */
 export async function generateStage2Analysis() {
-  if (!apiKey) throw new Error("OpenAI API Key is missing");
-
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "User not authenticated" };
@@ -307,31 +306,14 @@ export async function generateStage2Analysis() {
   try {
     const { dataContext, userId, period } = await getAggregatedAnalysisData(user.id);
 
-    const assistantId = process.env.OPENAI_ASSISTANT_ID;
-    if (!assistantId) throw new Error("OPENAI_ASSISTANT_ID is missing in .env.local");
+    let knowledgeBase = "";
+    try {
+      knowledgeBase = fs.readFileSync(path.join(process.cwd(), "docs/recommendations.txt"), "utf8");
+    } catch (e) {
+      console.warn("Could not load knowledge base file", e);
+    }
 
-    // 1. Create a Thread
-    const thread = await openai.beta.threads.create();
-
-    // 2. Add User Message (Data Context)
-    await openai.beta.threads.messages.create(thread.id, {
-      role: "user",
-      content: `
-      Вот данные моего профиля и образа жизни за последние 7 дней:
-      ${dataContext}
-      
-      Проведи углубленный анализ согласно твоим инструкциям и базе знаний.
-      
-      **ВАЖНО:** 
-      1. В своих рекомендациях ОБЯЗАТЕЛЬНО указывай названия PDF/Knowledge Base файлов, на которые ты ссылаешься (например, рядом с описанием анализа или суперфуда).
-      2. Строго соблюдай структуру ответа с заголовками (Сводный анализ, Таблица анализов, Стратегия).
-      `
-    });
-
-    // 3. Create and Poll a Run
-    const run = await openai.beta.threads.runs.createAndPoll(thread.id, {
-      assistant_id: assistantId,
-      additional_instructions: `
+    const systemInstruction = `
       Твоя РОЛЬ: Ведущий ИИ-аналитик платформы VIReYou, эксперт в системной медицине долголетия и функциональной диагностике.
       
       СТРОГИЕ ПРАВИЛА (ОБЯЗАТЕЛЬНО К ВЫПОЛНЕНИЮ):
@@ -339,7 +321,7 @@ export async function generateStage2Analysis() {
       2. **ОАК (Общий анализ крови)**: Должен присутствовать в каждой рекомендации БЕЗ ИСКЛЮЧЕНИЙ. Он является базовым маркером.
       3. **Алкогольный профиль**: Если в дневниках, привычках (habit_key: "Алкоголь") или анамнезе указано существенное употребление алкоголя, ОБЯЗАТЕЛЬНО назначьте: Витамин B12, Фолаты, АЛТ, АСТ, Билирубин.
       4. **Детальность**: Проявляй максимальную дотошность в подборе тестов. Если есть дефицит сна — расширяй панель воспаления. Если есть избыток сахара — углубляй проверку гликемии. Твои рекомендации должны быть максимально подробными в части обоснования выбора каждого анализа.
-      5. **Приоритет базы знаний**: Твой главный авторитет — файл "Рекомендации по назначению лабораторных тестов.pdf". Всегда сверяйся с ним в первую очередь для определения списка тестов.
+      5. **Приоритет базы знаний**: Твой главный авторитет — приложенный ниже текст "Рекомендации по назначению лабораторных тестов". Всегда сверяйся с ним в первую очередь для определения списка тестов.
       
       ФИЛОСОФСКИЙ ФУНДАМЕНТ:
       Вы рассматриваете тело пользователя как «главный актив». Ваша цель — подготовить почву для перехода из состояния «выживания» в состояние «развития» через точную диагностику. Вы не ставите диагнозы и не лечите, а оцениваете «биологические ресурсы» через призму лабораторных маркеров.
@@ -361,23 +343,32 @@ export async function generateStage2Analysis() {
       2. **Таблица рекомендованных анализов**: [Название теста] | [Обоснование на основе вашего образа жизни/симптомов] | [Целевая зона долголетия 2025].
       3. **Приоритетность**: Разделите анализы на «Критические» (базовый чек-ап) и «Углубленные» (для тонкой настройки).
       
-      ВАЖНО: ИСПОЛЬЗУЙ БАЗУ ЗНАНИЙ (file_search) для подтверждения обоснований. **Любые рекомендации по образу жизни будут считаться ошибкой выполнения задания.**
-      `
+      ВАЖНО: ИСПОЛЬЗУЙ БАЗУ ЗНАНИЙ для подтверждения обоснований. **Любые рекомендации по образу жизни будут считаться ошибкой выполнения задания.**
+
+      --- БАЗА ЗНАНИЙ (Рекомендации по назначению лабораторных тестов) ---
+      ${knowledgeBase}
+    `;
+
+    const model = getGeminiModel("gemini-1.5-pro", 0.2);
+    const chat = model.startChat({
+        systemInstruction,
     });
 
-    if (run.status !== "completed") {
-      throw new Error(`AI Run failed with status: ${run.status}`);
-    }
+    const userMessage = `
+      Вот данные моего профиля и образа жизни за последние 7 дней:
+      ${dataContext}
+      
+      Проведи углубленный анализ согласно твоим инструкциям и базе знаний.
+      
+      **ВАЖНО:** 
+      1. В своих рекомендациях ОБЯЗАТЕЛЬНО указывай названия PDF/Knowledge Base файлов, на которые ты ссылаешься (например, рядом с описанием анализа или суперфуда). Укажи "Рекомендации по назначению лабораторных тестов".
+      2. Строго соблюдай структуру ответа с заголовками (Сводный анализ, Таблица анализов, Стратегия).
+    `;
 
-    // 4. Retrieve the Assistant's Response
-    const messages = await openai.beta.threads.messages.list(thread.id);
-    const lastMessage = messages.data.find(m => m.role === "assistant");
-    const content = lastMessage?.content[0];
-    
-    let interpretation = "";
-    if (content?.type === "text") {
-      interpretation = content.text.value;
-    } else {
+    const response = await chat.sendMessage(userMessage);
+    const interpretation = response.response.text();
+
+    if (!interpretation) {
       throw new Error("No text content returned from AI Assistant.");
     }
 

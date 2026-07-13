@@ -1,14 +1,9 @@
 "use server";
 
-import OpenAI from "openai";
-
-const apiKey = process.env.OPENAI_API_KEY;
-const openai = new OpenAI({ apiKey });
+import { getGeminiModel } from "@/lib/gemini";
 
 export async function generateDiagnosticReport(formData: any, locale: string = 'ru') {
-  if (!apiKey) {
-    throw new Error("OpenAI API Key is missing");
-  }
+
 
   const isEn = locale === 'en';
 
@@ -77,16 +72,13 @@ export async function generateDiagnosticReport(formData: any, locale: string = '
     - Наследственность: ${formData.heredity || 'Не указана'}.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userQuery }
-      ],
-      temperature: 0.7,
+    const model = getGeminiModel("gemini-1.5-pro", 0.7);
+    const chat = model.startChat({
+        systemInstruction: systemPrompt
     });
 
-    const content = response.choices[0]?.message?.content || (isEn ? "Failed to get response from AI." : "Не удалось получить ответ от ИИ.");
+    const aiResponse = await chat.sendMessage(userQuery);
+    const content = aiResponse.response.text() || (isEn ? "Failed to get response from AI." : "Не удалось получить ответ от ИИ.");
 
     return content;
   } catch (error: any) {
