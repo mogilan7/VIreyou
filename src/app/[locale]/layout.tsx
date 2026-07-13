@@ -3,6 +3,8 @@ import "./globals.css";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 
+export const maxDuration = 60;
+
 export const metadata: Metadata = {
   title: "VI antiage - Longevity Portal",
   description: "Science-backed holistic wellness and longevity specialist.",

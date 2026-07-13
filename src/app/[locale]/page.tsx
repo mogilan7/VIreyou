@@ -7,6 +7,8 @@ import ServicesSection from "@/components/landing/ServicesSection";
 import ContactSection from "@/components/landing/ContactSection";
 import PublicFooter from "@/components/layout/PublicFooter";
 
+export const maxDuration = 60;
+
 export default function LandingPage() {
   return (
     <>
