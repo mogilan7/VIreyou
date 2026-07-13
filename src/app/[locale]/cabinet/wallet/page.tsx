@@ -148,6 +148,12 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                     </div>
                 </section>
 
+                <div className="text-center pt-2 pb-4 text-slate-500 dark:text-slate-400">
+                    <p className="text-[10px]">
+                        Оплачивая услуги, вы соглашаетесь с условиями <a href="/offer" target="_blank" className="underline hover:text-[#60B76F]">Публичной оферты</a>.
+                    </p>
+                </div>
+
                 {/* Referral Info */}
                 <section className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm">
                     <div className="flex gap-4 items-start">

@@ -1,6 +1,7 @@
 import PublicNavbar from "@/components/layout/PublicNavbar";
 import PublicFooter from "@/components/layout/PublicFooter";
 import { Check, X, Diamond } from "lucide-react";
+import { Link } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 
 export default function PricingPage() {
@@ -115,6 +116,12 @@ export default function PricingPage() {
                         </button>
                     </div>
 
+                </div>
+
+                <div className="text-center mt-6">
+                    <p className="text-[10px] text-brand-gray/60">
+                        Оплачивая услуги, вы соглашаетесь с условиями <Link href="/offer" className="underline hover:text-brand-leaf">Публичной оферты</Link>.
+                    </p>
                 </div>
 
                 {/* FAQ Section */}

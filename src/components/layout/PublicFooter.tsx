@@ -17,7 +17,7 @@ export default function PublicFooter() {
                     <Link href="/#philosophy" className="hover:text-brand-leaf">Philosophy</Link>
                     <Link href="/diagnostics" className="hover:text-brand-leaf">Diagnostics</Link>
                     <Link href="/pricing" className="hover:text-brand-leaf">Pricing</Link>
-                    <Link href="#" className="hover:text-brand-leaf">Legal Notice</Link>
+                    <Link href="/offer" className="hover:text-brand-leaf">Public Offer</Link>
                     <Link href="#" className="hover:text-brand-leaf">Privacy Policy</Link>
                     <Link href="#" className="hover:text-brand-leaf">Contact</Link>
                 </div>
