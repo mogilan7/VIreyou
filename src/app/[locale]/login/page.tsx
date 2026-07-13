@@ -80,10 +80,14 @@ export default function LoginPage() {
             }
         } catch (err: unknown) {
             const error = err as any;
-            if (error?.digest?.startsWith?.('NEXT_REDIRECT;')) {
+            const isNextRedirect = error?.message === 'NEXT_REDIRECT' || 
+                                   (typeof error?.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT'));
+            
+            if (isNextRedirect) {
                 isRedirecting = true;
                 return;
             }
+            console.error('Login error:', err);
             setErrorMsg(t('errorUnknown'));
         } finally {
             if (!isRedirecting) {
