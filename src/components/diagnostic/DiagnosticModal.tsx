@@ -116,8 +116,11 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
     setError(null);
 
     try {
-      const report = await generateDiagnosticReport(formData, locale);
-      setResult(report);
+      const response = await generateDiagnosticReport(formData, locale);
+      if (!response.success) {
+        throw new Error(response.error);
+      }
+      setResult(response.data);
       setStep(4);
     } catch (err: any) {
       setError(err.message || t('errorMessage'));

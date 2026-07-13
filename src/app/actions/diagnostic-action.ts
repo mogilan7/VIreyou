@@ -80,9 +80,9 @@ export async function generateDiagnosticReport(formData: any, locale: string = '
     const aiResponse = await chat.sendMessage(userQuery);
     const content = aiResponse.response.text() || (isEn ? "Failed to get response from AI." : "Не удалось получить ответ от ИИ.");
 
-    return content;
+    return { success: true, data: content };
   } catch (error: any) {
     console.error("Diagnostic Report Error:", error);
-    throw new Error(error.message || (isEn ? "Error generating report" : "Ошибка при генерации отчета"));
+    return { success: false, error: error.message || (isEn ? "Error generating report" : "Ошибка при генерации отчета") };
   }
 }
