@@ -206,12 +206,12 @@ export default async function DiagnosticsPage({ params }: { params: Promise<{ lo
                                 {t('deepDesc')}
                             </p>
                             <div className="flex flex-wrap gap-4">
-                                <button className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-6 py-3 rounded-full font-medium transition-colors text-sm flex items-center gap-2 shadow-sm">
+                                <Link href="/#contact" className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-6 py-3 rounded-full font-medium transition-colors text-sm flex items-center gap-2 shadow-sm">
                                     {t('btnDeep1')} <FileText size={16} />
-                                </button>
-                                <button className="bg-white border text-sm border-brand-sage hover:border-brand-leaf text-brand-text px-6 py-3 rounded-full font-medium transition-colors shadow-sm">
+                                </Link>
+                                <Link href="/pricing" className="bg-white border text-sm border-brand-sage hover:border-brand-leaf text-brand-text px-6 py-3 rounded-full font-medium transition-colors shadow-sm">
                                     {t('btnDeep2')}
-                                </button>
+                                </Link>
                             </div>
                         </div>
 
