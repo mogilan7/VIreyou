@@ -954,9 +954,21 @@ function calculateKBJU(params: any) {
  * Если доступа нет — отправляет CTA-сообщение и возвращает false.
  */
 async function checkSubscriptionLevel(ctx: any, user: any, requiredPlan: 'standard' | 'pro'): Promise<boolean> {
-  console.log("[DEBUG] Check Sub:", { tgId: ctx.from.id, email: user.email, expires: user.subscription_expires_at });
-  const hasActiveSub = user.subscription_expires_at && new Date(user.subscription_expires_at) > new Date();
-  const createdDate = user.created_at ? new Date(user.created_at) : new Date();
+  // Всегда читаем свежие данные из БД — иначе кэш ctx.state.user может быть устаревшим
+  let freshUser = user;
+  try {
+    const fromDb = await prisma.user.findUnique({ where: { id: user.id } });
+    if (fromDb) {
+      freshUser = fromDb;
+      ctx.state.user = fromDb; // обновляем кэш
+    }
+  } catch (e) {
+    console.error("[Sub Check] Failed to refresh user from DB, using cached data", e);
+  }
+
+  console.log("[DEBUG] Check Sub:", { tgId: ctx.from.id, email: freshUser.email, expires: freshUser.subscription_expires_at });
+  const hasActiveSub = freshUser.subscription_expires_at && new Date(freshUser.subscription_expires_at) > new Date();
+  const createdDate = freshUser.created_at ? new Date(freshUser.created_at) : new Date();
   const daysSinceCreated = (new Date().getTime() - createdDate.getTime()) / (1000 * 3600 * 24);
   const isTrial = daysSinceCreated <= 3;
 
@@ -967,7 +979,7 @@ async function checkSubscriptionLevel(ctx: any, user: any, requiredPlan: 'standa
   if (!hasActiveSub) {
     const lang = ctx.state?.lang || 'ru';
     const secret = process.env.JWT_SECRET || process.env.YOOKASSA_SECRET_KEY || 'default_secret';
-    const token = jwt.sign({ email: user.email }, secret, { expiresIn: '1h' });
+    const token = jwt.sign({ email: freshUser.email }, secret, { expiresIn: '1h' });
     const dashboardUrl = `https://vireyou.com/api/auth/telegram-login?token=${token}&locale=${lang}`;
 
     const msg = lang === 'en'
@@ -981,13 +993,13 @@ async function checkSubscriptionLevel(ctx: any, user: any, requiredPlan: 'standa
   }
 
   // Есть подписка — проверяем уровень
-  const userPlan: string = (user.role === 'PRO' || user.role === 'admin' || user.role === 'employee') ? 'pro' : 'standard';
+  const userPlan: string = (freshUser.role === 'PRO' || freshUser.role === 'admin' || freshUser.role === 'employee') ? 'pro' : 'standard';
 
   if (requiredPlan === 'pro' && userPlan !== 'pro') {
     // У пользователя Standard, а нужен Pro
     const lang = ctx.state?.lang || 'ru';
     const secret = process.env.JWT_SECRET || process.env.YOOKASSA_SECRET_KEY || 'default_secret';
-    const token = jwt.sign({ email: user.email }, secret, { expiresIn: '1h' });
+    const token = jwt.sign({ email: freshUser.email }, secret, { expiresIn: '1h' });
     const dashboardUrl = `https://vireyou.com/api/auth/telegram-login?token=${token}&locale=${lang}`;
 
     const msg = lang === 'en'
