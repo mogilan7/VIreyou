@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '5mb',
     },
     outputFileTracingIncludes: {
-      '/*': ['./docs/**/*'],
+      '/*': ['./docs/recommendations.txt'],
     },
   },
   eslint: {
