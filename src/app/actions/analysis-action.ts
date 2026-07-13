@@ -292,8 +292,7 @@ export async function fetchAnalysisPreData() {
 }
 
 import { getGeminiModel } from "@/lib/gemini";
-import fs from "fs";
-import path from "path";
+import { KNOWLEDGE_BASE } from "@/lib/knowledge-base";
 
 /**
  * Execute AI stage-2 analysis after user confirmation.
@@ -306,12 +305,7 @@ export async function generateStage2Analysis() {
   try {
     const { dataContext, userId, period } = await getAggregatedAnalysisData(user.id);
 
-    let knowledgeBase = "";
-    try {
-      knowledgeBase = fs.readFileSync(path.join(process.cwd(), "docs/recommendations.txt"), "utf8");
-    } catch (e) {
-      console.warn("Could not load knowledge base file", e);
-    }
+    const knowledgeBase = KNOWLEDGE_BASE;
 
     const systemInstruction = `
       Твоя РОЛЬ: Ведущий ИИ-аналитик платформы VIReYou, эксперт в системной медицине долголетия и функциональной диагностике.

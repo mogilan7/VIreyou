@@ -2,8 +2,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getGeminiModel } from "@/lib/gemini";
-import fs from "fs";
-import path from "path";
+import { KNOWLEDGE_BASE } from "@/lib/knowledge-base";
 
 export async function POST(req: Request) {
     try {
@@ -82,12 +81,7 @@ export async function POST(req: Request) {
 
         console.log(`[suggest-labs] Prompting Gemini explicitly...`);
         
-        let knowledgeBase = "";
-        try {
-            knowledgeBase = fs.readFileSync(path.join(process.cwd(), "docs/recommendations.txt"), "utf8");
-        } catch (e) {
-            console.warn("Could not load knowledge base file", e);
-        }
+        const knowledgeBase = KNOWLEDGE_BASE;
 
         const model = getGeminiModel("gemini-1.5-flash", 0.2, true);
 
