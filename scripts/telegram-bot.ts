@@ -251,6 +251,43 @@ bot.on('message', async (ctx: any, next) => {
 // ----------------------------------------------------
 // Команды
 // ----------------------------------------------------
+
+// --- Admin Stats ---
+bot.command('stats', async (ctx: any) => {
+    const user = ctx.state.user;
+    if (!user || user.role !== 'admin') return;
+
+    try {
+        const now = new Date();
+        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        
+        const totalUsers = await prisma.user.count();
+        const newUsers = await prisma.user.count({ where: { created_at: { gte: yesterday } } });
+        
+        const totalPro = await prisma.user.count({ where: { role: { in: ['PRO', 'admin', 'employee'] } } });
+        const newPro = await prisma.user.count({ 
+            where: { 
+                role: { in: ['PRO', 'admin', 'employee'] },
+                created_at: { gte: yesterday } 
+            } 
+        });
+
+        const activeTrials = await prisma.user.count({
+            where: {
+                role: 'client',
+                subscription_expires_at: { gt: now }
+            }
+        });
+
+        const msg = `📊 **Статистика платформы:**\n\n👥 **Пользователи:**\n- Всего регистраций: **${totalUsers}**\n- Новых за 24ч: **+${newUsers}**\n\n💎 **Подписки:**\n- Активных PRO: **${totalPro}**\n- Новых PRO за 24ч: **+${newPro}**\n- Активных триалов: **${activeTrials}**`;
+
+        ctx.reply(msg, { parse_mode: 'Markdown' });
+    } catch (e) {
+        console.error("Stats error", e);
+        ctx.reply("Ошибка при сборе статистики.");
+    }
+});
+
 bot.command('start', async (ctx: any) => {
   const args = ctx.message.text.split(' ');
   const payload = args[1];
