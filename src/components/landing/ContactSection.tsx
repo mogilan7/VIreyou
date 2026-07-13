@@ -101,15 +101,32 @@ export default function ContactSection() {
                         {/* Contact */}
                         <div>
                             <label className="block text-brand-text text-[10px] uppercase font-bold tracking-widest mb-3">
-                                {t('contactLabel') || "Ваш контакт (Email или Telegram)"}
+                                {t('contactLabel') || "Ваш номер телефона"}
                             </label>
                             <input
-                                type="text"
+                                type="tel"
                                 name="contact"
                                 required
-                                placeholder={t('contactPlaceholder') || "example@gmail.com / @username"}
+                                placeholder={t('contactPlaceholder') || "+7 (999) 000-00-00"}
                                 className="w-full bg-[#FAFAFA] border border-brand-sage/40 rounded-2xl px-5 py-4 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-leaf transition-all placeholder:text-brand-gray/40 text-sm font-medium"
                             />
+                        </div>
+
+                        {/* Messenger */}
+                        <div>
+                            <label className="block text-brand-text text-[10px] uppercase font-bold tracking-widest mb-3">
+                                {t('messengerLabel') || "Предпочитаемый мессенджер"}
+                            </label>
+                            <select
+                                name="messenger"
+                                required
+                                className="w-full bg-[#FAFAFA] border border-brand-sage/40 rounded-2xl px-5 py-4 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-leaf transition-all text-sm font-medium appearance-none"
+                                defaultValue="Telegram"
+                            >
+                                <option value="Telegram">Telegram</option>
+                                <option value="WhatsApp">WhatsApp</option>
+                                <option value="Viber">Viber</option>
+                            </select>
                         </div>
 
                         {/* Request */}

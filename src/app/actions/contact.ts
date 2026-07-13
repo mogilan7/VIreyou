@@ -5,7 +5,8 @@ import prisma from "@/lib/prisma";
 export async function submitContactForm(formData: FormData) {
     const name = formData.get("name") as string;
     const request = formData.get("request") as string;
-    const contact = formData.get("contact") as string; // Let's check what fields exist
+    const contact = formData.get("contact") as string;
+    const messenger = formData.get("messenger") as string;
 
     if (!name || !request) {
         return { success: false, error: "Missing required fields" };
@@ -28,7 +29,7 @@ export async function submitContactForm(formData: FormData) {
         }
 
         const botToken = process.env.VIREYOU_BOT_TOKEN || '8648031032:AAHEJ-6KQqIS_I5_VenJXR4uPCYnPk63jiM';
-        const messageText = `📩 <b>Новая заявка с сайта!</b>\n\n👤 <b>Имя:</b> ${name}\n📞 <b>Контакт:</b> ${contact || 'Не указан'}\n\n💬 <b>Сообщение:</b>\n${request}`;
+        const messageText = `📩 <b>Новая заявка с сайта!</b>\n\n👤 <b>Имя:</b> ${name}\n📞 <b>Телефон:</b> ${contact || 'Не указан'}\n💬 <b>Мессенджер:</b> ${messenger || 'Не выбран'}\n\n📝 <b>Сообщение:</b>\n${request}`;
 
         const sendPromises = admins.map(admin => {
             return fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
