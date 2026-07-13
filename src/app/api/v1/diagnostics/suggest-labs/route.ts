@@ -83,7 +83,7 @@ export async function POST(req: Request) {
         
         const knowledgeBase = KNOWLEDGE_BASE;
 
-        const model = getGeminiModel("gemini-1.5-flash", 0.2, true);
+        const model = getGeminiModel("gemini-1.5-pro", 0.2, true);
 
         const prompt = `
             Review the following current client status JSON. 
