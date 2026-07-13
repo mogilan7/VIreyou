@@ -9,6 +9,7 @@ export default function ContactSection() {
     const t = useTranslations('Landing.Contact');
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isPending, setIsPending] = useState(false);
+    const [phone, setPhone] = useState("");
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,6 +23,7 @@ export default function ContactSection() {
         setIsPending(false);
         if (result?.success) {
             setIsSubmitted(true);
+            setPhone("");
             formElement.reset();
             // Reset after 5 seconds to allow another message if needed
             setTimeout(() => setIsSubmitted(false), 5000);
@@ -49,23 +51,22 @@ export default function ContactSection() {
                     <div className="space-y-8">
                         {/* Telegram */}
                         <a href="https://t.me/VI_Beautylife" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-6 group w-max">
-                            <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center border border-white/10 group-hover:bg-brand-leaf/20 group-hover:border-brand-leaf/50 transition-all duration-300">
-                                <svg
-                                    width="24"
-                                    height="24"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="text-brand-leaf"
-                                >
+                            <div className="w-14 h-14 bg-[#229ED9]/10 rounded-full flex items-center justify-center border border-[#229ED9]/20 group-hover:bg-[#229ED9]/30 group-hover:border-[#229ED9]/50 transition-all duration-300">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#229ED9]">
                                     <path d="m22 2-7 20-4-9-9-4Z" />
                                     <path d="M22 2 11 13" />
                                 </svg>
                             </div>
-                            <span className="text-white/90 font-medium tracking-wide group-hover:text-white transition-colors duration-300">@VI_Beautylife</span>
+                            <span className="text-white/90 font-medium tracking-wide group-hover:text-white transition-colors duration-300">Telegram</span>
+                        </a>
+                        {/* WhatsApp */}
+                        <a href="https://wa.me/" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-6 group w-max">
+                            <div className="w-14 h-14 bg-[#25D366]/10 rounded-full flex items-center justify-center border border-[#25D366]/20 group-hover:bg-[#25D366]/30 group-hover:border-[#25D366]/50 transition-all duration-300">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#25D366]">
+                                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                                </svg>
+                            </div>
+                            <span className="text-white/90 font-medium tracking-wide group-hover:text-white transition-colors duration-300">WhatsApp</span>
                         </a>
                         {/* Email */}
                         <a href="mailto:cleverval23@gmail.com" className="flex items-center space-x-6 group w-max">
@@ -107,6 +108,16 @@ export default function ContactSection() {
                                 type="tel"
                                 name="contact"
                                 required
+                                value={phone}
+                                onChange={(e) => {
+                                    let val = e.target.value;
+                                    if (val.startsWith('9') && val.length === 1) {
+                                        val = '+7 ' + val;
+                                    } else if (val.startsWith('89') && val.length === 2) {
+                                        val = '+7 9';
+                                    }
+                                    setPhone(val);
+                                }}
                                 placeholder={t('contactPlaceholder') || "+7 (999) 000-00-00"}
                                 className="w-full bg-[#FAFAFA] border border-brand-sage/40 rounded-2xl px-5 py-4 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-leaf transition-all placeholder:text-brand-gray/40 text-sm font-medium"
                             />
