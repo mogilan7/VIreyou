@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Mail, MessageCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { submitContactForm } from "@/app/actions/contact";
 
 export default function ContactSection() {
     const t = useTranslations('Landing.Contact');
@@ -13,13 +14,20 @@ export default function ContactSection() {
         e.preventDefault();
         setIsPending(true);
         
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const formElement = e.target as HTMLFormElement;
+        const formData = new FormData(formElement);
+        
+        const result = await submitContactForm(formData);
         
         setIsPending(false);
-        setIsSubmitted(true);
-        // Reset after 5 seconds to allow another message if needed
-        setTimeout(() => setIsSubmitted(false), 5000);
+        if (result?.success) {
+            setIsSubmitted(true);
+            formElement.reset();
+            // Reset after 5 seconds to allow another message if needed
+            setTimeout(() => setIsSubmitted(false), 5000);
+        } else {
+            alert(result?.error || "Error sending request");
+        }
     };
 
     return (
@@ -83,8 +91,23 @@ export default function ContactSection() {
                             </label>
                             <input
                                 type="text"
+                                name="name"
                                 required
                                 placeholder={t('namePlaceholder')}
+                                className="w-full bg-[#FAFAFA] border border-brand-sage/40 rounded-2xl px-5 py-4 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-leaf transition-all placeholder:text-brand-gray/40 text-sm font-medium"
+                            />
+                        </div>
+
+                        {/* Contact */}
+                        <div>
+                            <label className="block text-brand-text text-[10px] uppercase font-bold tracking-widest mb-3">
+                                {t('contactLabel') || "Ваш контакт (Email или Telegram)"}
+                            </label>
+                            <input
+                                type="text"
+                                name="contact"
+                                required
+                                placeholder={t('contactPlaceholder') || "example@gmail.com / @username"}
                                 className="w-full bg-[#FAFAFA] border border-brand-sage/40 rounded-2xl px-5 py-4 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-leaf transition-all placeholder:text-brand-gray/40 text-sm font-medium"
                             />
                         </div>
@@ -95,6 +118,7 @@ export default function ContactSection() {
                                 {t('requestLabel')}
                             </label>
                             <textarea
+                                name="request"
                                 rows={4}
                                 required
                                 placeholder={t('requestPlaceholder')}

@@ -70,6 +70,8 @@
             "desc": "If you feel that your body is missing something right now and you want to understand how to build a life so that it works to your advantage - I will be happy to help.",
             "nameLabel": "Your Name",
             "namePlaceholder": "John Doe",
+            "contactLabel": "Your Contact",
+            "contactPlaceholder": "Email or Telegram username",
             "requestLabel": "Request",
             "requestPlaceholder": "Tell me briefly about your goals...",
             "btn": "Send Request"
