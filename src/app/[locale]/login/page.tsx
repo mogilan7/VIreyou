@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { login, signup, resetPasswordForEmail } from './actions/auth';
 import { Mail, Lock, AlertCircle, ArrowRight, ShieldCheck, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { Link } from '@/i18n/routing';
 import { useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -97,7 +98,14 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-brand-bg flex items-center justify-center p-4 pt-24 font-sans text-brand-text">
+        <div className="min-h-screen bg-brand-bg flex items-center justify-center p-4 pt-24 font-sans text-brand-text relative">
+            {/* Top Left Home Logo */}
+            <Link href="/" className="absolute top-6 left-6 md:top-8 md:left-8 flex items-center group transition-opacity hover:opacity-80">
+                <div className="bg-brand-forest w-10 h-10 flex items-center justify-center text-white text-sm font-bold font-serif shadow-sm">
+                    VI
+                </div>
+            </Link>
+
             <div className="max-w-md w-full">
 
                 {/* Logo Area */}
