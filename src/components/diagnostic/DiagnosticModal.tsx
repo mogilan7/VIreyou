@@ -31,6 +31,7 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -114,19 +115,36 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
   const handleGenerateReport = async () => {
     setLoading(true);
     setError(null);
-
     try {
-      const response = await generateDiagnosticReport(formData, locale);
-      if (!response.success) {
-        throw new Error(response.error);
+      const res = await generateDiagnosticReport(formData, locale);
+      if (res.success) {
+        setResult(res.data || "");
+        setStep(4);
+      } else {
+        setError(res.error || t('errorTitle'));
       }
-      setResult(response.data);
-      setStep(4);
-    } catch (err: any) {
-      setError(err.message || t('errorMessage'));
-    } finally {
-      setLoading(false);
+    } catch (e: any) {
+      setError(e.message || t('errorTitle'));
     }
+    setLoading(false);
+  };
+
+  const handleSendPlanToEmail = async () => {
+    if (!regData.email) return;
+    setSendingEmail(true);
+    try {
+      const { sendDiagnosticEmail } = await import('@/app/actions/email-action');
+      const res = await sendDiagnosticEmail(regData.email, result || "", formData.name);
+      if (res.success) {
+        alert("План успешно отправлен на вашу почту!");
+        setStep(4); // go back to results
+      } else {
+        alert("Ошибка при отправке: " + res.error);
+      }
+    } catch (e: any) {
+      alert("Ошибка при отправке письма: " + e.message);
+    }
+    setSendingEmail(false);
   };
 
   const nextStep = () => {
@@ -166,10 +184,11 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
         
         {/* Close Button */}
         <button 
-          onClick={onClose}
-          className="absolute top-6 right-6 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all z-20"
+          onClick={onClose} 
+          className="absolute top-4 right-4 z-[60] w-10 h-10 bg-slate-900/10 hover:bg-slate-900/20 text-slate-800 rounded-full flex items-center justify-center transition-all backdrop-blur-sm shadow-sm"
+          aria-label={t('closeBtn')}
         >
-          <X className="w-6 h-6" />
+          <X className="w-5 h-5 stroke-[2.5]" />
         </button>
 
         {/* Header */}
@@ -464,16 +483,26 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
                   <input 
                     type="tel" 
                     value={regData.phone}
-                    onChange={(e) => setRegData(prev => ({ ...prev, phone: e.target.value }))}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (val.startsWith('9') && val.length === 1) {
+                        val = '+7 ' + val;
+                      } else if (val.startsWith('89') && val.length === 2) {
+                        val = '+7 9';
+                      }
+                      setRegData(prev => ({ ...prev, phone: val }));
+                    }}
                     className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-forest focus:bg-white transition-all outline-none" 
-                    placeholder={t('phonePlaceholder')}
+                    placeholder={t('phonePlaceholder') || "+7 900 000 00 00"}
                   />
                 </div>
                 <button 
-                  onClick={() => setStep(4)}
-                  className="w-full px-8 py-5 bg-brand-forest text-white rounded-2xl font-bold shadow-xl shadow-brand-forest/20 hover:bg-brand-forest/90 transition-all transform hover:scale-[1.02] active:scale-95 mt-4"
+                  onClick={() => handleSendPlanToEmail()}
+                  className="w-full px-8 py-5 bg-brand-forest text-white rounded-2xl font-bold shadow-xl shadow-brand-forest/20 hover:bg-brand-forest/90 transition-all transform hover:scale-[1.02] active:scale-95 mt-4 flex items-center justify-center gap-2"
+                  disabled={sendingEmail}
                 >
-                  {t('subscribeBtn')}
+                  {sendingEmail ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                  {sendingEmail ? "Отправка..." : "Получить план"}
                 </button>
                 <button 
                   onClick={() => setStep(4)}
