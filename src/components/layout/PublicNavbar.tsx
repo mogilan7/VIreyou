@@ -154,7 +154,7 @@ export default function PublicNavbar() {
                     )}
                     {!(isCabinet || isSpecialist) && (
                         <Link
-                            href="/pricing"
+                            href="/#contact"
                             className="bg-brand-leaf hover:bg-brand-leaf-light text-white px-6 py-2.5 rounded-full transition-colors flex items-center ml-2"
                         >
                             {t('consultation')}
@@ -210,7 +210,7 @@ export default function PublicNavbar() {
                     />
                     {!(isCabinet || isSpecialist) && (
                         <Link
-                            href="/pricing"
+                            href="/#contact"
                             onClick={() => setIsMenuOpen(false)}
                             className="bg-brand-forest hover:bg-brand-leaf text-white px-8 py-5 rounded-full transition-all duration-200 flex items-center justify-center w-full text-lg mt-8 shadow-xl shadow-brand-forest/20 font-bold uppercase tracking-wider active:scale-95 active:opacity-90"
                         >
