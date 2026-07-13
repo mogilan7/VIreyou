@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '5mb',
     },
+    outputFileTracingIncludes: {
+      '/*': ['./docs/**/*'],
+    },
   },
   eslint: {
     ignoreDuringBuilds: true,

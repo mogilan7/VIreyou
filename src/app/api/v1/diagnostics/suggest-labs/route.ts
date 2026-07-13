@@ -89,7 +89,7 @@ export async function POST(req: Request) {
             console.warn("Could not load knowledge base file", e);
         }
 
-        const model = getGeminiModel("gemini-1.5-pro", 0.2, true);
+        const model = getGeminiModel("gemini-1.5-flash", 0.2, true);
 
         const prompt = `
             Review the following current client status JSON. 

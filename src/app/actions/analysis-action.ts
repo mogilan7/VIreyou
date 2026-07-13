@@ -349,7 +349,7 @@ export async function generateStage2Analysis() {
       ${knowledgeBase}
     `;
 
-    const model = getGeminiModel("gemini-1.5-pro", 0.2);
+    const model = getGeminiModel("gemini-1.5-flash", 0.2);
     const chat = model.startChat({
         systemInstruction,
     });

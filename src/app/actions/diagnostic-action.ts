@@ -72,7 +72,7 @@ export async function generateDiagnosticReport(formData: any, locale: string = '
     - Наследственность: ${formData.heredity || 'Не указана'}.`;
 
   try {
-    const model = getGeminiModel("gemini-1.5-pro", 0.7);
+    const model = getGeminiModel("gemini-1.5-flash", 0.7);
     const chat = model.startChat({
         systemInstruction: systemPrompt
     });

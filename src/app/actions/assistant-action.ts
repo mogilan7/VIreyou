@@ -89,7 +89,7 @@ export async function talkToAssistant(messages: any[], formData: any) {
   }
 
   try {
-    const model = getGeminiModel("gemini-1.5-pro", 0.7);
+    const model = getGeminiModel("gemini-1.5-flash", 0.7);
     
     // Map OpenAI message format to Gemini history format
     // We exclude the last user message to send it as the prompt

@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 
 export default async function ClientDashboardPage() {
