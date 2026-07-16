@@ -54,18 +54,41 @@ export async function GET(req: NextRequest) {
             });
             
             // 🚀 ID SYNC FIX: Ensure Prisma ID matches Supabase Auth ID
+            // Also updates all FK references (ActivityLog, NutritionLog, etc.)
             if (newUserRes.data?.user?.id) {
                 const newAuthId = newUserRes.data.user.id;
                 try {
                     const prismaUser = await prisma.user.findFirst({ where: { email } });
                     if (prismaUser && prismaUser.id !== newAuthId) {
-                        await prisma.$executeRawUnsafe(`UPDATE "User" SET id = '${newAuthId}' WHERE email = '${email}'`);
-                        console.log(`[AUTH] Synced Prisma ID to ${newAuthId} for ${email}`);
+                        const oldId = prismaUser.id;
+                        console.log(`[AUTH] Syncing Prisma ID from ${oldId} to ${newAuthId} for ${email}`);
+                        // Disable FK checks, update all references atomically, re-enable
+                        await prisma.$executeRaw`SET session_replication_role = replica`;
+                        await prisma.$executeRaw`UPDATE public."ActivityLog"      SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."HabitLog"         SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."NutritionLog"     SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."SleepLog"         SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."HydrationLog"     SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."BiomarkerResult"  SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."HealthData"       SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."MedicalDocument"  SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."Transaction"      SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."Consultation"     SET client_id  = ${newAuthId}::uuid WHERE client_id  = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."AccessPermission" SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."SquadParticipant" SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."Squad"            SET creator_id = ${newAuthId}::uuid WHERE creator_id = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."User"             SET referrer_id = ${newAuthId}::uuid WHERE referrer_id = ${oldId}`;
+                        await prisma.$executeRaw`UPDATE public."User"             SET id = ${newAuthId}::uuid WHERE email = ${email}`;
+                        await prisma.$executeRaw`SET session_replication_role = DEFAULT`;
+                        console.log(`[AUTH] ✅ Full ID sync complete for ${email}`);
                     }
                 } catch (syncErr) {
-                    console.error('[AUTH] Failed to sync Prisma ID:', syncErr);
+                    console.error('[AUTH] Failed to sync Prisma ID (full):', syncErr);
+                    // Reset replication role in case of error
+                    try { await prisma.$executeRaw`SET session_replication_role = DEFAULT`; } catch {}
                 }
             }
+
 
             const retry = await supabaseAdmin.auth.admin.generateLink({
                 type: 'magiclink',
@@ -76,6 +99,7 @@ export async function GET(req: NextRequest) {
         }
 
         if (linkError || !linkData?.properties?.hashed_token) {
+            console.error('[AUTH] Supabase generateLink error:', linkError);
             throw new Error('Link generation failed');
         }
 
@@ -135,6 +159,6 @@ export async function GET(req: NextRequest) {
 
     } catch (err: any) {
         console.error('[AUTH] Error:', err.message);
-        return NextResponse.json({ error: err.message, stack: err.stack }, { status: 500 });
+        return NextResponse.redirect(new URL(`/${locale}/login?error=auth_failed`, req.url));
     }
 }

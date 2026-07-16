@@ -67,12 +67,14 @@ If you see a prepared dish, meal, or raw ingredients:
 1. DO NOT calculate calories or nutrients — only identify base items and their weight in grams.
 2. If the food is highly ambiguous and the user didn't specify, set status to "NEEDS_CLARIFICATION" and ask.
 3. habit_key: set to "Alcohol" for any alcoholic drink, "Smoking" for tobacco, "Sugar" for candy/sweets, null otherwise.
+4. CHAIN OF THOUGHT: You MUST start your JSON with a "reasoning" field. Explain what you see, compare sizes to reference objects (fork, hand, edge of plate, etc.), and estimate the volume before calculating the grams. This step-by-step thinking is crucial for accuracy.
 
 **CONTEXT:**
 Current date: ${todayStr}. Use it as a reference for date_offset_days.
 
 Respond STRICTLY in JSON format:
 {
+  "reasoning": "Step 1: I see... Step 2: Comparing with the fork... Step 3: Estimated volume is... Estimated grams are...",
   "status": "SUCCESS" | "NEEDS_CLARIFICATION",
   "clarification_question": "If status is NEEDS_CLARIFICATION, ask the user a short clarifying question in ${lang === 'en' ? 'English' : 'Russian'}. Otherwise null.",
   "description": "Short description of the food/drink in ${lang === 'en' ? 'English' : 'Russian'}.",
@@ -101,7 +103,8 @@ Respond STRICTLY in JSON format:
   }
 
   const result = await model.generateContent(parts);
-  const responseText = result.response.text();
+  let responseText = result.response.text();
+  responseText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
   return JSON.parse(responseText || "{}");
 }
 
@@ -191,8 +194,10 @@ Return STRICTLY in JSON format with exactly these keys. Do not output anything e
   // Save the new item to DB for future use and verification
   try {
     if (aiData.calories !== undefined) {
-      await prisma.foodItem.create({
-        data: {
+      await prisma.foodItem.upsert({
+        where: { name_ru: ingredientName.toLowerCase() },
+        update: {}, // Don't overwrite if it exists, let USDA verification be done manually
+        create: {
           name_ru: ingredientName.toLowerCase(),
           name_en: aiData.name_en || null,
           is_usda_verified: false,
@@ -314,7 +319,9 @@ If no data found, return type "UNKNOWN".`;
     { inlineData: { data: imageBase64, mimeType: "image/jpeg" } }
   ]);
   
-  return JSON.parse(result.response.text() || "{}");
+  let responseText = result.response.text() || "{}";
+  responseText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
+  return JSON.parse(responseText);
 }
 
 export async function transcribeVoiceWithAI(file_path: string): Promise<string> {
@@ -362,12 +369,13 @@ Return STRICT JSON:
 - NUTRITION: { "dish": "name", "ingredients": [ { "name": "Base ingredient name (e.g., 'куриная грудка отварная')", "grams": 250 } ] }
   CRITICAL: Break complex dishes down into their fundamental, raw or cooked BASE INGREDIENTS. Do not output "Борщ", decompose it.
   Identify the base ingredients and their weights. DO NOT calculate calories or nutrients.
+  NOTE: This includes all drinks, liquids, and water (e.g., 1 liter of water = { "name": "вода", "grams": 1000 }).
   If Alcohol is mentioned, set "habit_key": "Alcohol".
 - SLEEP: { "duration_hrs": 8, "deep_hrs": 1.5, "rem_hrs": 2, "light_hrs": 4.5, "hrv": 60, "resting_heart_rate": 55 }
 - ACTIVITY: { "steps": 5000, "active_minutes": 30, "calories_burned": 250 }
 - HABIT: { "habit_key": "Alcohol" | "Smoking" | "Sugar" }
 
-If message is unclear, return status "ERROR".`;
+If the message is completely unintelligible or irrelevant to health, return status "ERROR". Be lenient with typos (e.g., "мне выпил" = "я выпил").`;
 
   const model = getModel("gemini-2.5-flash", 0.2);
   const result = await model.generateContent([
@@ -375,7 +383,9 @@ If message is unclear, return status "ERROR".`;
     { text: `Текст: "${text}"` }
   ]);
 
-  return JSON.parse(result.response.text() || "{}");
+  let responseText = result.response.text() || "{}";
+  responseText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
+  return JSON.parse(responseText);
 }
 
 /**
@@ -490,7 +500,9 @@ ${JSON.stringify(currentNutrients, null, 2)}
     { inlineData: { data: imageBase64, mimeType: "image/jpeg" } }
   ]);
 
-  return JSON.parse(result.response.text() || "{}");
+  let responseText = result.response.text() || "{}";
+  responseText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
+  return JSON.parse(responseText);
 }
 
 /**
