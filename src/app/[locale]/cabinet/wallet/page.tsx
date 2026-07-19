@@ -99,7 +99,13 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                         <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm flex flex-col justify-between">
                             <div>
                                 <h4 className="font-bold text-lg text-slate-700 dark:text-slate-300">{t('standardPlan')}</h4>
-                                <p className="text-2xl font-bold my-2">9.9 ₽ <span className="text-sm font-normal text-slate-400">{t('perMonth')}</span></p>
+                                <div className="my-2">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded-md">-50%</span>
+                                        <span className="text-sm text-slate-400 line-through">990 ₽</span>
+                                    </div>
+                                    <p className="text-2xl font-bold">495 ₽ <span className="text-sm font-normal text-slate-400">{t('perMonth')}</span></p>
+                                </div>
                                 <ul className="text-sm space-y-2 mt-4 text-slate-600 dark:text-slate-400">
                                     <li className="flex items-center gap-2">✔️ {t('featurePhotoVoice')}</li>
                                     <li className="flex items-center gap-2">✔️ {t('featureDashboard')}</li>
@@ -113,7 +119,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                             </div>
                             <CheckoutButton 
                                 plan="Standard" 
-                                amount={9.9}
+                                amount={495}
                                 className="mt-6 w-full py-2.5 rounded-xl font-bold text-white bg-slate-600 hover:bg-slate-700 transition-colors shadow-lg"
                             >
                                 {t('orderStandard')}
@@ -125,7 +131,13 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                             <div className="absolute top-0 right-0 bg-[#60B76F] text-white text-[10px] font-bold uppercase py-1 px-3 rounded-bl-xl">{t('hit')}</div>
                             <div>
                                 <h4 className="font-bold text-lg text-[#60B76F]">{t('proPlan')}</h4>
-                                <p className="text-2xl font-bold my-2">14.9 ₽ <span className="text-sm font-normal text-slate-400">{t('perMonth')}</span></p>
+                                <div className="my-2">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded-md">-50%</span>
+                                        <span className="text-sm text-slate-400 line-through">1490 ₽</span>
+                                    </div>
+                                    <p className="text-2xl font-bold">745 ₽ <span className="text-sm font-normal text-slate-400">{t('perMonth')}</span></p>
+                                </div>
                                 <ul className="text-sm space-y-2 mt-4 text-slate-700 dark:text-slate-300">
                                     <li className="flex items-center gap-2">✔️ {t('featurePhotoVoice')}</li>
                                     <li className="flex items-center gap-2">✔️ {t('featureDashboard')}</li>
@@ -139,7 +151,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                             </div>
                             <CheckoutButton 
                                 plan="PRO" 
-                                amount={14.9}
+                                amount={745}
                                 className="mt-6 w-full py-2.5 rounded-xl font-bold text-white bg-[#60B76F] hover:bg-emerald-600 transition-colors shadow-lg shadow-[#60B76F]/30"
                             >
                                 {t('orderPro')}
