@@ -41,4 +41,30 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# ============================================
+# SECRETS & CREDENTIALS — never commit these
+# ============================================
+google-key.json
+*-key.json
+*-credentials.json
+service-account*.json
+*.p12
+*.pfx
+token.txt
+*.token
 
+# ============================================
+# SCRATCH / LOCAL TEST SCRIPTS — not for repo
+# ============================================
+test-*.js
+test-*.ts
+test-*.mjs
+test_*.js
+test_*.ts
+check_*.js
+check_*.ts
+
+# Logs
+*.log
+telegram-bot.log
+logs/
