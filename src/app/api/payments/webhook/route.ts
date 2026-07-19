@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
             // Уровень 1 (10%)
             if (user.referrer_id) {
                 const l1Bonus = amount * 0.10;
-                await prisma.user.update({
+                const updatedReferrer = await prisma.user.update({
                     where: { id: user.referrer_id },
                     data: { balance: { increment: l1Bonus } }
                 });
@@ -100,6 +100,27 @@ export async function POST(req: NextRequest) {
                     }
                 });
 
+                // Уведомление рефереру (L1) в Telegram
+                if (updatedReferrer.telegram_id) {
+                    const botToken = process.env.VIREYOU_BOT_TOKEN || '8648031032:AAHEJ-6KQqIS_I5_VenJXR4uPCYnPk63jiM';
+                    const friendName = user.full_name || 'Ваш друг';
+                    const newBalance = Number(updatedReferrer.balance).toFixed(0);
+                    const bonusText = l1Bonus.toFixed(0);
+                    const notifyText = `🎁 Реферальный бонус!\n\n👤 ${friendName} оплатил подписку.\n💰 Вам начислено: +${bonusText} ₽\n💼 Ваш баланс: ${newBalance} ₽\n\nСмотрите детали в разделе «Кошелёк» → История операций.`;
+                    try {
+                        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                chat_id: updatedReferrer.telegram_id,
+                                text: notifyText
+                            })
+                        });
+                    } catch (e) {
+                        console.error('Failed to send referral bonus notification (L1):', e);
+                    }
+                }
+
                 // Уровень 2 (5%) - только если L2 является сотрудником (role === 'employee')
                 const l1 = await prisma.user.findUnique({ where: { id: user.referrer_id } });
                 
@@ -108,7 +129,7 @@ export async function POST(req: NextRequest) {
                     
                     if (l2 && l2.role === 'employee') {
                         const l2Bonus = amount * 0.05;
-                        await prisma.user.update({
+                        const updatedL2 = await prisma.user.update({
                             where: { id: l2.id },
                             data: { balance: { increment: l2Bonus } }
                         });
@@ -120,6 +141,26 @@ export async function POST(req: NextRequest) {
                                 description: `Бонус 5% за друга вашего друга (${user.full_name || user.email})`
                             }
                         });
+
+                        // Уведомление рефереру (L2) в Telegram
+                        if (updatedL2.telegram_id) {
+                            const botToken = process.env.VIREYOU_BOT_TOKEN || '8648031032:AAHEJ-6KQqIS_I5_VenJXR4uPCYnPk63jiM';
+                            const newBalanceL2 = Number(updatedL2.balance).toFixed(0);
+                            const bonusTextL2 = l2Bonus.toFixed(0);
+                            const notifyTextL2 = `🎁 Реферальный бонус!\n\n👥 Друг вашего друга (${user.full_name || 'пользователь'}) оплатил подписку.\n💰 Вам начислено: +${bonusTextL2} ₽\n💼 Ваш баланс: ${newBalanceL2} ₽`;
+                            try {
+                                await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        chat_id: updatedL2.telegram_id,
+                                        text: notifyTextL2
+                                    })
+                                });
+                            } catch (e) {
+                                console.error('Failed to send referral bonus notification (L2):', e);
+                            }
+                        }
                     }
                 }
             }
