@@ -103,19 +103,31 @@ export async function GET(req: NextRequest) {
             throw new Error('Link generation failed');
         }
 
-        // 4. Redirect directly to the Supabase magic link — no client-side JS needed.
-        // Supabase will verify the token server-side and redirect to dashboardUrl.
+        // 4. Extract token_hash and verify server-side to set cookies on vireyou.com
         const actionLink = linkData.properties.action_link;
+        const actionUrl = new URL(actionLink);
+        const tokenHash = actionUrl.searchParams.get('token');
 
-        // Supabase action_link redirects to the site URL by default.
-        // Replace it with our dashboard URL so the user lands in the right place.
-        const finalUrl = actionLink.replace(
-            /redirect_to=[^&]*/,
-            `redirect_to=${encodeURIComponent(dashboardUrl)}`
-        );
+        if (!tokenHash) {
+            console.error('[AUTH] No token in action_link:', actionLink);
+            throw new Error('Link parsing failed');
+        }
 
-        console.log(`[AUTH] Redirecting ${email} to Supabase action link`);
-        return NextResponse.redirect(finalUrl);
+        const { createClient: createServerClient } = await import('@/utils/supabase/server');
+        const supabaseServer = await createServerClient();
+        
+        const { error: verifyError } = await supabaseServer.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: 'magiclink',
+        });
+
+        if (verifyError) {
+            console.error('[AUTH] OTP verify error:', verifyError);
+            throw new Error('OTP verification failed');
+        }
+
+        console.log(`[AUTH] Successfully logged in ${email} and set cookies.`);
+        return NextResponse.redirect(dashboardUrl);
 
     } catch (err: any) {
         console.error('[AUTH] Error:', err.message);
