@@ -16,8 +16,8 @@ export default function PublicFooter() {
                     </div>
                     <p className="text-brand-gray text-[10px] leading-relaxed text-center md:text-left">
                         {isRu
-                            ? "Научное благополучие и комплексное anti-aging от доктора Валентины. Переосмысляем диалог между вами и вашим телом."
-                            : "Scientific wellness and holistic anti-aging by Dr. Valentina. Redefining the dialogue between you and your body."}
+                            ? "Научное благополучие и комплексное anti-aging. Специалист по антиэйджинг Валентина. Переосмысляем диалог между вами и вашим телом."
+                            : "Scientific wellness and holistic anti-aging. Anti-aging specialist Valentina. Redefining the dialogue between you and your body."}
                     </p>
                 </div>
 
@@ -34,12 +34,6 @@ export default function PublicFooter() {
                     <Link href="/offer" className="hover:text-brand-leaf">
                         {isRu ? "Публичная оферта" : "Public Offer"}
                     </Link>
-                    <Link href="#" className="hover:text-brand-leaf">
-                        {isRu ? "Политика конфиденциальности" : "Privacy Policy"}
-                    </Link>
-                    <Link href="#" className="hover:text-brand-leaf">
-                        {isRu ? "Контакты" : "Contact"}
-                    </Link>
                 </div>
 
                 <div className="text-[10px] text-brand-gray/60 text-center md:text-right">
@@ -48,6 +42,19 @@ export default function PublicFooter() {
                         ? "Специалист по научному долголетию."
                         : "Science-backed holistic wellness and longevity specialist."}
                 </div>
+            </div>
+
+            <div className="max-w-6xl mx-auto px-6 mt-12 pt-6 border-t border-brand-sage/20 text-[10px] text-brand-gray/60 text-center flex flex-col gap-2">
+                <p>
+                    {isRu
+                        ? "Мы используем файлы cookie для обеспечения корректной работы сайта и улучшения пользовательского опыта. Продолжая использовать сайт, вы соглашаетесь с использованием файлов cookie."
+                        : "We use cookies to ensure the proper functioning of the site and improve user experience. By continuing to use the site, you consent to the use of cookies."}
+                </p>
+                <p>
+                    {isRu
+                        ? "Политика конфиденциальности: Оставляя свои данные на этом сайте, вы соглашаетесь на их обработку. Мы гарантируем конфиденциальность ваших данных и не передаем их третьим лицам без вашего согласия."
+                        : "Privacy Policy: By submitting your data on this site, you consent to its processing. We guarantee the confidentiality of your data and do not share it with third parties without your consent."}
+                </p>
             </div>
         </footer>
     );
