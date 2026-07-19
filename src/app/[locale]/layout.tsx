@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
+import CookieBanner from "@/components/layout/CookieBanner";
 
 export const maxDuration = 60;
 
@@ -49,11 +50,12 @@ export default async function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet" />
       </head>
-      <body className="antialiased">
+      <body className="antialiased relative">
         <NextIntlClientProvider messages={messages}>
           <main className="min-h-screen w-full">
             {children}
           </main>
+          <CookieBanner />
         </NextIntlClientProvider>
       </body>
     </html>
