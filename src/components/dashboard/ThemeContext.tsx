@@ -22,6 +22,14 @@ export function DashboardThemeProvider({ children }: { children: React.ReactNode
         if (ref) {
             console.log(`[AUTH] Referral code detected in URL: ${ref}`);
             document.cookie = `referral_code=${ref}; path=/; max-age=${30 * 24 * 60 * 60}`;
+            // Remove ?ref= from URL and reload so the server layout sees the cookie
+            // and applies referrer_id to the user record in the database.
+            params.delete('ref');
+            const newUrl = params.toString()
+                ? `${window.location.pathname}?${params.toString()}`
+                : window.location.pathname;
+            window.location.replace(newUrl);
+            return; // Stop further execution until page reloads
         }
 
         const savedTheme = localStorage.getItem('dashboard-theme') as Theme;
