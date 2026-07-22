@@ -102,9 +102,13 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                                 <div className="my-2">
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded-md">-50%</span>
-                                        <span className="text-sm text-slate-400 line-through">990 ₽</span>
+                                        <span className="text-sm text-slate-400 line-through">
+                                            {locale === 'en' ? '14 $' : '990 ₽'}
+                                        </span>
                                     </div>
-                                    <p className="text-2xl font-bold">495 ₽ <span className="text-sm font-normal text-slate-400">{t('perMonth')}</span></p>
+                                    <p className="text-2xl font-bold">
+                                        {locale === 'en' ? '7 $' : '495 ₽'} <span className="text-sm font-normal text-slate-400">{t('perMonth')}</span>
+                                    </p>
                                 </div>
                                 <ul className="text-sm space-y-2 mt-4 text-slate-600 dark:text-slate-400">
                                     <li className="flex items-center gap-2">✔️ {t('featurePhotoVoice')}</li>
@@ -119,7 +123,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                             </div>
                             <CheckoutButton 
                                 plan="Standard" 
-                                amount={495}
+                                amount={locale === 'en' ? 7 : 495}
                                 className="mt-6 w-full py-2.5 rounded-xl font-bold text-white bg-slate-600 hover:bg-slate-700 transition-colors shadow-lg"
                             >
                                 {t('orderStandard')}
@@ -134,9 +138,13 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                                 <div className="my-2">
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded-md">-50%</span>
-                                        <span className="text-sm text-slate-400 line-through">1490 ₽</span>
+                                        <span className="text-sm text-slate-400 line-through">
+                                            {locale === 'en' ? '30 $' : '1490 ₽'}
+                                        </span>
                                     </div>
-                                    <p className="text-2xl font-bold">745 ₽ <span className="text-sm font-normal text-slate-400">{t('perMonth')}</span></p>
+                                    <p className="text-2xl font-bold">
+                                        {locale === 'en' ? '15 $' : '745 ₽'} <span className="text-sm font-normal text-slate-400">{t('perMonth')}</span>
+                                    </p>
                                 </div>
                                 <ul className="text-sm space-y-2 mt-4 text-slate-700 dark:text-slate-300">
                                     <li className="flex items-center gap-2">✔️ {t('featurePhotoVoice')}</li>
@@ -151,7 +159,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                             </div>
                             <CheckoutButton 
                                 plan="PRO" 
-                                amount={745}
+                                amount={locale === 'en' ? 15 : 745}
                                 className="mt-6 w-full py-2.5 rounded-xl font-bold text-white bg-[#60B76F] hover:bg-emerald-600 transition-colors shadow-lg shadow-[#60B76F]/30"
                             >
                                 {t('orderPro')}
