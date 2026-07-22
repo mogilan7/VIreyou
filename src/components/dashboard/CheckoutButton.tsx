@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 
 interface CheckoutButtonProps {
     plan: string;
@@ -13,22 +13,32 @@ interface CheckoutButtonProps {
 export default function CheckoutButton({ plan, amount, className, children }: CheckoutButtonProps) {
     const [loading, setLoading] = useState(false);
     const t = useTranslations('Wallet');
+    const locale = useLocale();
 
     const handleCheckout = async () => {
         setLoading(true);
         try {
-            const response = await fetch('/api/payments/create', {
+            // English users → Prodamus (international cards)
+            // Russian users  → YooKassa (Russian cards)
+            const isProdamus = locale !== 'ru';
+            const apiEndpoint = isProdamus
+                ? '/api/payments/prodamus'
+                : '/api/payments/create';
+
+            const response = await fetch(apiEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ plan, amount })
+                body: JSON.stringify({ plan, amount, locale })
             });
 
             const data = await response.json();
 
-            if (data.confirmation_url) {
-                window.location.href = data.confirmation_url;
+            // Prodamus returns payment_url, YooKassa returns confirmation_url
+            const redirectUrl = data.payment_url || data.confirmation_url;
+            if (redirectUrl) {
+                window.location.href = redirectUrl;
             } else {
-                alert(`${t('paymentError')}: ${data.details || t('paymentUnknown')}`);
+                alert(`${t('paymentError')}: ${data.details || data.error || t('paymentUnknown')}`);
             }
         } catch (error) {
             console.error('Checkout error:', error);
@@ -39,7 +49,7 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
     };
 
     return (
-        <button 
+        <button
             onClick={handleCheckout}
             disabled={loading}
             className={`${className} ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
