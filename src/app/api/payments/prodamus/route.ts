@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
         const paymentData: Record<string, any> = {
             do: 'pay',
             order_id: orderId,
+            currency: 'usd',
             products: [
                 {
                     name: planLabel,
