@@ -81,14 +81,19 @@ export async function POST(req: NextRequest) {
 
         const planLabel = plan === 'PRO' ? 'VIReyou PRO Subscription' : 'VIReyou Standard Subscription';
 
+        // Convert USD to RUB (e.g., $7 -> 630 RUB)
+        // We use a fixed exchange rate for predictability. You can adjust this later.
+        const USD_TO_RUB_RATE = 90; 
+        const rubAmount = amount * USD_TO_RUB_RATE;
+
         const paymentData: Record<string, any> = {
             do: 'pay',
             order_id: orderId,
-            currency: 'usd',
+            currency: 'rub',
             products: [
                 {
                     name: planLabel,
-                    price: Number(amount).toFixed(2),
+                    price: Number(rubAmount).toFixed(2),
                     quantity: 1,
                 }
             ],
