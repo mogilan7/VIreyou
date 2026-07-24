@@ -129,8 +129,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ status: 'ok' });
         }
 
-        // Amount paid
-        const amount = parseFloat(body.sum || body.amount || '0');
+        // Amount paid in RUB (using our pending transaction amount to ensure correct referral calculation regardless of Prodamus currency)
+        const amount = pendingTx.amount ? Number(pendingTx.amount) : parseFloat(body.sum || body.amount || '0');
 
         // Find user
         const user = await prisma.user.findUnique({
