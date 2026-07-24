@@ -1180,6 +1180,19 @@ async function saveFoodLog(userId: string, foodData: any, localTodayStr?: string
       });
   }
 
+  // Сохраняем объем воды в HydrationLog для отображения на дашборде
+  if (foodData.water && foodData.water > 0) {
+      const logDate = data.created_at || new Date();
+      await prisma.hydrationLog.create({
+          data: {
+              user_id: userId,
+              date: logDate,
+              volume_ml: Math.round(foodData.water),
+              created_at: logDate
+          }
+      });
+  }
+
   return log;
 }
 
@@ -1200,7 +1213,8 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
         description: parsedData.description,
         date_offset_days: parsedData.date_offset_days,
         habit_key: parsedData.habit_key,
-        localToday: localToday
+        localToday: localToday,
+        base64: parsedData.base64 || tempLog[user.id]?.base64
     };
 
     const lang = ctx.state.lang || 'ru';
@@ -1311,7 +1325,8 @@ bot.on('photo', async (ctx: any) => {
         await sendConfirmationMessage(ctx, {
             type: screenshotData.type,
             data: screenshotData.metrics,
-            description: screenshotData.description
+            description: screenshotData.description,
+            base64: base64
         });
     } else {
         // Пробуем распознать как еду
@@ -1344,7 +1359,8 @@ bot.on('photo', async (ctx: any) => {
                 data: totalNutrients,
                 description: foodData.description,
                 date_offset_days: foodData.date_offset_days,
-                habit_key: foodData.habit_key
+                habit_key: foodData.habit_key,
+                base64: base64
             });
         } else {
             await ctx.reply(t(lang, 'Processing.photoUnknown'));
@@ -1384,8 +1400,34 @@ bot.on('voice', async (ctx: any) => {
         console.log(`[VOICE] Redirecting to LOG_EDIT handler`);
         await ctx.reply(t(lang, 'Processing.editWait'));
         try {
-            const previousData = JSON.stringify(tempLog[user.id].data);
-            const parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON.`, getUserLocalDate(ctx.state.user?.timezone), lang);
+            const logData = tempLog[user.id];
+            const previousData = JSON.stringify(logData.data);
+            let parsedData;
+
+            if (logData.type === "NUTRITION" && logData.base64) {
+                const correctionText = `ПОПРАВКА ОТ ПОЛЬЗОВАТЕЛЯ к предыдущему анализу: "${text}". Предыдущий результат: ${previousData}. Пересчитай с учетом поправки.`;
+                const foodData = await analyzeFoodWithAI(logData.base64, correctionText, getUserLocalDate(ctx.state.user?.timezone), lang);
+                console.log(`[DEBUG] foodData from LOG_EDIT for user ${user.id}:`, JSON.stringify(foodData, null, 2));
+                if (foodData.status === "SUCCESS") {
+                    parsedData = {
+                        status: "SUCCESS",
+                        type: "NUTRITION",
+                        description: foodData.description,
+                        date_offset_days: foodData.date_offset_days,
+                        habit_key: foodData.habit_key,
+                        data: {
+                            dish: foodData.dish,
+                            ingredients: foodData.ingredients
+                        }
+                    };
+                } else if (foodData.status === "NEEDS_CLARIFICATION") {
+                    return ctx.reply(foodData.clarification_question || "Не удалось понять правки, уточните пожалуйста.");
+                } else {
+                    parsedData = { status: "ERROR", debug: foodData };
+                }
+            } else {
+                parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON. ВЕРНИ ВСЕ ИНГРЕДИЕНТЫ И ИХ ВЕСА (grams) из предыдущего состояния, изменив только то, что просит пользователь!`, getUserLocalDate(ctx.state.user?.timezone), lang);
+            }
 
             if (parsedData.status === "SUCCESS") {
                 userStates[user.id] = '';
@@ -1603,8 +1645,34 @@ bot.on('text', async (ctx: any) => {
   if (userStates[user.id] === 'LOG_EDIT' && tempLog[user.id]) {
       await ctx.reply(t(lang, 'Processing.editWait'));
       try {
-          const previousData = JSON.stringify(tempLog[user.id].data);
-          const parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON.`, getUserLocalDate(ctx.state.user?.timezone), lang);
+          const logData = tempLog[user.id];
+          const previousData = JSON.stringify(logData.data);
+          let parsedData;
+
+          if (logData.type === "NUTRITION" && logData.base64) {
+              const correctionText = `ПОПРАВКА ОТ ПОЛЬЗОВАТЕЛЯ к предыдущему анализу: "${text}". Предыдущий результат: ${previousData}. Пересчитай с учетом поправки.`;
+              const foodData = await analyzeFoodWithAI(logData.base64, correctionText, getUserLocalDate(ctx.state.user?.timezone), lang);
+              console.log(`[DEBUG] foodData from LOG_EDIT for user ${user.id}:`, JSON.stringify(foodData, null, 2));
+              if (foodData.status === "SUCCESS") {
+                  parsedData = {
+                      status: "SUCCESS",
+                      type: "NUTRITION",
+                      description: foodData.description,
+                      date_offset_days: foodData.date_offset_days,
+                      habit_key: foodData.habit_key,
+                      data: {
+                          dish: foodData.dish,
+                          ingredients: foodData.ingredients
+                      }
+                  };
+              } else if (foodData.status === "NEEDS_CLARIFICATION") {
+                  return ctx.reply(foodData.clarification_question || "Не удалось понять правки, уточните пожалуйста.");
+              } else {
+                  parsedData = { status: "ERROR", debug: foodData };
+              }
+          } else {
+              parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON. ВЕРНИ ВСЕ ИНГРЕДИЕНТЫ И ИХ ВЕСА (grams) из предыдущего состояния, изменив только то, что просит пользователь!`, getUserLocalDate(ctx.state.user?.timezone), lang);
+          }
 
           if (parsedData.status === "SUCCESS") {
               userStates[user.id] = ''; // Сброс статуса
