@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Zap } from 'lucide-react';
 import UpgradeModal from './UpgradeModal';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 
 interface UpgradeButtonProps {
     currentPlan: string;
@@ -12,6 +12,7 @@ interface UpgradeButtonProps {
 export default function UpgradeButton({ currentPlan }: UpgradeButtonProps) {
     const [open, setOpen] = useState(false);
     const t = useTranslations('Wallet');
+    const locale = useLocale();
 
     return (
         <>
@@ -35,6 +36,7 @@ export default function UpgradeButton({ currentPlan }: UpgradeButtonProps) {
                 isOpen={open}
                 onClose={() => setOpen(false)}
                 currentPlan={currentPlan}
+                locale={locale}
             />
         </>
     );

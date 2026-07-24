@@ -7,9 +7,10 @@ interface UpgradeModalProps {
     isOpen: boolean;
     onClose: () => void;
     currentPlan: string;
+    locale?: string;
 }
 
-export default function UpgradeModal({ isOpen, onClose, currentPlan }: UpgradeModalProps) {
+export default function UpgradeModal({ isOpen, onClose, currentPlan, locale = 'ru' }: UpgradeModalProps) {
     const [loading, setLoading] = useState(false);
 
     // Lock scroll on mobile when open
@@ -24,26 +25,86 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan }: UpgradeMo
 
     if (!isOpen) return null;
 
-    const standardPrice = 9.90;
-    const proPrice = 14.90;
+    const isProdamus = locale === 'en';
+    const standardPrice = isProdamus ? 7 : 495;
+    const proPrice = isProdamus ? 15 : 745;
     const upgradePrice = parseFloat((proPrice - standardPrice).toFixed(2));
+    const currencySymbol = isProdamus ? '$' : '₽';
 
     const handleUpgrade = async () => {
         setLoading(true);
         try {
-            const response = await fetch('/api/payments/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ plan: 'PRO', amount: proPrice })
-            });
+            if (isProdamus) {
+                // Prodamus logic
+                const response = await fetch('/api/payments/prodamus', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        plan: 'PRO', 
+                        amount: proPrice,
+                        locale
+                    })
+                });
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert(`Ошибка: ${data.error}`);
+                    setLoading(false);
+                    return;
+                }
 
-            const data = await response.json();
+                if (data.orderId && typeof window !== 'undefined' && (window as any).ProdamusWidget) {
+                    const merchantId = process.env.NEXT_PUBLIC_PRODAMUS_MERCHANT_ID || '9f40d6b1-7246-41d7-8ccf-63f329ca2b7a';
+                    const salesChannelId = process.env.NEXT_PUBLIC_PRODAMUS_SALES_CHANNEL_ID || 'f40919dc-6570-4a48-bc45-b9ccac0ce196';
 
-            if (data.confirmation_url) {
-                window.location.href = data.confirmation_url;
+                    const widget = new (window as any).ProdamusWidget({
+                        merchantId,
+                        salesChannelId,
+                        currency: 'usd',
+                        merchantOrderNumber: data.orderId,
+                        products: [
+                            {
+                                name: data.planLabel,
+                                price: Number(proPrice),
+                                quantity: 1,
+                            }
+                        ]
+                    });
+
+                    widget.on('payment_success', () => {
+                        window.location.href = `/${locale}/cabinet/wallet?payment=success`;
+                    });
+
+                    widget.on('payment_error', () => {
+                        alert('Произошла ошибка при оплате. Попробуйте еще раз.');
+                        setLoading(false);
+                    });
+
+                    widget.on('widget_closed', () => {
+                        setLoading(false);
+                    });
+
+                    widget.open();
+                } else {
+                    alert('Виджет оплаты недоступен. Попробуйте обновить страницу.');
+                    setLoading(false);
+                }
             } else {
-                alert(`Ошибка: ${data.details || 'Попробуйте позже'}`);
-                setLoading(false);
+                // YooKassa logic
+                const response = await fetch('/api/payments/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ plan: 'PRO', amount: proPrice })
+                });
+
+                const data = await response.json();
+
+                if (data.confirmation_url) {
+                    window.location.href = data.confirmation_url;
+                } else {
+                    alert(`Ошибка: ${data.details || 'Попробуйте позже'}`);
+                    setLoading(false);
+                }
             }
         } catch {
             alert('Ошибка подключения. Проверьте интернет.');
@@ -101,14 +162,14 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan }: UpgradeMo
                     <div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Стоимость PRO</p>
                         <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-black text-slate-800 dark:text-white">{proPrice.toFixed(2)} ₽</span>
+                            <span className="text-2xl font-black text-slate-800 dark:text-white">{proPrice.toFixed(2)} {currencySymbol}</span>
                             <span className="text-sm text-slate-400">/ мес</span>
                         </div>
                     </div>
                     <div className="text-right">
                         <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-xl px-3 py-2">
                             <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Доплата за апгрейд</p>
-                            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">+{upgradePrice.toFixed(2)} ₽</p>
+                            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">+{upgradePrice.toFixed(2)} {currencySymbol}</p>
                         </div>
                     </div>
                 </div>
@@ -150,13 +211,13 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan }: UpgradeMo
                         ) : (
                             <>
                                 <Zap className="w-5 h-5 fill-white" />
-                                <span>Перейти на PRO — {proPrice.toFixed(2)} ₽/мес</span>
+                                <span>Перейти на PRO — {proPrice.toFixed(2)} {currencySymbol}/мес</span>
                                 <ArrowRight className="w-4 h-4 ml-auto" />
                             </>
                         )}
                     </button>
                     <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-3">
-                        Безопасная оплата через ЮKassa · Отмена в любой момент
+                        Безопасная оплата {isProdamus ? '' : 'через ЮKassa '}· Отмена в любой момент
                     </p>
                 </div>
             </div>
