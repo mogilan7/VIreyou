@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
+import Script from 'next/script';
 
 interface CheckoutButtonProps {
     plan: string;
@@ -14,13 +15,11 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
     const [loading, setLoading] = useState(false);
     const t = useTranslations('Wallet');
     const locale = useLocale();
+    const isProdamus = locale !== 'ru';
 
     const handleCheckout = async () => {
         setLoading(true);
         try {
-            // English users → Prodamus (international cards)
-            // Russian users  → YooKassa (Russian cards)
-            const isProdamus = locale !== 'ru';
             const apiEndpoint = isProdamus
                 ? '/api/payments/prodamus'
                 : '/api/payments/create';
@@ -33,12 +32,35 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
 
             const data = await response.json();
 
-            // Prodamus returns payment_url, YooKassa returns confirmation_url
-            const redirectUrl = data.payment_url || data.confirmation_url;
-            if (redirectUrl) {
-                window.location.href = redirectUrl;
+            if (isProdamus) {
+                if (data.orderId) {
+                    const merchantId = process.env.NEXT_PUBLIC_PRODAMUS_MERCHANT_ID || '9f40d6b1-7246-41d7-8ccf-63f329ca2b7a';
+                    const salesChannelId = process.env.NEXT_PUBLIC_PRODAMUS_SALES_CHANNEL_ID || 'f40919dc-6570-4a48-bc45-b9ccac0ce196';
+                    
+                    const widget = new (window as any).ProdamusWidget({
+                        merchantId,
+                        salesChannelId,
+                        currency: 'rub',
+                        merchantOrderNumber: data.orderId,
+                        products: [
+                            {
+                                name: data.planLabel,
+                                price: Number(data.rubAmount),
+                                quantity: 1,
+                            }
+                        ]
+                    });
+                    widget.open();
+                } else {
+                    alert(`${t('paymentError')}: ${data.details || data.error || t('paymentUnknown')}`);
+                }
             } else {
-                alert(`${t('paymentError')}: ${data.details || data.error || t('paymentUnknown')}`);
+                const redirectUrl = data.confirmation_url;
+                if (redirectUrl) {
+                    window.location.href = redirectUrl;
+                } else {
+                    alert(`${t('paymentError')}: ${data.details || data.error || t('paymentUnknown')}`);
+                }
             }
         } catch (error) {
             console.error('Checkout error:', error);
@@ -49,17 +71,22 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
     };
 
     return (
-        <button
-            onClick={handleCheckout}
-            disabled={loading}
-            className={`${className} ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-        >
-            {loading ? (
-                <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    <span>{t('loading')}</span>
-                </div>
-            ) : children}
-        </button>
+        <>
+            {isProdamus && (
+                <Script src="https://widget.payform.ru/iframe.min.js" strategy="lazyOnload" />
+            )}
+            <button
+                onClick={handleCheckout}
+                disabled={loading}
+                className={`${className} ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+                {loading ? (
+                    <div className="flex items-center gap-2">
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        <span>{t('loading')}</span>
+                    </div>
+                ) : children}
+            </button>
+        </>
     );
 }

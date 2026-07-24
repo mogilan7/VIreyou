@@ -85,40 +85,52 @@ export async function POST(req: NextRequest) {
 
         // Extract data from webhook body
         const orderId = body.order_id || body.order_num;
-        const customerExtra = body.customer_extra || '';
         const paymentId = body.payment_id || orderId;
 
-        // Parse user_id and plan from customer_extra: "user_id:xxx|plan:yyy"
-        let userId: string | null = null;
-        let plan: string | null = null;
+        if (!orderId) {
+            console.error('[PRODAMUS WEBHOOK] Missing orderId in body');
+            return NextResponse.json({ status: 'ok' });
+        }
 
-        const extraParts = customerExtra.split('|');
-        for (const part of extraParts) {
-            const [k, v] = part.split(':');
-            if (k === 'user_id') userId = v;
-            if (k === 'plan') plan = v;
+        // Look up the pending transaction to identify the user and plan
+        const pendingTx = await prisma.transaction.findUnique({
+            where: { id: orderId }
+        });
+
+        if (!pendingTx) {
+            console.error(`[PRODAMUS WEBHOOK] Transaction not found for orderId: ${orderId}`);
+            return NextResponse.json({ status: 'ok' });
+        }
+
+        if (pendingTx.type === 'SUBSCRIPTION') {
+            console.log(`[PRODAMUS WEBHOOK] Payment ${paymentId} already processed (idempotency check).`);
+            return NextResponse.json({ status: 'ok' });
+        }
+
+        if (pendingTx.type !== 'PENDING_PRODAMUS') {
+            console.error(`[PRODAMUS WEBHOOK] Transaction ${orderId} has invalid type: ${pendingTx.type}`);
+            return NextResponse.json({ status: 'ok' });
+        }
+
+        const userId = pendingTx.user_id;
+        
+        // Extract plan from description (e.g. "Pending Prodamus payment: user_id:XXX|plan:PRO")
+        let plan: string | null = null;
+        const descriptionStr = pendingTx.description || '';
+        const descParts = descriptionStr.split('|');
+        for (const part of descParts) {
+            if (part.startsWith('plan:')) {
+                plan = part.split(':')[1];
+            }
         }
 
         if (!userId || !plan) {
-            console.error('[PRODAMUS WEBHOOK] Missing user_id or plan in customer_extra:', customerExtra);
+            console.error('[PRODAMUS WEBHOOK] Missing user_id or plan in pending transaction:', descriptionStr);
             return NextResponse.json({ status: 'ok' });
         }
 
         // Amount paid
         const amount = parseFloat(body.sum || body.amount || '0');
-
-        // Idempotency check
-        const existingTx = await prisma.transaction.findFirst({
-            where: {
-                user_id: userId,
-                description: { contains: paymentId }
-            }
-        });
-
-        if (existingTx) {
-            console.log(`[PRODAMUS WEBHOOK] Payment ${paymentId} already processed. Skipping.`);
-            return NextResponse.json({ status: 'ok' });
-        }
 
         // Find user
         const user = await prisma.user.findUnique({
@@ -166,10 +178,10 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Log transaction
-        await prisma.transaction.create({
+        // Log transaction by updating the pending one
+        await prisma.transaction.update({
+            where: { id: pendingTx.id },
             data: {
-                user_id: user.id,
                 amount: -amount,
                 type: 'SUBSCRIPTION',
                 description: `Prodamus payment: ${plan} plan (ID: ${paymentId})`
