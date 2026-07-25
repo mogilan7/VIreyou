@@ -10,7 +10,6 @@ datasource db {
   schemas   = ["auth", "public"]
 }
 
-
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model audit_log_entries {
@@ -26,30 +25,31 @@ model audit_log_entries {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model custom_oauth_providers {
-  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  provider_type         String
-  identifier            String    @unique
-  name                  String
-  client_id             String
-  client_secret         String
-  acceptable_client_ids String[]  @default([])
-  scopes                String[]  @default([])
-  pkce_enabled          Boolean   @default(true)
-  attribute_mapping     Json      @default("{}")
-  authorization_params  Json      @default("{}")
-  enabled               Boolean   @default(true)
-  email_optional        Boolean   @default(false)
-  issuer                String?
-  discovery_url         String?
-  skip_nonce_check      Boolean   @default(false)
-  cached_discovery      Json?
-  discovery_cached_at   DateTime? @db.Timestamptz(6)
-  authorization_url     String?
-  token_url             String?
-  userinfo_url          String?
-  jwks_uri              String?
-  created_at            DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime  @default(now()) @db.Timestamptz(6)
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_type           String
+  identifier              String    @unique
+  name                    String
+  client_id               String
+  client_secret           String
+  acceptable_client_ids   String[]  @default([])
+  scopes                  String[]  @default([])
+  pkce_enabled            Boolean   @default(true)
+  attribute_mapping       Json      @default("{}")
+  authorization_params    Json      @default("{}")
+  enabled                 Boolean   @default(true)
+  email_optional          Boolean   @default(false)
+  issuer                  String?
+  discovery_url           String?
+  skip_nonce_check        Boolean   @default(false)
+  cached_discovery        Json?
+  discovery_cached_at     DateTime? @db.Timestamptz(6)
+  authorization_url       String?
+  token_url               String?
+  userinfo_url            String?
+  jwks_uri                String?
+  created_at              DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime  @default(now()) @db.Timestamptz(6)
+  custom_claims_allowlist String[]  @default([])
 
   @@index([created_at])
   @@index([enabled])
@@ -447,16 +447,455 @@ model users {
   oauth_consents              oauth_consents[]
   one_time_tokens             one_time_tokens[]
   sessions                    sessions[]
-  profiles                    profiles?
-  test_results                test_results[]
+  webauthn_challenges         webauthn_challenges[]
+  webauthn_credentials        webauthn_credentials[]
 
+  @@index([created_at(sort: Desc)], map: "idx_users_created_at_desc")
+  @@index([email], map: "idx_users_email")
+  @@index([last_sign_in_at(sort: Desc)], map: "idx_users_last_sign_in_at_desc")
   @@index([instance_id])
   @@index([is_anonymous])
   @@schema("auth")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model webauthn_challenges {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String?  @db.Uuid
+  challenge_type String
+  session_data   Json
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  expires_at     DateTime @db.Timestamptz(6)
+  users          users?   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([expires_at])
+  @@index([user_id])
+  @@schema("auth")
+}
+
+model webauthn_credentials {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  credential_id    Bytes     @unique
+  public_key       Bytes
+  attestation_type String    @default("")
+  aaguid           String?   @db.Uuid
+  sign_count       BigInt    @default(0)
+  transports       Json      @default("[]")
+  backup_eligible  Boolean   @default(false)
+  backed_up        Boolean   @default(false)
+  friendly_name    String    @default("")
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
+  last_used_at     DateTime? @db.Timestamptz(6)
+  users            users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id])
+  @@schema("auth")
+}
+
+model AccessPermission {
+  id      String @id
+  user_id String
+  test_id String
+  Test    Test   @relation(fields: [test_id], references: [id])
+  User    User   @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, test_id])
+  @@schema("public")
+}
+
+model ActivityLog {
+  id              String   @id
+  user_id         String
+  date            DateTime @default(now())
+  steps           Int?
+  active_minutes  Int?
+  calories_burned Float?
+  notes           String?
+  created_at      DateTime @default(now())
+  User            User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, date])
+  @@schema("public")
+}
+
+model BiomarkerResult {
+  id              String           @id
+  user_id         String
+  document_id     String?
+  marker_key      String
+  marker_name     String
+  value           Float
+  unit            String?
+  reference_range String?
+  status          String?
+  recorded_at     DateTime         @default(now())
+  MedicalDocument MedicalDocument? @relation(fields: [document_id], references: [id])
+  User            User             @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, marker_key, recorded_at])
+  @@schema("public")
+}
+
+model Consultation {
+  id                                    String  @id
+  client_id                             String
+  specialist_id                         String
+  status                                String  @default("PENDING")
+  checklist_json                        String?
+  User_Consultation_client_idToUser     User    @relation("Consultation_client_idToUser", fields: [client_id], references: [id])
+  User_Consultation_specialist_idToUser User    @relation("Consultation_specialist_idToUser", fields: [specialist_id], references: [id])
+
+  @@schema("public")
+}
+
+model FoodItem {
+  id               String   @id
+  name_en          String?
+  name_ru          String   @unique
+  is_usda_verified Boolean  @default(false)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @default(now())
+  calories         Float
+  protein          Float
+  carbs            Float
+  fat              Float
+  fiber            Float?
+  sugar_fast       Float?
+  added_sugar      Float?
+  trans_fat        Float?
+  cholesterol      Float?
+  omega_3          Float?
+  omega_6          Float?
+  water            Float?
+  vitamin_A        Float?
+  vitamin_D        Float?
+  vitamin_E        Float?
+  vitamin_K        Float?
+  vitamin_B1       Float?
+  vitamin_B2       Float?
+  vitamin_B3       Float?
+  vitamin_B5       Float?
+  vitamin_B6       Float?
+  vitamin_B7       Float?
+  vitamin_B9       Float?
+  vitamin_B12      Float?
+  vitamin_C        Float?
+  calcium          Float?
+  iron             Float?
+  magnesium        Float?
+  phosphorus       Float?
+  potassium        Float?
+  sodium           Float?
+  zinc             Float?
+  copper           Float?
+  manganese        Float?
+  selenium         Float?
+  iodine           Float?
+
+  @@index([name_ru])
+  @@schema("public")
+}
+
+model HabitLog {
+  id         String   @id
+  user_id    String
+  date       DateTime @default(now())
+  habit_key  String
+  completed  Boolean  @default(false)
+  created_at DateTime @default(now())
+  User       User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, date])
+  @@schema("public")
+}
+
+model HealthData {
+  id                    String  @id
+  user_id               String  @unique
+  longevity_score       Int     @default(95)
+  biological_age_actual Int     @default(44)
+  biological_age_calc   Int     @default(40)
+  hrv_value             Int?    @default(72)
+  sleep_duration_hrs    Float?  @default(7.5)
+  deep_sleep_hrs        Float?  @default(1.8)
+  rem_sleep_hrs         Float?  @default(1.5)
+  vo2_max               Float?  @default(52.4)
+  fasting_window        String? @default("16:8")
+  nutrient_density_pct  Int?    @default(92)
+  sugar_index           String? @default("LOW")
+  fiber_intake_g        Int?    @default(32)
+  glucose               Float?  @default(4.8)
+  ferritin              Int?    @default(112)
+  cortisol              Int?    @default(540)
+  vitamin_d3            Int?    @default(68)
+  insulin               Float?  @default(4.2)
+  ldl_cholesterol       Float?  @default(2.1)
+  crp                   Float?  @default(0.4)
+  homocysteine          Float?  @default(7.2)
+  biomarkers            Json?
+  User                  User    @relation(fields: [user_id], references: [id])
+
+  @@schema("public")
+}
+
+model HydrationLog {
+  id         String   @id
+  user_id    String
+  date       DateTime @default(now())
+  volume_ml  Int
+  created_at DateTime @default(now())
+  User       User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, date])
+  @@schema("public")
+}
+
+model MedicalDocument {
+  id              String            @id
+  user_id         String
+  file_name       String
+  file_url        String
+  file_type       String
+  status          String            @default("PROCESSING")
+  extracted_data  String?
+  created_at      DateTime          @default(now())
+  updated_at      DateTime
+  BiomarkerResult BiomarkerResult[]
+  User            User              @relation(fields: [user_id], references: [id])
+
+  @@schema("public")
+}
+
+model NutritionLog {
+  id                String   @id
+  user_id           String
+  date              DateTime @default(now())
+  calories          Float?
+  protein           Float?
+  carbs             Float?
+  fat               Float?
+  fiber             Float?
+  vitamins_minerals Json?
+  image_url         String?
+  description       String?
+  created_at        DateTime @default(now())
+  dish              String?
+  grams             Float?
+  sugar_fast        Float?
+  trans_fat         Float?
+  cholesterol       Float?
+  added_sugar       Float?
+  omega_3           Float?
+  omega_6           Float?
+  water             Float?
+  vitamin_A         Float?
+  vitamin_D         Float?
+  vitamin_E         Float?
+  vitamin_K         Float?
+  vitamin_B1        Float?
+  vitamin_B2        Float?
+  vitamin_B3        Float?
+  vitamin_B5        Float?
+  vitamin_B6        Float?
+  vitamin_B7        Float?
+  vitamin_B9        Float?
+  vitamin_B12       Float?
+  vitamin_C         Float?
+  calcium           Float?
+  iron              Float?
+  magnesium         Float?
+  phosphorus        Float?
+  potassium         Float?
+  sodium            Float?
+  zinc              Float?
+  copper            Float?
+  manganese         Float?
+  selenium          Float?
+  iodine            Float?
+  User              User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, date])
+  @@schema("public")
+}
+
+model SleepLog {
+  id                 String   @id
+  user_id            String
+  date               DateTime @default(now())
+  duration_hrs       Float?
+  deep_hrs           Float?
+  rem_hrs            Float?
+  notes              String?
+  created_at         DateTime @default(now())
+  light_hrs          Float?
+  hrv                Int?
+  resting_heart_rate Int?
+  User               User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, date])
+  @@schema("public")
+}
+
+model Squad {
+  id               String             @id
+  creator_id       String
+  name             String
+  start_date       DateTime           @default(now())
+  end_date         DateTime
+  is_active        Boolean            @default(true)
+  created_at       DateTime           @default(now())
+  User             User               @relation(fields: [creator_id], references: [id])
+  SquadParticipant SquadParticipant[]
+
+  @@schema("public")
+}
+
+model SquadParticipant {
+  id        String   @id
+  squad_id  String
+  user_id   String
+  score     Int      @default(0)
+  joined_at DateTime @default(now())
+  Squad     Squad    @relation(fields: [squad_id], references: [id])
+  User      User     @relation(fields: [user_id], references: [id])
+
+  @@unique([squad_id, user_id])
+  @@schema("public")
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+
+  @@schema("public")
+}
+
+model Test {
+  id               String             @id
+  name             String
+  is_public        Boolean            @default(false)
+  description      String?
+  AccessPermission AccessPermission[]
+
+  @@schema("public")
+}
+
+model Transaction {
+  id          String   @id
+  user_id     String
+  amount      Decimal  @db.Decimal(10, 2)
+  type        String
+  description String?
+  created_at  DateTime @default(now())
+  User        User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, created_at])
+  @@schema("public")
+}
+
+model User {
+  id                                            String             @id
+  email                                         String             @unique
+  role                                          String
+  full_name                                     String?
+  telegram_id                                   String?
+  reminder_time1                                String?            @default("21:00")
+  reminder_time2                                String?
+  reminder_time3                                String?
+  timezone                                      String?            @default("Europe/Moscow")
+  report_period_days                            Int?               @default(7)
+  last_report_date                              DateTime?
+  language                                      String?            @default("ru")
+  is_marathon_participant                       Boolean?           @default(false)
+  balance                                       Decimal            @default(0.00) @db.Decimal(10, 2)
+  referrer_id                                   String?
+  subscription_expires_at                       DateTime?
+  gender                                        String?
+  age                                           Int?
+  weight                                        Float?
+  height                                        Float?
+  activity_level                                String?
+  goal                                          String?
+  target_calories                               Float?
+  target_protein                                Float?
+  target_fat                                    Float?
+  target_carbs                                  Float?
+  telegram_username                             String?
+  created_at                                    DateTime?          @default(now()) @db.Timestamptz(6)
+  AccessPermission                              AccessPermission[]
+  ActivityLog                                   ActivityLog[]
+  BiomarkerResult                               BiomarkerResult[]
+  Consultation_Consultation_client_idToUser     Consultation[]     @relation("Consultation_client_idToUser")
+  Consultation_Consultation_specialist_idToUser Consultation[]     @relation("Consultation_specialist_idToUser")
+  HabitLog                                      HabitLog[]
+  HealthData                                    HealthData?
+  HydrationLog                                  HydrationLog[]
+  MedicalDocument                               MedicalDocument[]
+  NutritionLog                                  NutritionLog[]
+  SleepLog                                      SleepLog[]
+  Squad                                         Squad[]
+  SquadParticipant                              SquadParticipant[]
+  Transaction                                   Transaction[]
+  User                                          User?              @relation("UserToUser", fields: [referrer_id], references: [id])
+  other_User                                    User[]             @relation("UserToUser")
+
+  @@schema("public")
+}
+
+model carousel_slides {
+  id                   String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  post_id              String              @db.Uuid
+  slide_order          Int
+  slide_layout         carousel_slide_type
+  main_title           String?             @db.VarChar(255)
+  subtitle             String?
+  list_items           String[]
+  background_image_url String?
+  generated_slide_url  String?
+  created_at           DateTime            @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  posts                posts               @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+model content_factory_settings {
+  id                   String   @id @default("default")
+  valentina_ref_images String[] @default([])
+  updated_at           DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model posts {
+  id                       String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  hub_id                   String                  @db.Uuid
+  platform                 target_platform
+  insta_type               instagram_content_type?
+  title                    String?                 @db.VarChar(255)
+  body_text                String
+  hook_text                String?                 @db.VarChar(255)
+  generated_images         String[]                @default([])
+  selected_image           String?
+  hashtags                 String[]
+  status                   content_status          @default(draft)
+  target_chat_id           String?                 @db.VarChar(255)
+  scheduled_at             DateTime?               @db.Timestamptz(6)
+  claude_prompt_tokens     Int?
+  claude_completion_tokens Int?
+  telegram_polls           Json?
+  telegraph_url            String?
+  created_at               DateTime                @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at               DateTime                @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  carousel_slides          carousel_slides[]
+  weekly_hubs              weekly_hubs             @relation(fields: [hub_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  publication_logs         publication_logs[]
+  veo_video_assets         veo_video_assets[]
+
+  @@schema("public")
+}
+
 model profiles {
   id                     String     @id @db.Uuid
   role                   String?    @default("client")
@@ -466,18 +905,36 @@ model profiles {
   created_at             DateTime   @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
   date_of_birth          DateTime?  @db.Date
   height                 Decimal?   @db.Decimal
-  gender                 String?
   welcome_data           Json?
+  gender                 String?
   profiles               profiles?  @relation("profilesToprofiles", fields: [assigned_specialist_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
   other_profiles         profiles[] @relation("profilesToprofiles")
-  users                  users      @relation(fields: [id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@schema("public")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model projects {
+  id          String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String        @db.VarChar(255)
+  created_at  DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  weekly_hubs weekly_hubs[]
+
+  @@schema("public")
+}
+
+model publication_logs {
+  id                   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  post_id              String   @db.Uuid
+  api_response_raw     Json?
+  external_post_id     String?  @db.VarChar(255)
+  published_by_user_id String?  @db.Uuid
+  error_message        String?
+  published_at         DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  posts                posts    @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
 model test_results {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id        String   @db.Uuid
@@ -486,7 +943,46 @@ model test_results {
   raw_data       Json?
   interpretation String?
   created_at     DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
-  users          users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+model veo_video_assets {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  post_id          String   @db.Uuid
+  scene_order      Int
+  duration_seconds Decimal? @db.Decimal(4, 2)
+  english_prompt   String
+  veo_task_id      String?  @db.VarChar(255)
+  storage_url      String?
+  created_at       DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  posts            posts    @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+model weekly_hubs {
+  id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  project_id            String?   @db.Uuid
+  week_number           Int
+  theme_title           String    @db.VarChar(255)
+  source_pdf_references String?
+  created_at            DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  posts                 posts[]
+  projects              projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, week_number])
+  @@schema("public")
+}
+
+model max_users {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  max_user_id String   @unique @db.VarChar(255)
+  username    String?  @db.VarChar(255)
+  first_name  String?  @db.VarChar(255)
+  last_name   String?  @db.VarChar(255)
+  auth_token  String?  @unique @db.VarChar(255)
+  created_at  DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
 
   @@schema("public")
 }
@@ -561,315 +1057,40 @@ enum one_time_token_type {
   @@schema("auth")
 }
 
-model User {
-  id                  String             @id @default(cuid())
-  email               String             @unique
-  role                String
-  full_name           String?
-  telegram_id         String?
-  telegram_username   String?
-  language            String?            @default("ru")
-  created_at          DateTime           @default(now())
-  reminder_time1      String?            @default("21:00")
-  reminder_time2      String?
-  reminder_time3      String?
-  timezone            String?            @default("Europe/Moscow")
-  report_period_days  Int?               @default(7)
-  last_report_date    DateTime?
-  accessPermissions   AccessPermission[]
-
-  specialistConsults  Consultation[]     @relation("SpecialistConsultations")
-  clientConsultations Consultation[]     @relation("ClientConsultations")
-  healthData          HealthData?
-  documents           MedicalDocument[]
-  biomarker_results   BiomarkerResult[]
-  nutritionLogs       NutritionLog[]
-  activityLogs        ActivityLog[]
-  sleepLogs           SleepLog[]
-  hydrationLogs       HydrationLog[]
-  habitLogs           HabitLog[]
-  is_marathon_participant Boolean            @default(false)
-  
-  balance                 Decimal            @default(0) @db.Decimal(10, 2)
-  referrer_id             String?
-  referrer                User?              @relation("ReferralHistory", fields: [referrer_id], references: [id])
-  referees                User[]             @relation("ReferralHistory")
-  subscription_expires_at DateTime?
-  transactions            Transaction[]
-  created_squads          Squad[]            @relation("SquadCreator")
-  squad_participations    SquadParticipant[]
-
-  // Physical parameters & Goals
-  gender              String?
-  age                 Int?
-  weight              Float?
-  height              Float?
-  activity_level      String?  // sedentary, light, moderate, active, very_active
-  goal                String?  // lose_weight, maintain, gain_muscle
-  
-  target_calories     Float?
-  target_protein      Float?
-  target_fat          Float?
-  target_carbs        Float?
+enum carousel_slide_type {
+  cover
+  thesis
+  list
+  antithesis
+  final
 
   @@schema("public")
 }
 
-model SystemSetting {
-  key   String @id
-  value String
+enum content_status {
+  draft
+  pending_review
+  ready_for_review
+  approved
+  published
+  failed
 
   @@schema("public")
 }
 
-model Test {
-  id                String             @id @default(cuid())
-  name              String
-  is_public         Boolean            @default(false)
-  description       String?
-  accessPermissions AccessPermission[]
+enum instagram_content_type {
+  reel
+  carousel
+  post
+  stories
 
   @@schema("public")
 }
 
-model Consultation {
-  id             String  @id @default(cuid())
-  client_id      String
-  specialist_id  String
-  status         String  @default("PENDING")
-  checklist_json String?
-  specialist     User    @relation("SpecialistConsultations", fields: [specialist_id], references: [id])
-  client         User    @relation("ClientConsultations", fields: [client_id], references: [id])
+enum target_platform {
+  instagram
+  telegram
+  max
 
-  @@schema("public")
-}
-
-model AccessPermission {
-  id      String @id @default(cuid())
-  user_id String
-  test_id String
-  test    Test   @relation(fields: [test_id], references: [id])
-  user    User   @relation(fields: [user_id], references: [id])
-
-  @@unique([user_id, test_id])
-  @@schema("public")
-}
-
-model HealthData {
-  id                    String  @id @default(cuid())
-  user_id               String  @unique
-  longevity_score       Int     @default(95)
-  biological_age_actual Int     @default(44)
-  biological_age_calc   Int     @default(40)
-  hrv_value             Int?    @default(72)
-  sleep_duration_hrs    Float?  @default(7.5)
-  deep_sleep_hrs        Float?  @default(1.8)
-  rem_sleep_hrs         Float?  @default(1.5)
-  vo2_max               Float?  @default(52.4)
-  fasting_window        String? @default("16:8")
-  nutrient_density_pct  Int?    @default(92)
-  sugar_index           String? @default("LOW")
-  fiber_intake_g        Int?    @default(32)
-  glucose               Float?  @default(4.8)
-  ferritin              Int?    @default(112)
-  cortisol              Int?    @default(540)
-  vitamin_d3            Int?    @default(68)
-  insulin               Float?  @default(4.2)
-  ldl_cholesterol       Float?  @default(2.1)
-  crp                   Float?  @default(0.4)
-  homocysteine          Float?  @default(7.2)
-  biomarkers            Json?
-  user                  User    @relation(fields: [user_id], references: [id])
-
-  @@schema("public")
-}
-
-model MedicalDocument {
-  id              String   @id @default(cuid())
-  user_id         String
-  file_name       String
-  file_url        String
-  file_type       String   // e.g., 'image/png', 'application/pdf'
-  status          String   @default("PROCESSING") // PROCESSING, COMPLETED, FAILED
-  extracted_data  String?  // JSON string of AI results
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-  user            User     @relation(fields: [user_id], references: [id])
-  biomarker_results BiomarkerResult[]
-
-  @@schema("public")
-}
-
-model BiomarkerResult {
-  id              String   @id @default(cuid())
-  user_id         String
-  document_id     String?
-  marker_key      String   // e.g., 'glucose'
-  marker_name     String   // e.g., 'Glucose' or 'Глюкоза'
-  value           Float
-  unit            String?
-  reference_range String?
-  status          String?  // NORMAL, ABNORMAL
-  recorded_at     DateTime @default(now())
-  user            User     @relation(fields: [user_id], references: [id])
-  document        MedicalDocument? @relation(fields: [document_id], references: [id])
-
-  @@index([user_id, marker_key, recorded_at])
-  @@schema("public")
-}
-
-model NutritionLog {
-  id                String   @id @default(cuid())
-  user_id           String
-  date              DateTime @default(now())
-  calories          Float?
-  protein           Float?
-  carbs             Float?
-  fat               Float?
-  fiber             Float?
-  
-  dish              String?
-  grams             Float?
-  sugar_fast        Float?
-  trans_fat         Float?
-  cholesterol       Float?
-  added_sugar       Float?
-  omega_3           Float?
-  omega_6           Float?
-  water             Float?
-
-  vitamin_A         Float?
-  vitamin_D         Float?
-  vitamin_E         Float?
-  vitamin_K         Float?
-  vitamin_B1        Float?
-  vitamin_B2        Float?
-  vitamin_B3        Float?
-  vitamin_B5        Float?
-  vitamin_B6        Float?
-  vitamin_B7        Float?
-  vitamin_B9        Float?
-  vitamin_B12       Float?
-  vitamin_C         Float?
-
-  calcium           Float?
-  iron              Float?
-  magnesium         Float?
-  phosphorus         Float?
-  potassium         Float?
-  sodium            Float?
-  zinc              Float?
-  copper            Float?
-  manganese         Float?
-  selenium          Float?
-  iodine            Float?
-
-  vitamins_minerals Json?
-  image_url         String?
-  description       String?  @db.Text
-  created_at        DateTime @default(now())
-  user              User     @relation(fields: [user_id], references: [id])
-
-  @@index([user_id, date])
-  @@schema("public")
-}
-
-model ActivityLog {
-  id              String   @id @default(cuid())
-  user_id         String
-  date            DateTime @default(now())
-  steps           Int?
-  active_minutes  Int?
-  calories_burned Float?
-  notes           String?  @db.Text
-  created_at      DateTime @default(now())
-  user            User     @relation(fields: [user_id], references: [id])
-
-  @@index([user_id, date])
-  @@schema("public")
-}
-
-model SleepLog {
-  id                 String   @id @default(cuid())
-  user_id            String
-  date               DateTime @default(now())
-  duration_hrs       Float?
-  deep_hrs           Float?
-  rem_hrs            Float?
-  light_hrs          Float?
-  hrv                Int?
-  resting_heart_rate Int?
-  notes              String?  @db.Text
-  created_at         DateTime @default(now())
-  user               User     @relation(fields: [user_id], references: [id])
-
-  @@index([user_id, date])
-  @@schema("public")
-}
-
-model HydrationLog {
-  id         String   @id @default(cuid())
-  user_id    String
-  date       DateTime @default(now())
-  volume_ml  Int
-  created_at DateTime @default(now())
-  user       User     @relation(fields: [user_id], references: [id])
-
-  @@index([user_id, date])
-  @@schema("public")
-}
-
-model HabitLog {
-  id         String   @id @default(cuid())
-  user_id    String
-  date       DateTime @default(now())
-  habit_key  String
-  completed  Boolean  @default(false)
-  created_at DateTime @default(now())
-  user       User     @relation(fields: [user_id], references: [id])
-
-  @@index([user_id, date])
-  @@schema("public")
-}
-
-model Transaction {
-  id            String   @id @default(cuid())
-  user_id       String
-  amount        Decimal  @db.Decimal(10, 2)
-  type          String   // EARNED_REF_L1, EARNED_REF_L2, SPENT_SUB, GIFT_SENT, GIFT_RECEIVED
-  description   String?
-  created_at    DateTime @default(now())
-  user          User     @relation(fields: [user_id], references: [id])
-
-  @@index([user_id, created_at])
-  @@schema("public")
-}
-
-model Squad {
-  id          String   @id @default(cuid())
-  creator_id  String
-  name        String
-  start_date  DateTime @default(now())
-  end_date    DateTime
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
-  
-  creator     User     @relation("SquadCreator", fields: [creator_id], references: [id])
-  participants SquadParticipant[]
-
-  @@schema("public")
-}
-
-model SquadParticipant {
-  id          String   @id @default(cuid())
-  squad_id    String
-  user_id     String
-  score       Int      @default(0)
-  joined_at   DateTime @default(now())
-
-  squad       Squad    @relation(fields: [squad_id], references: [id])
-  user        User     @relation(fields: [user_id], references: [id])
-
-  @@unique([squad_id, user_id])
   @@schema("public")
 }
