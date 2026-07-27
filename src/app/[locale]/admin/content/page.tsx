@@ -41,6 +41,7 @@ import {
   uploadPdfAndExtractSlides,
   updateCarouselSlide,
   updatePostText,
+  updatePostExtras,
   updatePostSchedule,
   uploadPostImage,
   deletePostImage,
