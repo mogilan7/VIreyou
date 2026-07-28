@@ -586,7 +586,7 @@ export async function publishPost(postId: string, targetChatId?: string) {
           const payload: any = {
             chat_id: chatId,
             parse_mode: 'HTML',
-            disable_web_page_preview: i > 0, // Only show preview on the first chunk
+            disable_web_page_preview: true, // Preview disabled
           };
 
           if (replyMarkup && i === chunks.length - 1) {
