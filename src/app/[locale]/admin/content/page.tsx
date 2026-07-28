@@ -152,8 +152,7 @@ export default function AdminContentPage() {
   const [editPostBody, setEditPostBody] = useState<string>('');
   const [editPostTitle, setEditPostTitle] = useState<string>('');
   const [editTelegraphUrl, setEditTelegraphUrl] = useState<string>('');
-  const [editPollQuestion, setEditPollQuestion] = useState<string>('');
-  const [editPollOptions, setEditPollOptions] = useState<string[]>(['', '']);
+  const [editPolls, setEditPolls] = useState<{question: string, options: string[]}[]>([]);
   const [isSavingPost, setIsSavingPost] = useState<boolean>(false);
   
   const [reelVideoProgress, setReelVideoProgress] = useState<{ [postId: string]: number | null }>({});
@@ -360,15 +359,12 @@ export default function AdminContentPage() {
     setEditPostBody(post.body_text || '');
     setEditPostTitle(post.title || '');
     setEditTelegraphUrl(post.telegraph_url || '');
-    if (post.telegram_polls && Array.isArray(post.telegram_polls) && post.telegram_polls.length > 0) {
-      setEditPollQuestion(post.telegram_polls[0].question || '');
-      setEditPollOptions(post.telegram_polls[0].options || ['', '']);
+    if (post.telegram_polls && Array.isArray(post.telegram_polls)) {
+      setEditPolls(post.telegram_polls);
     } else if (post.telegram_polls && typeof post.telegram_polls === 'object') {
-      setEditPollQuestion(post.telegram_polls.question || '');
-      setEditPollOptions(post.telegram_polls.options || ['', '']);
+      setEditPolls([post.telegram_polls]);
     } else {
-      setEditPollQuestion('');
-      setEditPollOptions(['', '']);
+      setEditPolls([]);
     }
   };
 
@@ -512,9 +508,14 @@ export default function AdminContentPage() {
       const res = await updatePostText(postId, editPostBody);
       const resTitle = await updatePostTitle(postId, editPostTitle);
       
-      const pollData = (editPollQuestion && editPollOptions.filter(o => o.trim()).length > 1) 
-        ? [{ question: editPollQuestion, options: editPollOptions.filter(o => o.trim()) }] 
-        : null;
+      const parsedPollData = editPolls
+        .map(p => ({
+          question: p.question,
+          options: p.options.filter(o => o.trim() !== '')
+        }))
+        .filter(p => p.question.trim() !== '' && p.options.length > 1);
+      
+      const pollData = parsedPollData.length > 0 ? parsedPollData : null;
       const resExtras = await updatePostExtras(postId, editTelegraphUrl || null, pollData);
 
       if (res.success && resTitle.success && resExtras.success) {
@@ -1500,55 +1501,89 @@ export default function AdminContentPage() {
 
                             {/* Polls (Telegram only) */}
                             {post.platform === 'telegram' && (
-                              <div className="mt-4 mb-4 border border-[#DDE5E0] dark:border-slate-700/80 p-3 rounded-xl bg-white/50 dark:bg-slate-900/50">
+                              <div className="mt-4 mb-4">
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-[#244131] dark:text-[#89CB8F] mb-2 flex justify-between items-center">
-                                  Опрос (Poll)
-                                  <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">Заполните для публикации опроса</span>
+                                  Опросы (Викторина)
+                                  <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">Можно добавить несколько опросов</span>
                                 </label>
-                                <div className="mb-2">
-                                  <input
-                                    type="text"
-                                    value={editPollQuestion}
-                                    onChange={(e) => setEditPollQuestion(e.target.value)}
-                                    placeholder="Вопрос опроса..."
-                                    className="w-full bg-gray-50 dark:bg-slate-800 text-xs rounded-lg p-2 border border-gray-200 dark:border-slate-700/80 text-gray-800 dark:text-slate-200 focus:outline-none focus:border-[#60B76F] focus:ring-1 focus:ring-[#60B76F] font-sans"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  {editPollOptions.map((opt, i) => (
-                                    <div key={i} className="flex gap-2">
+                                
+                                {editPolls.map((poll, pIdx) => (
+                                  <div key={pIdx} className="mb-4 border border-[#DDE5E0] dark:border-slate-700/80 p-3 rounded-xl bg-white/50 dark:bg-slate-900/50 relative">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditPolls(editPolls.filter((_, i) => i !== pIdx))}
+                                      className="absolute -top-2 -right-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-rose-500 hover:text-rose-600 rounded-full p-1 shadow-sm transition"
+                                      title="Удалить опрос"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                    
+                                    <div className="mb-2">
                                       <input
                                         type="text"
-                                        value={opt}
+                                        value={poll.question}
                                         onChange={(e) => {
-                                          const newOpts = [...editPollOptions];
-                                          newOpts[i] = e.target.value;
-                                          setEditPollOptions(newOpts);
+                                          const newPolls = [...editPolls];
+                                          newPolls[pIdx].question = e.target.value;
+                                          setEditPolls(newPolls);
                                         }}
-                                        placeholder={`Вариант ответа ${i + 1}`}
+                                        placeholder={`Вопрос опроса ${pIdx + 1}...`}
                                         className="w-full bg-gray-50 dark:bg-slate-800 text-xs rounded-lg p-2 border border-gray-200 dark:border-slate-700/80 text-gray-800 dark:text-slate-200 focus:outline-none focus:border-[#60B76F] focus:ring-1 focus:ring-[#60B76F] font-sans"
                                       />
-                                      {editPollOptions.length > 2 && (
+                                    </div>
+                                    <div className="space-y-2">
+                                      {poll.options.map((opt, i) => (
+                                        <div key={i} className="flex gap-2">
+                                          <input
+                                            type="text"
+                                            value={opt}
+                                            onChange={(e) => {
+                                              const newPolls = [...editPolls];
+                                              newPolls[pIdx].options[i] = e.target.value;
+                                              setEditPolls(newPolls);
+                                            }}
+                                            placeholder={`Вариант ответа ${i + 1}`}
+                                            className="w-full bg-gray-50 dark:bg-slate-800 text-xs rounded-lg p-2 border border-gray-200 dark:border-slate-700/80 text-gray-800 dark:text-slate-200 focus:outline-none focus:border-[#60B76F] focus:ring-1 focus:ring-[#60B76F] font-sans"
+                                          />
+                                          {poll.options.length > 2 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const newPolls = [...editPolls];
+                                                newPolls[pIdx].options = poll.options.filter((_, idx) => idx !== i);
+                                                setEditPolls(newPolls);
+                                              }}
+                                              className="shrink-0 p-2 text-gray-400 hover:text-rose-500 bg-gray-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-900/20 rounded-lg transition"
+                                            >
+                                              <X className="w-3.5 h-3.5" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      ))}
+                                      {poll.options.length < 10 && (
                                         <button
                                           type="button"
-                                          onClick={() => setEditPollOptions(editPollOptions.filter((_, idx) => idx !== i))}
-                                          className="shrink-0 p-2 text-gray-400 hover:text-rose-500 bg-gray-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-900/20 rounded-lg transition"
+                                          onClick={() => {
+                                            const newPolls = [...editPolls];
+                                            newPolls[pIdx].options.push('');
+                                            setEditPolls(newPolls);
+                                          }}
+                                          className="text-[11px] text-[#60B76F] hover:text-[#4CA15A] font-medium block mt-1"
                                         >
-                                          <X className="w-3.5 h-3.5" />
+                                          + Добавить вариант
                                         </button>
                                       )}
                                     </div>
-                                  ))}
-                                  {editPollOptions.length < 10 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setEditPollOptions([...editPollOptions, ''])}
-                                      className="text-[11px] text-[#60B76F] hover:text-[#4CA15A] font-medium block mt-1"
-                                    >
-                                      + Добавить вариант
-                                    </button>
-                                  )}
-                                </div>
+                                  </div>
+                                ))}
+                                
+                                <button
+                                  type="button"
+                                  onClick={() => setEditPolls([...editPolls, { question: '', options: ['', ''] }])}
+                                  className="w-full border border-dashed border-[#60B76F]/50 text-[#60B76F] hover:bg-[#60B76F]/5 dark:hover:bg-[#60B76F]/10 rounded-xl p-2 text-[11px] font-medium transition flex items-center justify-center gap-1 mt-2"
+                                >
+                                  + Добавить опрос
+                                </button>
                               </div>
                             )}
 
