@@ -22,8 +22,8 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
     const user = await prisma.user.findUnique({
         where: { email: authUser.email || undefined },
         include: {
-            transactions: { orderBy: { created_at: 'desc' }, take: 10 },
-            referees: { include: { transactions: true } } // Simplified
+            Transaction: { orderBy: { created_at: 'desc' }, take: 10 },
+            other_User: { include: { Transaction: true } } // Simplified
         }
     });
 
@@ -201,12 +201,12 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                     </h3>
                     
                     <div className="space-y-2">
-                        {user.transactions.length === 0 ? (
+                        {!user.Transaction || user.Transaction.length === 0 ? (
                             <div className="text-center py-8 text-slate-400 bg-white/50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-white/5">
                                 {t('emptyHistory')}
                             </div>
                         ) : (
-                            user.transactions.map((tx: any) => (
+                            user.Transaction.map((tx: any) => (
                                 <div key={tx.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-white/5 shadow-sm">
                                     <div className="flex items-center gap-3">
                                         <div className={`p-2 rounded-xl ${Number(tx.amount) > 0 ? 'bg-green-50 text-green-500 dark:bg-green-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-700'}`}>
