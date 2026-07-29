@@ -40,12 +40,12 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
                     const widget = new (window as any).ProdamusWidget({
                         merchantId,
                         salesChannelId,
-                        currency: 'usd',
+                        currency: 'rub',
                         merchantOrderNumber: data.orderId,
                         products: [
                             {
                                 name: data.planLabel,
-                                price: Number(amount), // Use the original USD amount passed to the button
+                                price: data.rubAmount, // Pass the converted rub amount
                                 quantity: 1,
                             }
                         ]

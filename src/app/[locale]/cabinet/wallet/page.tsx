@@ -22,7 +22,11 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
     const user = await prisma.user.findUnique({
         where: { email: authUser.email || undefined },
         include: {
-            Transaction: { orderBy: { created_at: 'desc' }, take: 10 },
+            Transaction: { 
+                where: { type: { notIn: ['PENDING', 'PENDING_PRODAMUS'] } },
+                orderBy: { created_at: 'desc' }, 
+                take: 10 
+            },
             other_User: { include: { Transaction: true } } // Simplified
         }
     });
