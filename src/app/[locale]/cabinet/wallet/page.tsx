@@ -80,7 +80,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                                 </span>
                             </h3>
                             <p className="text-slate-500 text-sm mt-1">
-                                {t('validUntil')}: {new Date(user.subscription_expires_at).toLocaleDateString()}
+                                {t('validUntil')}: {new Date(user.subscription_expires_at).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                             </p>
                         </div>
                         {user.role !== 'PRO' && user.role !== 'employee' && user.role !== 'admin' && (
@@ -214,7 +214,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                                         </div>
                                         <div>
                                             <p className="font-bold text-sm md:text-base">{tx.description || tx.type}</p>
-                                            <p className="text-[10px] text-slate-400">{new Date(tx.created_at).toLocaleDateString()}</p>
+                                            <p className="text-[10px] text-slate-400">{new Date(tx.created_at).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                                         </div>
                                     </div>
                                     <div className={`font-bold ${Number(tx.amount) > 0 ? 'text-green-500' : ''}`}>
