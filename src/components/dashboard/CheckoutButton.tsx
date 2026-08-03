@@ -49,13 +49,26 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
                 ? '/api/payments/prodamus'
                 : '/api/payments/create';
 
+            console.log('[Checkout] Calling API:', apiEndpoint, { plan, amount, locale });
+
             const response = await fetch(apiEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ plan, amount, locale })
             });
 
+            console.log('[Checkout] Response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[Checkout] API error:', response.status, errorText);
+                alert(`Ошибка сервера (${response.status}). Попробуйте позже.`);
+                setLoading(false);
+                return;
+            }
+
             const data = await response.json();
+            console.log('[Checkout] API response:', data);
 
             if (data.error) {
                 alert(`${t('paymentError')}: ${data.error}`);
@@ -119,9 +132,9 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
                     alert(`${t('paymentError')}: ${data.details || data.error || t('paymentUnknown')}`);
                 }
             }
-        } catch (error) {
-            console.error('Checkout error:', error);
-            alert(t('networkError'));
+        } catch (error: any) {
+            console.error('[Checkout] Exception:', error?.message, error);
+            alert(`Ошибка: ${error?.message || 'Неизвестная ошибка'}. Проверьте подключение к интернету.`);
         } finally {
             setLoading(false);
         }
