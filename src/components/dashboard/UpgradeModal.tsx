@@ -72,20 +72,8 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan, locale = 'r
                         ]
                     });
 
-                    widget.on('payment_success', () => {
-                        window.location.href = `/${locale}/cabinet/wallet?payment=success`;
-                    });
-
-                    widget.on('payment_error', () => {
-                        alert('Произошла ошибка при оплате. Попробуйте еще раз.');
-                        setLoading(false);
-                    });
-
-                    widget.on('widget_closed', () => {
-                        setLoading(false);
-                    });
-
                     widget.open();
+                    setLoading(false);
                 } else {
                     alert('Виджет оплаты недоступен. Попробуйте обновить страницу.');
                     setLoading(false);

@@ -110,20 +110,8 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
                     ]
                 });
 
-                widget.on('payment_success', () => {
-                    window.location.href = `/${locale}/cabinet/wallet?payment=success`;
-                });
-
-                widget.on('payment_error', () => {
-                    alert('Произошла ошибка при оплате. Попробуйте еще раз.');
-                    setLoading(false);
-                });
-
-                widget.on('widget_closed', () => {
-                    setLoading(false);
-                });
-
                 widget.open();
+                setLoading(false);
             } else {
                 const redirectUrl = data.confirmation_url;
                 if (redirectUrl) {
