@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Zap, Star, ArrowRight, Check, Sparkles } from 'lucide-react';
+import Script from 'next/script';
 
 interface UpgradeModalProps {
     isOpen: boolean;
@@ -125,6 +126,9 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan, locale = 'r
             className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center"
             onClick={onClose}
         >
+            {isProdamus && (
+                <Script src="https://widget.payform.ru/iframe.min.js" strategy="lazyOnload" />
+            )}
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
