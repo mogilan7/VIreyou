@@ -61,7 +61,7 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan, locale = 'r
                     const widget = new (window as any).ProdamusWidget({
                         merchantId,
                         salesChannelId,
-                        currency: 'usd',
+                        currency: 'rub',
                         merchantOrderNumber: data.orderId,
                         products: [
                             {

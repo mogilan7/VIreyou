@@ -45,7 +45,7 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
                         products: [
                             {
                                 name: data.planLabel,
-                                price: data.rubAmount, // Pass the converted rub amount
+                                price: data.rubAmount,
                                 quantity: 1,
                             }
                         ]
