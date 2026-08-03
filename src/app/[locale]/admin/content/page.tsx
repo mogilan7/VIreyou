@@ -154,6 +154,7 @@ export default function AdminContentPage() {
   const [editTelegraphUrl, setEditTelegraphUrl] = useState<string>('');
   const [editPolls, setEditPolls] = useState<{question: string, options: string[]}[]>([]);
   const [isSavingPost, setIsSavingPost] = useState<boolean>(false);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   
   const [reelVideoProgress, setReelVideoProgress] = useState<{ [postId: string]: number | null }>({});
 
@@ -1233,39 +1234,53 @@ export default function AdminContentPage() {
                           </button>
                         )}
 
-                        <div className="relative group">
-                          <button className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition cursor-pointer">
+                        <div className="relative">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenDropdownId(openDropdownId === post.id ? null : post.id);
+                            }}
+                            className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                          >
                             <ChevronDown className="h-4 w-4" />
                           </button>
-                          {/* Removed mt-1 and added pt-2 to avoid gap losing hover state */}
-                          <div className="absolute right-0 pt-2 w-48 z-20 hidden group-hover:block">
-                            <div className="rounded-xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700/80 shadow-lg py-1">
-                              <button
-                                onClick={() => handleStatusChange(post.id, 'draft')}
-                                className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 dark:text-slate-300 dark:hover:bg-slate-700/60 cursor-pointer"
-                              >
-                                В черновик
-                              </button>
-                              <button
-                                onClick={() => handleStatusChange(post.id, 'ready_for_review')}
-                                className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 dark:text-slate-300 dark:hover:bg-slate-700/60 cursor-pointer"
-                              >
-                                Готов к ревью
-                              </button>
-                              <button
-                                onClick={() => handleStatusChange(post.id, 'approved')}
-                                className="w-full text-left px-4 py-2 text-xs text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30 cursor-pointer"
-                              >
-                                Одобрить
-                              </button>
-                              <button
-                                onClick={() => handleStatusChange(post.id, 'failed')}
-                                className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/20 cursor-pointer"
-                              >
-                                Сбросить статус
-                              </button>
-                            </div>
-                          </div>
+                          
+                          {openDropdownId === post.id && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-10"
+                                onClick={() => setOpenDropdownId(null)}
+                              />
+                              <div className="absolute right-0 pt-2 w-48 z-20">
+                                <div className="rounded-xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700/80 shadow-lg py-1">
+                                  <button
+                                    onClick={() => { handleStatusChange(post.id, 'draft'); setOpenDropdownId(null); }}
+                                    className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 dark:text-slate-300 dark:hover:bg-slate-700/60 cursor-pointer"
+                                  >
+                                    В черновик
+                                  </button>
+                                  <button
+                                    onClick={() => { handleStatusChange(post.id, 'ready_for_review'); setOpenDropdownId(null); }}
+                                    className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 dark:text-slate-300 dark:hover:bg-slate-700/60 cursor-pointer"
+                                  >
+                                    Готов к ревью
+                                  </button>
+                                  <button
+                                    onClick={() => { handleStatusChange(post.id, 'approved'); setOpenDropdownId(null); }}
+                                    className="w-full text-left px-4 py-2 text-xs text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30 cursor-pointer"
+                                  >
+                                    Одобрить
+                                  </button>
+                                  <button
+                                    onClick={() => { handleStatusChange(post.id, 'failed'); setOpenDropdownId(null); }}
+                                    className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/20 cursor-pointer"
+                                  >
+                                    Сбросить статус
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
