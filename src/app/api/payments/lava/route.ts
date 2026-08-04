@@ -61,6 +61,12 @@ export async function POST(req: NextRequest) {
         console.log(`[LAVA] Attempting to create invoice. OfferID: ${offerId}, API Key (first 5 chars): ${apiKey.substring(0,5)}...`);
 
         // 2. Call Lava.top API to generate the invoice/checkout link
+        
+        // Lava.top forbids creators from buying their own products. If the user's email 
+        // matches the creator's, it returns "Incorrect email to purchase". 
+        // For users without an email, we generate a unique one so Lava accepts it.
+        const buyerEmail = user.email ? user.email : `buyer_${user.id.substring(0,8)}@vireyou.com`;
+
         const response = await fetch('https://gate.lava.top/api/v3/invoice', {
             method: 'POST',
             headers: {
@@ -69,7 +75,7 @@ export async function POST(req: NextRequest) {
                 'X-Api-Key': apiKey 
             },
             body: JSON.stringify({
-                email: user.email || 'customer@vireyou.com', 
+                email: buyerEmail, 
                 offerId: offerId,
                 currency: 'USD', // API v3 might require currency, we will use USD since it's for foreigners
                 amount: amount,
