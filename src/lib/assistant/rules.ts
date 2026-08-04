@@ -1,88 +1,81 @@
-import { GUIDELINES as G } from "./guidelines";
-import type { LifestyleContext } from "./context";
+import { LifestyleContext } from "./context";
+import { GUIDELINES } from "./guidelines";
 
-export type Finding = {
-  area: "sleep" | "activity" | "hydration" | "protein" | "fiber" | "sugar";
-  status: "good" | "improve" | "no_data";
-  value: number | null;
-  target: string;
-  severity: "info" | "low" | "medium";
-};
+export interface Findings {
+  l1: Array<{ category: string; status: 'good' | 'improve' | 'no_data'; message: string }>;
+  l2: Array<{ metric: string; status: 'trend_up' | 'trend_down' | 'trend_stable' | 'no_data'; message: string }>;
+  l3: Array<{ marker: string; status: 'in_range' | 'out_of_range' | 'no_data'; message: string }>;
+}
 
-export function evaluateLifestyle(ctx: LifestyleContext): Finding[] {
-  const f: Finding[] = [];
+export function evaluateLifestyle(ctx: LifestyleContext): Findings {
+  const f: Findings = { l1: [], l2: [], l3: [] };
 
-  // Сон
-  if (ctx.sleep.avgHours == null) {
-    f.push({ area: "sleep", status: "no_data", value: null, target: "≥7 ч", severity: "info" });
+  // --- LEVEL 1 (Behavioral) ---
+  // Sleep
+  if (ctx.l1.sleep.avgHours === null) {
+    f.l1.push({ category: "sleep", status: "no_data", message: "Нет данных о сне за неделю." });
+  } else if (ctx.l1.sleep.avgHours >= GUIDELINES.sleepHoursMin) {
+    f.l1.push({ category: "sleep", status: "good", message: `Сон в норме (${ctx.l1.sleep.avgHours.toFixed(1)} ч).` });
   } else {
-    f.push({
-      area: "sleep", value: +ctx.sleep.avgHours.toFixed(1), target: "≥7 ч",
-      status: ctx.sleep.avgHours >= G.sleepHoursMin ? "good" : "improve",
-      severity: ctx.sleep.avgHours < 6 ? "medium" : "low",
-    });
+    f.l1.push({ category: "sleep", status: "improve", message: `Сон (${ctx.l1.sleep.avgHours.toFixed(1)} ч) ниже нормы (${GUIDELINES.sleepHoursMin} ч).` });
   }
 
-  // Активность (минуты в неделю)
-  if (ctx.activity.activeMinPerWeek != null && ctx.activity.activeMinPerWeek > 0) {
-    f.push({
-      area: "activity", value: Math.round(ctx.activity.activeMinPerWeek), target: "≥150 мин/нед",
-      status: ctx.activity.activeMinPerWeek >= G.activeMinPerWeekMin ? "good" : "improve",
-      severity: "low",
-    });
-  } else if (ctx.activity.avgSteps != null) {
-    f.push({
-      area: "activity", value: Math.round(ctx.activity.avgSteps), target: "≥8000 шагов",
-      status: ctx.activity.avgSteps >= G.stepsGood ? "good" : "improve",
-      severity: "low",
-    });
-  } else {
-    f.push({ area: "activity", status: "no_data", value: null, target: "≥150 мин/нед или ≥8000 шагов", severity: "info" });
-  }
-
-  // Вода — цель пользователя, иначе ориентир 2000 мл
-  const waterTarget = 2000;
-  if (ctx.hydration.avgMl != null) {
-    f.push({
-      area: "hydration", value: Math.round(ctx.hydration.avgMl), target: `~${waterTarget} мл`,
-      status: ctx.hydration.avgMl >= waterTarget * 0.85 ? "good" : "improve", severity: "info",
-    });
-  } else {
-    f.push({ area: "hydration", status: "no_data", value: null, target: `~${waterTarget} мл`, severity: "info" });
-  }
-
-  // Белок (если известен вес)
-  if (ctx.nutrition.avgProteinG != null) {
-    if (ctx.user.weightKg) {
-      const targetG = Math.round(G.proteinGPerKg * ctx.user.weightKg);
-      f.push({
-        area: "protein", value: Math.round(ctx.nutrition.avgProteinG), target: `≥${targetG} г`,
-        status: ctx.nutrition.avgProteinG >= targetG ? "good" : "improve", severity: "low",
-      });
+  // Nutrition (Macros & Micros)
+  if (ctx.l1.nutrition.avgProteinG) {
+    const target = ctx.user.weightKg ? ctx.user.weightKg * GUIDELINES.proteinGPerKg : 60;
+    if (ctx.l1.nutrition.avgProteinG >= target) {
+      f.l1.push({ category: "protein", status: "good", message: "Белок в норме." });
     } else {
-      f.push({
-        area: "protein", value: Math.round(ctx.nutrition.avgProteinG), target: `индивидуально от веса`,
-        status: "improve", severity: "info",
-      });
+      f.l1.push({ category: "protein", status: "improve", message: "Белок ниже нормы." });
+    }
+  }
+  
+  if (ctx.l1.nutrition.iron) {
+    if (ctx.l1.nutrition.iron < GUIDELINES.minerals.iron) {
+      f.l1.push({ category: "iron", status: "improve", message: "Недостаток железа в рационе. Рекомендовать пищевые источники." });
+    } else {
+      f.l1.push({ category: "iron", status: "good", message: "Железо из еды в норме." });
+    }
+  }
+
+  // Habits
+  if (ctx.l1.habits.smoking) {
+    f.l1.push({ category: "smoking", status: "improve", message: "Отмечено курение." });
+  }
+  if (ctx.l1.habits.alcohol) {
+    f.l1.push({ category: "alcohol", status: "improve", message: "Отмечен алкоголь." });
+  }
+
+  // --- LEVEL 2 (Physiology/Wearables) ---
+  if (ctx.l2.hrv.currentAvg && ctx.l2.hrv.baselineAvg) {
+    const change = ((ctx.l2.hrv.currentAvg - ctx.l2.hrv.baselineAvg) / ctx.l2.hrv.baselineAvg) * 100;
+    if (change <= -GUIDELINES.trendThresholds.hrvDropPercent) {
+      f.l2.push({ metric: "hrv", status: "trend_down", message: `ВСР снижена на ${Math.abs(Math.round(change))}% относительно базового уровня.` });
+    } else {
+      f.l2.push({ metric: "hrv", status: "trend_stable", message: "ВСР стабильна." });
+    }
+  }
+
+  if (ctx.l2.restingHr.currentAvg && ctx.l2.restingHr.baselineAvg) {
+    const change = ((ctx.l2.restingHr.currentAvg - ctx.l2.restingHr.baselineAvg) / ctx.l2.restingHr.baselineAvg) * 100;
+    if (change >= GUIDELINES.trendThresholds.restingHrRisePercent) {
+      f.l2.push({ metric: "resting_hr", status: "trend_up", message: `Пульс покоя вырос на ${Math.abs(Math.round(change))}% относительно базового уровня.` });
+    } else {
+      f.l2.push({ metric: "resting_hr", status: "trend_stable", message: "Пульс покоя стабилен." });
+    }
+  }
+
+  // --- LEVEL 3 (Clinical Biomarkers) ---
+  if (ctx.l3.biomarkers.length > 0) {
+    for (const b of ctx.l3.biomarkers) {
+      if (b.status === 'out_of_range' || b.status === 'low' || b.status === 'high' || b.status === 'critical') {
+        f.l3.push({ marker: b.key, status: 'out_of_range', message: `Биомаркер ${b.name} имеет статус ${b.status}. НИКАКИХ ДОЗИРОВОК И ДИАГНОЗОВ, только рекомендация обсудить с врачом.` });
+      } else {
+        f.l3.push({ marker: b.key, status: 'in_range', message: `Биомаркер ${b.name} в пределах нормы.` });
+      }
     }
   } else {
-    f.push({ area: "protein", status: "no_data", value: null, target: "зависит от веса", severity: "info" });
-  }
-
-  // Клетчатка
-  if (ctx.nutrition.avgFiberG != null) {
-    f.push({
-      area: "fiber", value: Math.round(ctx.nutrition.avgFiberG), target: `≥${G.fiberGMin} г`,
-      status: ctx.nutrition.avgFiberG >= G.fiberGMin ? "good" : "improve", severity: "low",
-    });
-  }
-
-  // Добавленный сахар
-  if (ctx.nutrition.addedSugarPctKcal != null) {
-    f.push({
-      area: "sugar", value: Math.round(ctx.nutrition.addedSugarPctKcal), target: `<${G.addedSugarMaxPctKcal}%`,
-      status: ctx.nutrition.addedSugarPctKcal <= G.addedSugarMaxPctKcal ? "good" : "improve", severity: ctx.nutrition.addedSugarPctKcal > 15 ? "medium" : "low",
-    });
+    f.l3.push({ marker: "general", status: "no_data", message: "Нет загруженных анализов." });
   }
 
   return f;

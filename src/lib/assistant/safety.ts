@@ -20,14 +20,21 @@ export function safetyGate(ctx: LifestyleContext, userText?: string): { block: b
 
 export function postValidate(text: string, lang: string = 'ru'): string {
   // Базовая проверка на запрещенные слова или форматирование.
-  // Например, если ИИ начал выписывать препараты с дозировками
-  const forbidden = [/принимай \d+ ?(мг|г|мл|таблеток)/i, /диагноз/i, /take \d+ ?(mg|g|ml|pills)/i, /diagnosis/i];
+  // Теперь жестче: режет даже попытки выписать витамины в мг/мкг/МЕ
+  const forbidden = [
+    /принимай \d+ ?(мг|г|мл|таблеток|мкг|ме|iu|mcg)/i, 
+    /диагноз/i, 
+    /take \d+ ?(mg|g|ml|pills|mcg|iu)/i, 
+    /diagnosis/i,
+    /дозировк/i,
+    /dosage/i
+  ];
   const isEn = lang === 'en';
   
   if (forbidden.some(r => r.test(text))) {
     return isEn 
-      ? "My algorithms detected that the recommendation might contain medical advice. Please consult a doctor for personalized prescriptions.\n\n_This is an educational service, not medical advice._" 
-      : "Мои алгоритмы обнаружили, что рекомендация могла содержать медицинские советы. Пожалуйста, проконсультируйся с врачом для получения персонализированных назначений.\n\n_Это образовательный сервис, не медицинская консультация._";
+      ? "My algorithms detected that the recommendation might contain medical advice or supplement dosages. Please consult a doctor for personalized prescriptions.\n\n_This is an educational service, not medical advice._" 
+      : "Мои алгоритмы обнаружили, что рекомендация могла содержать медицинские советы или дозировки добавок. Пожалуйста, проконсультируйся с врачом для получения персонализированных назначений.\n\n_Это образовательный сервис, не медицинская консультация._";
   }
   
   const disclaimer = isEn 

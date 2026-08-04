@@ -10,58 +10,72 @@ export interface LifestyleContext {
     conditionsFlags: string[];
   };
   window: { days: number };
-  sleep: { avgHours: number | null; nights: number };
-  activity: { avgSteps: number | null; activeMinPerWeek: number | null; strengthDays: number };
-  hydration: { avgMl: number | null };
-  nutrition: {
-    avgKcal: number | null;
-    avgProteinG: number | null;
-    avgFiberG: number | null;
-    addedSugarPctKcal: number | null;
+  
+  // Level 1: Behavioral Logs
+  l1: {
+    sleep: { avgHours: number | null; nights: number };
+    activity: { avgSteps: number | null; activeMinPerWeek: number | null; strengthDays: number };
+    hydration: { avgMl: number | null };
+    nutrition: {
+      avgKcal: number | null;
+      avgProteinG: number | null;
+      avgFiberG: number | null;
+      addedSugarPctKcal: number | null;
+      iron: number | null;
+      vitaminD: number | null;
+    };
+    habits: {
+      smoking: boolean;
+      alcohol: boolean;
+    };
+  };
+
+  // Level 2: Wearables Physiology
+  l2: {
+    hrv: { currentAvg: number | null; baselineAvg: number | null };
+    restingHr: { currentAvg: number | null; baselineAvg: number | null };
+  };
+
+  // Level 3: Clinical Biomarkers
+  l3: {
+    biomarkers: Array<{ key: string; name: string; status: string | null; date: Date }>;
   };
 }
 
 function deriveConditionFlags(user: any): string[] {
-  // Placeholder for deriving flags like 'pregnant', 'eating_disorder', 'minor', etc.
   const flags: string[] = [];
   if (user.age && user.age < 18) flags.push("minor");
-  // Assuming these flags might come from somewhere else in the future
   return flags;
 }
 
-function sumActiveMinutes(activityLogs: any[], days: number): number {
-  return activityLogs.reduce((acc, log) => acc + (log.active_minutes || 0), 0);
-}
-
-function countStrengthDays(activityLogs: any[]): number {
-  // Simplification: assume any active minutes > 0 count as some form of physical activity day for now, 
-  // or we could check for specific keywords in notes, but we'll use active minutes > 30 as a proxy.
-  return activityLogs.filter(log => (log.active_minutes || 0) >= 30).length;
-}
-
-function addedSugarShare(nutritionLogs: any[]): number | null {
-  let totalKcal = 0;
-  let totalAddedSugarKcal = 0; // 1g sugar = 4 kcal
-  for (const log of nutritionLogs) {
-    totalKcal += log.calories || 0;
-    totalAddedSugarKcal += (log.added_sugar || 0) * 4;
-  }
-  if (totalKcal === 0) return null;
-  return (totalAddedSugarKcal / totalKcal) * 100;
-}
-
 export async function aggregateUserContext(userId: string, days = 7): Promise<LifestyleContext> {
-  const since = new Date(new Date().getTime() - days * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const currentSince = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const baselineSince = new Date(now.getTime() - (days + 30) * 24 * 60 * 60 * 1000); // 30 days before current window
 
-  const [user, sleep, activity, hydration, nutrition] = await Promise.all([
+  const [user, sleepAll, activity, hydration, nutrition, habits, biomarkers] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId } }),
-    prisma.sleepLog.findMany({ where: { user_id: userId, date: { gte: since } } }),
-    prisma.activityLog.findMany({ where: { user_id: userId, date: { gte: since } } }),
-    prisma.hydrationLog.findMany({ where: { user_id: userId, date: { gte: since } } }),
-    prisma.nutritionLog.findMany({ where: { user_id: userId, date: { gte: since } } }),
+    prisma.sleepLog.findMany({ where: { user_id: userId, date: { gte: baselineSince } } }),
+    prisma.activityLog.findMany({ where: { user_id: userId, date: { gte: currentSince } } }),
+    prisma.hydrationLog.findMany({ where: { user_id: userId, date: { gte: currentSince } } }),
+    prisma.nutritionLog.findMany({ where: { user_id: userId, date: { gte: currentSince } } }),
+    prisma.habitLog.findMany({ where: { user_id: userId, date: { gte: currentSince } } }),
+    prisma.biomarkerResult.findMany({ 
+      where: { user_id: userId, recorded_at: { gte: new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000) } },
+      orderBy: { recorded_at: 'desc' },
+      take: 20
+    }),
   ]);
 
   const avg = (xs: number[]) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+
+  // Split sleep logs into current (L1/L2) and baseline (L2)
+  const sleepCurrent = sleepAll.filter(s => s.date >= currentSince);
+  const sleepBaseline = sleepAll.filter(s => s.date < currentSince);
+
+  // Parse Habits
+  const hasSmoking = habits.some(h => h.habit_key === 'smoking' && h.completed);
+  const hasAlcohol = habits.some(h => h.habit_key === 'alcohol' && h.completed);
 
   return {
     user: {
@@ -73,23 +87,52 @@ export async function aggregateUserContext(userId: string, days = 7): Promise<Li
       conditionsFlags: deriveConditionFlags(user),
     },
     window: { days },
-    sleep: { 
-      avgHours: avg(sleep.map(s => s.duration_hrs || 0).filter(h => h > 0)), 
-      nights: sleep.length 
+    
+    l1: {
+      sleep: { 
+        avgHours: avg(sleepCurrent.map(s => s.duration_hrs || 0).filter(h => h > 0)), 
+        nights: sleepCurrent.length 
+      },
+      activity: {
+        avgSteps: avg(activity.map(a => a.steps || 0).filter(s => s > 0)),
+        activeMinPerWeek: activity.reduce((acc, log) => acc + (log.active_minutes || 0), 0),
+        strengthDays: activity.filter(log => (log.active_minutes || 0) >= 30).length,
+      },
+      hydration: { 
+        avgMl: avg(hydration.map(h => h.volume_ml || 0).filter(v => v > 0)) 
+      },
+      nutrition: {
+        avgKcal: avg(nutrition.map(n => n.calories || 0).filter(c => c > 0)),
+        avgProteinG: avg(nutrition.map(n => n.protein || 0).filter(p => p > 0)),
+        avgFiberG: avg(nutrition.map(n => n.fiber || 0).filter(f => f > 0)),
+        addedSugarPctKcal: avg(nutrition.map(n => (n.added_sugar && n.calories) ? ((n.added_sugar * 4) / n.calories) * 100 : null).filter(x => x !== null) as number[]),
+        iron: avg(nutrition.map(n => n.iron || 0).filter(x => x > 0)),
+        vitaminD: avg(nutrition.map(n => n.vitamin_D || 0).filter(x => x > 0)),
+      },
+      habits: {
+        smoking: hasSmoking,
+        alcohol: hasAlcohol,
+      }
     },
-    activity: {
-      avgSteps: avg(activity.map(a => a.steps || 0).filter(s => s > 0)),
-      activeMinPerWeek: sumActiveMinutes(activity, days),
-      strengthDays: countStrengthDays(activity),
+
+    l2: {
+      hrv: {
+        currentAvg: avg(sleepCurrent.map(s => s.hrv || 0).filter(v => v > 0)),
+        baselineAvg: avg(sleepBaseline.map(s => s.hrv || 0).filter(v => v > 0)),
+      },
+      restingHr: {
+        currentAvg: avg(sleepCurrent.map(s => s.resting_heart_rate || 0).filter(v => v > 0)),
+        baselineAvg: avg(sleepBaseline.map(s => s.resting_heart_rate || 0).filter(v => v > 0)),
+      }
     },
-    hydration: { 
-      avgMl: avg(hydration.map(h => h.volume_ml || 0).filter(v => v > 0)) 
-    },
-    nutrition: {
-      avgKcal: avg(nutrition.map(n => n.calories || 0).filter(c => c > 0)),
-      avgProteinG: avg(nutrition.map(n => n.protein || 0).filter(p => p > 0)),
-      avgFiberG: avg(nutrition.map(n => n.fiber || 0).filter(f => f > 0)),
-      addedSugarPctKcal: addedSugarShare(nutrition),
-    },
+
+    l3: {
+      biomarkers: biomarkers.map(b => ({
+        key: b.marker_key,
+        name: b.marker_name,
+        status: b.status,
+        date: b.recorded_at
+      }))
+    }
   };
 }
