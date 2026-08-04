@@ -12,7 +12,9 @@ export async function createSquadAction() {
     if (!authUser) throw new Error('Unauthorized');
 
     const user = await prisma.user.findUnique({
-        where: { email: authUser.email || undefined },
+        where: { id: authUser.id },
+    }) || await prisma.user.findFirst({
+        where: { email: authUser.email || undefined }
     });
 
     if (!user) throw new Error('User not found');
@@ -33,7 +35,9 @@ export async function removeParticipantAction(squadId: string, participantId: st
     if (!authUser) throw new Error('Unauthorized');
 
     const user = await prisma.user.findUnique({
-        where: { email: authUser.email || undefined },
+        where: { id: authUser.id },
+    }) || await prisma.user.findFirst({
+        where: { email: authUser.email || undefined }
     });
 
     if (!user) throw new Error('User not found');

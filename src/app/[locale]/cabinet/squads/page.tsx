@@ -18,11 +18,13 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
     }
 
     const user = await prisma.user.findUnique({
-        where: { email: authUser.email || undefined },
+        where: { id: authUser.id },
+    }) || await prisma.user.findFirst({
+        where: { email: authUser.email || undefined }
     });
 
     if (!user) {
-         return <div className="p-8">Пользователь не найден</div>;
+         return <div className="p-8">Пользователь не найден в базе (ID: {authUser.id})</div>;
     }
 
     // Find all active squad participations
