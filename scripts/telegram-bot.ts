@@ -9,7 +9,9 @@ import cron from "node-cron";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
-if (process.env.DATABASE_URL) {
+if (process.env.DIRECT_URL) {
+  process.env.DATABASE_URL = process.env.DIRECT_URL;
+} else if (process.env.DATABASE_URL) {
   process.env.DATABASE_URL = process.env.DATABASE_URL + (process.env.DATABASE_URL.includes('?') ? '&' : '?') + 'connection_limit=30&pool_timeout=40';
 }
 
