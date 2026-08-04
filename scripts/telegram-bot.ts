@@ -13,6 +13,14 @@ if (process.env.DATABASE_URL) {
   process.env.DATABASE_URL = process.env.DATABASE_URL + (process.env.DATABASE_URL.includes('?') ? '&' : '?') + 'connection_limit=30&pool_timeout=40';
 }
 
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('[CRITICAL] Uncaught Exception:', err);
+});
+
 import prisma from "../src/lib/prisma";
 import { analyzeFoodWithAI, getIngredientNutrientsWithAI, calculateTotalNutrients, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI, analyzeProductLabelWithAI, getProactiveNutritionAdvice, determineTimezoneFromCity, generateSupportResponse } from "../src/lib/telegram/ai-services";
 import { generatePeriodicReport } from "../src/lib/reportGenerator";
