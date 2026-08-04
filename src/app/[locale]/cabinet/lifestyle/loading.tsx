@@ -1,8 +1,9 @@
+"use client";
 import React from "react";
-import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
 
-export default async function Loading() {
-    const t = await getTranslations("Common");
+export default function Loading() {
+    const t = useTranslations("Common");
     return (
         <div className="min-h-screen w-full flex items-center justify-center bg-[#F7F5F0] dark:bg-[#0F172A]">
             <div className="flex flex-col items-center gap-4">
