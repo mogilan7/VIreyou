@@ -618,6 +618,8 @@ model HealthData {
   biological_age_actual Int     @default(44)
   biological_age_calc   Int     @default(40)
   hrv_value             Int?    @default(72)
+  baseline_hrv          Float?
+  baseline_resting_hr   Float?
   sleep_duration_hrs    Float?  @default(7.5)
   deep_sleep_hrs        Float?  @default(1.8)
   rem_sleep_hrs         Float?  @default(1.5)

@@ -51,11 +51,10 @@ function deriveConditionFlags(user: any): string[] {
 export async function aggregateUserContext(userId: string, days = 7): Promise<LifestyleContext> {
   const now = new Date();
   const currentSince = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-  const baselineSince = new Date(now.getTime() - (days + 30) * 24 * 60 * 60 * 1000); // 30 days before current window
 
-  const [user, sleepAll, activity, hydration, nutrition, habits, biomarkers] = await Promise.all([
+  const [user, sleepCurrent, activity, hydration, nutrition, habits, biomarkers, healthData] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId } }),
-    prisma.sleepLog.findMany({ where: { user_id: userId, date: { gte: baselineSince } } }),
+    prisma.sleepLog.findMany({ where: { user_id: userId, date: { gte: currentSince } } }),
     prisma.activityLog.findMany({ where: { user_id: userId, date: { gte: currentSince } } }),
     prisma.hydrationLog.findMany({ where: { user_id: userId, date: { gte: currentSince } } }),
     prisma.nutritionLog.findMany({ where: { user_id: userId, date: { gte: currentSince } } }),
@@ -65,13 +64,10 @@ export async function aggregateUserContext(userId: string, days = 7): Promise<Li
       orderBy: { recorded_at: 'desc' },
       take: 20
     }),
+    prisma.healthData.findUnique({ where: { user_id: userId } })
   ]);
 
   const avg = (xs: number[]) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
-
-  // Split sleep logs into current (L1/L2) and baseline (L2)
-  const sleepCurrent = sleepAll.filter(s => s.date >= currentSince);
-  const sleepBaseline = sleepAll.filter(s => s.date < currentSince);
 
   // Parse Habits
   const hasSmoking = habits.some(h => h.habit_key === 'smoking' && h.completed);
@@ -118,11 +114,11 @@ export async function aggregateUserContext(userId: string, days = 7): Promise<Li
     l2: {
       hrv: {
         currentAvg: avg(sleepCurrent.map(s => s.hrv || 0).filter(v => v > 0)),
-        baselineAvg: avg(sleepBaseline.map(s => s.hrv || 0).filter(v => v > 0)),
+        baselineAvg: healthData?.baseline_hrv ?? null,
       },
       restingHr: {
         currentAvg: avg(sleepCurrent.map(s => s.resting_heart_rate || 0).filter(v => v > 0)),
-        baselineAvg: avg(sleepBaseline.map(s => s.resting_heart_rate || 0).filter(v => v > 0)),
+        baselineAvg: healthData?.baseline_resting_hr ?? null,
       }
     },
 

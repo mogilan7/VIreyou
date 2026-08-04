@@ -19,6 +19,7 @@ import { aggregateUserContext } from "../src/lib/assistant/context";
 import { evaluateLifestyle } from "../src/lib/assistant/rules";
 import { safetyGate, postValidate } from "../src/lib/assistant/safety";
 import { generateAdvice } from "../src/lib/assistant/generate";
+import { calculateAllUserBaselines } from "../src/lib/assistant/baselines";
 
 const ruMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/ru.json'), 'utf8'));
 const enMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/en.json'), 'utf8'));
@@ -2499,6 +2500,9 @@ cron.schedule('* * * * *', async () => {
 
     if (mskTime === '03:00') {
         try {
+            // --- Calculate AI Baselines ---
+            await calculateAllUserBaselines();
+
             const yesterday = new Date(now);
             yesterday.setDate(yesterday.getDate() - 1);
             const sDay = new Date(yesterday.setHours(0, 0, 0, 0));
