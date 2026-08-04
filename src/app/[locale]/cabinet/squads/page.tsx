@@ -115,12 +115,12 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
                                                             {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : <span className="text-slate-400 text-sm">{index + 1}</span>}
                                                         </div>
                                                         <div>
-                                                            <p className={`font-bold flex items-center gap-2 ${p.user_id === user.id ? 'text-indigo-600 dark:text-indigo-400' : ''}`}>
-                                                                {p.user.full_name || p.user.email?.split('@')[0]}
-                                                                {p.user_id === user.id && <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-1.5 py-0.5 rounded uppercase">Вы</span>}
+                                                            <p className={`font-bold flex items-center gap-2 ${p.user_id === user?.id ? 'text-indigo-600 dark:text-indigo-400' : ''}`}>
+                                                                {p.user?.full_name || p.user?.email?.split('@')[0] || 'Unknown User'}
+                                                                {p.user_id === user?.id && <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-1.5 py-0.5 rounded uppercase">Вы</span>}
                                                             </p>
-                                                            {(p.user as any).telegram_username && (
-                                                                <p className="text-[10px] text-slate-400 -mt-0.5">@{ (p.user as any).telegram_username }</p>
+                                                            {(p.user as any)?.telegram_username && (
+                                                                <p className="text-[10px] text-slate-400 -mt-0.5">@{ (p.user as any)?.telegram_username }</p>
                                                             )}
                                                         </div>
                                                     </div>
@@ -131,11 +131,11 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
                                                             </p>
                                                             <p className="text-[10px] font-normal opacity-50 uppercase tracking-tighter">{t('points')}</p>
                                                         </div>
-                                                        {isCreator && p.user_id !== user.id && (
+                                                        {isCreator && p.user_id !== user?.id && (
                                                             <RemoveParticipantButton 
                                                                 squadId={squad.id} 
                                                                 participantId={p.user_id} 
-                                                                userName={p.user.full_name || 'Участник'} 
+                                                                userName={p.user?.full_name || 'Участник'} 
                                                             />
                                                         )}
                                                     </div>
