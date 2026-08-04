@@ -1897,9 +1897,22 @@ bot.action('save_log_confirm', async (ctx: any) => {
     ctx.answerCbQuery();
     const user = ctx.state.user;
     const lang = ctx.state.lang || 'ru';
-    if (!user || !tempLog[user.id]) return ctx.reply(t(lang, 'Confirmation.error'));
+    
+    if (!user) {
+        console.error("[SAVE_LOG] No user in ctx.state");
+        return ctx.reply(t(lang, 'Confirmation.error'));
+    }
+    
+    if (!tempLog[user.id]) {
+        console.error(`[SAVE_LOG] No tempLog for user ${user.id}. Bot may have restarted. Keys in tempLog: ${Object.keys(tempLog).join(',')}`);
+        return ctx.reply(lang === 'en' 
+            ? "❌ The data was lost (bot restarted). Please send your message again." 
+            : "❌ Данные потерялись (бот перезапустился). Пожалуйста, отправьте сообщение заново.");
+    }
 
     const cached = tempLog[user.id];
+    console.log(`[SAVE_LOG] Saving type=${cached.type} for user ${user.id}, data keys: ${Object.keys(cached.data || {}).join(',')}`);
+    
     try {
         let date = new Date();
         if (cached.date_offset_days && cached.localToday) {
@@ -1973,10 +1986,14 @@ bot.action('save_log_confirm', async (ctx: any) => {
         }
 
         delete tempLog[user.id];
+        console.log(`[SAVE_LOG] Successfully saved type=${cached.type} for user ${user.id}`);
         await ctx.reply(t(lang, 'Confirmation.success'));
-    } catch (e) {
+    } catch (e: any) {
         console.error("Save Log Error:", e);
-        await ctx.reply(t(lang, 'Confirmation.error'));
+        // Send actual error details to admin for debugging
+        const errMsg = e?.message || String(e);
+        console.error(`[SAVE_LOG] Error details for user ${user.id}, type=${cached.type}: ${errMsg}`);
+        await ctx.reply(`${t(lang, 'Confirmation.error')}\n\n🔧 Debug: ${errMsg.substring(0, 200)}`);
     }
 });
 
