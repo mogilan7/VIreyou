@@ -761,9 +761,7 @@
       "protein": "Protein",
       "steps": "Steps",
       "sleep": "Sleep"
-    },
-    "goodDay": "A great day to maintain your activity.",
-    "goodEvening": "A good evening to prepare for sleep and recovery."
+    }
   },
   "AlcoholCalculator": {
     "title": "RUS-AUDIT Assessment",
@@ -1399,7 +1397,9 @@
       "manganese": "Manganese",
       "selenium": "Selenium",
       "iodine": "Iodine"
-    }
+    },
+    "goodDay": "A great day to maintain your activity.",
+    "goodEvening": "A good evening to prepare for sleep and recovery."
   },
   "Wallet": {
     "title": "Wallet",
