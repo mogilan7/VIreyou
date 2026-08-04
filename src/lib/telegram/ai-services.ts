@@ -365,12 +365,27 @@ Return STRICT JSON:
   "habit_key": "Alcohol" | "Smoking" | "Sugar" | null
 }
 
-**DATA RULES (DO NOT fill fields not mentioned in the message. Leave them out of the JSON object. Fill only fields explicitly mentioned 'data' object):**
-- NUTRITION: { "dish": "name", "ingredients": [ { "name": "Base ingredient name (e.g., 'куриная грудка отварная')", "grams": 250 } ] }
-  CRITICAL: Break complex dishes down into their fundamental, raw or cooked BASE INGREDIENTS. Do not output "Борщ", decompose it.
-  Identify the base ingredients and their weights. DO NOT calculate calories or nutrients.
-  NOTE: This includes all drinks, liquids, and water (e.g., 1 liter of water = { "name": "вода", "grams": 1000 }).
-  If Alcohol is mentioned, set "habit_key": "Alcohol".
+**DATA RULES:**
+
+- NUTRITION: { "dish": "Overall dish name", "ingredients": [ { "name": "Base ingredient name", "grams": 250 } ] }
+  
+  CRITICAL RULES FOR NUTRITION:
+  1. ALWAYS decompose complex meals into ALL individual base ingredients. NEVER return just one ingredient if multiple are mentioned.
+  2. If the user says "150г риса с курицей и морковкой" — return THREE separate ingredients:
+     - { "name": "рис отварной", "grams": 150 }
+     - { "name": "курица отварная", "grams": 100 } (estimate if not specified)
+     - { "name": "морковь отварная", "grams": 30 } (estimate if not specified)
+  3. If the user says "два яйца" — add: { "name": "куриное яйцо", "grams": 120 } (2 eggs × 60g)
+  4. "с [ingredient]" means "with [ingredient]" — it IS an ingredient, add it to the list!
+  5. "ещё [food]" or "и [food]" means additional food — add it as separate ingredients!
+  6. Common weight estimates if not specified:
+     - 1 chicken egg = 60g
+     - 1 tablespoon oil = 15g
+     - 1 medium carrot = 80g
+     - 1 medium chicken breast = 150g
+  7. DO NOT calculate calories or nutrients — only identify base items and their weight in grams.
+  8. If Alcohol is mentioned, set "habit_key": "Alcohol".
+
 - SLEEP: { "duration_hrs": 8, "deep_hrs": 1.5, "rem_hrs": 2, "light_hrs": 4.5, "hrv": 60, "resting_heart_rate": 55 }
 - ACTIVITY: { "steps": 5000, "active_minutes": 30, "calories_burned": 250 }
 - HABIT: { "habit_key": "Alcohol" | "Smoking" | "Sugar" }

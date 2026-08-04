@@ -1908,18 +1908,7 @@ bot.action('save_log_confirm', async (ctx: any) => {
 
         if (cached.type === "NUTRITION") {
             await saveFoodLog(user.id, cached.data, cached.localToday);
-            
-            if (cached.habit_key) {
-                await prisma.habitLog.create({
-                    data: {
-                        user_id: user.id,
-                        habit_key: cached.habit_key,
-                        completed: true,
-                        created_at: date,
-                        date: date
-                    }
-                });
-            }
+            // Note: saveFoodLog already handles habit_key internally
         } else if (cached.type === "SLEEP") {
             const startOfDay = new Date(date);
             startOfDay.setHours(0,0,0,0);
