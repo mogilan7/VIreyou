@@ -260,7 +260,10 @@ bot.on('message', async (ctx: any, next) => {
 // --- AI Assistant ---
 async function showLifestyleAnalysis(ctx: any) {
   const user = ctx.state.user;
-  if (!user || user.role !== 'admin') return;
+  if (!user) return;
+  
+  const hasAccess = await checkSubscriptionLevel(ctx, user, 'pro');
+  if (!hasAccess) return;
 
   await ctx.sendChatAction("typing");
 
@@ -1187,6 +1190,7 @@ bot.action('menu_pro', async (ctx: any) => {
     const lang = ctx.state.lang || 'ru';
     await ctx.reply(lang === 'en' ? '🌟 PRO Functions' : '🌟 Функции PRO', 
         Markup.inlineKeyboard([
+            [Markup.button.callback(lang === 'en' ? '🤖 AI Lifestyle Assistant' : '🤖 AI Ассистент Образа Жизни', 'lifestyle_analyze')],
             [Markup.button.callback(lang === 'en' ? '👥 My Marathon' : '👥 Мой Марафон', 'menu_my_squad')],
             [Markup.button.callback(lang === 'en' ? '🛒 Shop Assistant' : '🛒 Помощник в магазине', 'menu_shop_assistant')],
             [Markup.button.callback(lang === 'en' ? '🍽️ What to eat next?' : '🍽️ Что съесть дальше?', 'menu_what_to_eat')],
