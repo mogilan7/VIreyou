@@ -29,12 +29,12 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
 
     // Find all active squad participations
     const participations = await prisma.squadParticipant.findMany({
-        where: { user_id: user.id, squad: { is_active: true } },
+        where: { user_id: user.id, Squad: { is_active: true } },
         include: { 
-            squad: {
+            Squad: {
                 include: {
-                    participants: {
-                        include: { user: true },
+                    SquadParticipant: {
+                        include: { User: true },
                         orderBy: { score: 'desc' }
                     }
                 }
@@ -43,7 +43,7 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
         orderBy: { joined_at: 'desc' }
     });
 
-    const activeSquads = participations.map(p => p.squad);
+    const activeSquads = participations.map(p => p.Squad);
 
     return (
         <div className="min-h-screen flex w-full bg-[#F7F5F0] dark:bg-[#0F172A] text-[#2D2D2D] dark:text-white font-sans relative pb-24">
@@ -71,12 +71,12 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
                     </section>
                 ) : (
                     <div className="space-y-12">
-                        {activeSquads.map((squad) => {
-                            const isCreator = squad.creator_id === user.id;
-                            const daysLeft = Math.max(0, Math.ceil((new Date(squad.end_date).getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
+                        {activeSquads.filter(Boolean).map((squad) => {
+                            const isCreator = squad!.creator_id === user.id;
+                            const daysLeft = Math.max(0, Math.ceil((new Date(squad!.end_date).getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
 
                             return (
-                                <div key={squad.id} className="space-y-6">
+                                <div key={squad!.id} className="space-y-6">
                                     <section className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-6 rounded-3xl shadow-xl relative overflow-hidden">
                                         <div className="absolute top-0 right-0 opacity-10">
                                             <Trophy size={160} className="-mr-10 -mt-10" />
@@ -91,11 +91,11 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
                                                     {daysLeft} {daysLeft === 1 ? 'день' : daysLeft > 1 && daysLeft < 5 ? 'дня' : 'дней'} до конца
                                                 </span>
                                             </div>
-                                            <h2 className="text-3xl font-bold mb-1">{squad.name}</h2>
+                                            <h2 className="text-3xl font-bold mb-1">{squad!.name}</h2>
                                             
                                             <div className="flex flex-col sm:flex-row gap-3 mt-6">
                                                 <SquadInviteButton 
-                                                    squadId={squad.id} 
+                                                    squadId={squad!.id} 
                                                     className="bg-white text-indigo-600 hover:bg-indigo-50 transition-colors py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-sm w-full sm:w-auto"
                                                 />
                                             </div>
@@ -108,19 +108,19 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
                                         </h3>
                                         
                                         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden">
-                                            {squad.participants.map((p: any, index: number) => (
-                                                <div key={p.id} className={`flex items-center justify-between p-4 ${index !== squad.participants.length - 1 ? 'border-b border-slate-100 dark:border-white/5' : ''} ${p.user_id === user.id ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : ''}`}>
+                                            {squad!.SquadParticipant.map((p: any, index: number) => (
+                                                <div key={p.id} className={`flex items-center justify-between p-4 ${index !== squad!.SquadParticipant.length - 1 ? 'border-b border-slate-100 dark:border-white/5' : ''} ${p.user_id === user.id ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : ''}`}>
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">
                                                             {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : <span className="text-slate-400 text-sm">{index + 1}</span>}
                                                         </div>
                                                         <div>
                                                             <p className={`font-bold flex items-center gap-2 ${p.user_id === user?.id ? 'text-indigo-600 dark:text-indigo-400' : ''}`}>
-                                                                {p.user?.full_name || p.user?.email?.split('@')[0] || 'Unknown User'}
+                                                                {p.User?.full_name || p.User?.email?.split('@')[0] || 'Unknown User'}
                                                                 {p.user_id === user?.id && <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-1.5 py-0.5 rounded uppercase">Вы</span>}
                                                             </p>
-                                                            {(p.user as any)?.telegram_username && (
-                                                                <p className="text-[10px] text-slate-400 -mt-0.5">@{ (p.user as any)?.telegram_username }</p>
+                                                            {p.User?.telegram_username && (
+                                                                <p className="text-[10px] text-slate-400 -mt-0.5">@{p.User?.telegram_username}</p>
                                                             )}
                                                         </div>
                                                     </div>
@@ -133,9 +133,9 @@ export default async function SquadsPage({ params }: { params: Promise<{ locale:
                                                         </div>
                                                         {isCreator && p.user_id !== user?.id && (
                                                             <RemoveParticipantButton 
-                                                                squadId={squad.id} 
+                                                                squadId={squad!.id} 
                                                                 participantId={p.user_id} 
-                                                                userName={p.user?.full_name || 'Участник'} 
+                                                                userName={p.User?.full_name || 'Участник'} 
                                                             />
                                                         )}
                                                     </div>
