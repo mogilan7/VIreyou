@@ -12,41 +12,25 @@ interface CheckoutButtonProps {
 
 export default function CheckoutButton({ plan, amount, className, children }: CheckoutButtonProps) {
     const [loading, setLoading] = useState(false);
-    const [scriptLoaded, setScriptLoaded] = useState(false);
     const t = useTranslations('Wallet');
     const locale = useLocale();
-    const isProdamus = locale !== 'ru';
+    const isLava = locale !== 'ru'; // International users use Lava.top
 
-    // Load Prodamus script eagerly via DOM injection (more reliable than next/script lazyOnload in Telegram WebView)
     useEffect(() => {
-        if (!isProdamus) return;
-        if (typeof window !== 'undefined' && (window as any).ProdamusWidget) {
-            setScriptLoaded(true);
-            return;
+        // Initialize Telegram WebApp script if needed
+        if (typeof window !== 'undefined' && !(window as any).Telegram?.WebApp) {
+            const script = document.createElement('script');
+            script.src = 'https://telegram.org/js/telegram-web-app.js';
+            script.async = true;
+            document.head.appendChild(script);
         }
-
-        const script = document.createElement('script');
-        script.src = 'https://widget.payform.ru/iframe.min.js';
-        script.async = true;
-        script.onload = () => {
-            console.log('[Prodamus] Script loaded successfully');
-            setScriptLoaded(true);
-        };
-        script.onerror = (e) => {
-            console.error('[Prodamus] Failed to load script:', e);
-        };
-        document.head.appendChild(script);
-
-        return () => {
-            // Don't remove — other components may need it
-        };
-    }, [isProdamus]);
+    }, []);
 
     const handleCheckout = async () => {
         setLoading(true);
         try {
-            const apiEndpoint = isProdamus
-                ? '/api/payments/prodamus'
+            const apiEndpoint = isLava
+                ? '/api/payments/lava'
                 : '/api/payments/create';
 
             console.log('[Checkout] Calling API:', apiEndpoint, { plan, amount, locale });
@@ -76,50 +60,22 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
                 return;
             }
 
-            if (isProdamus) {
-                if (!data.orderId) {
-                    alert(`${t('paymentError')}: ${data.details || t('paymentUnknown')}`);
-                    setLoading(false);
-                    return;
-                }
+            const redirectUrl = data.confirmation_url;
+            
+            if (!redirectUrl) {
+                alert(`${t('paymentError')}: ${data.details || data.error || t('paymentUnknown')}`);
+                setLoading(false);
+                return;
+            }
 
-                // Check if widget script is available
-                if (typeof (window as any).ProdamusWidget === 'undefined') {
-                    console.error('[Prodamus] ProdamusWidget not available. scriptLoaded:', scriptLoaded);
-                    alert('Виджет оплаты не загрузился. Пожалуйста, обновите страницу и попробуйте снова.');
-                    setLoading(false);
-                    return;
-                }
-
-                const merchantId = process.env.NEXT_PUBLIC_PRODAMUS_MERCHANT_ID || '9f40d6b1-7246-41d7-8ccf-63f329ca2b7a';
-                const salesChannelId = process.env.NEXT_PUBLIC_PRODAMUS_SALES_CHANNEL_ID || 'f40919dc-6570-4a48-bc45-b9ccac0ce196';
-                
-                console.log('[Prodamus] Opening widget with:', { merchantId, salesChannelId, orderId: data.orderId, rubAmount: data.rubAmount });
-
-                const widget = new (window as any).ProdamusWidget({
-                    merchantId,
-                    salesChannelId,
-                    currency: 'rub',
-                    merchantOrderNumber: data.orderId,
-                    products: [
-                        {
-                            name: data.planLabel,
-                            price: data.rubAmount,
-                            quantity: 1,
-                        }
-                    ]
-                });
-
-                widget.open();
+            if (isLava && typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.openLink) {
+                // Open Lava.top external payment page safely outside of Mini App context
+                (window as any).Telegram.WebApp.openLink(redirectUrl);
                 setLoading(false);
             } else {
-                const redirectUrl = data.confirmation_url;
-                if (redirectUrl) {
-                    window.location.href = redirectUrl;
-                } else {
-                    alert(`${t('paymentError')}: ${data.details || data.error || t('paymentUnknown')}`);
-                }
+                window.location.href = redirectUrl;
             }
+
         } catch (error: any) {
             console.error('[Checkout] Exception:', error?.message, error);
             alert(`Ошибка: ${error?.message || 'Неизвестная ошибка'}. Проверьте подключение к интернету.`);

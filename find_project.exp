@@ -1,0 +1,12 @@
+#!/usr/bin/expect -f
+set timeout 20
+set host "204.168.178.83"
+set password "!0ln%5#H~Pxu|4"
+spawn ssh -o StrictHostKeyChecking=no root@$host "find /root /home /var/www -name '*vireyou*' -o -name '*longevity*' -maxdepth 3 2>/dev/null"
+expect {
+    "*assword:*" {
+        send "$password\r"
+        exp_continue
+    }
+    eof
+}
