@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Prodamus</title>
+    <script src="https://widget.payform.ru/iframe.min.js"></script>
+</head>
+<body>
+    <h1>Testing Prodamus Widget</h1>
+    <button id="pay-btn" style="padding: 10px 20px; font-size: 16px;">Pay with Prodamus (USD)</button>
+    <button id="pay-btn-rub" style="padding: 10px 20px; font-size: 16px;">Pay with Prodamus (RUB)</button>
+    
+    <script>
+        document.getElementById('pay-btn').addEventListener('click', function() {
+            try {
+                const widget = new ProdamusWidget({
+                    merchantId: '9f40d6b1-7246-41d7-8ccf-63f329ca2b7a',
+                    salesChannelId: 'f40919dc-6570-4a48-bc45-b9ccac0ce196',
+                    currency: 'usd',
+                    payment_method: 'ACUSDGTL',
+                    merchantOrderNumber: 'TEST_' + Date.now() + '_USD',
+                    products: [
+                        {
+                            name: 'VIREYOU PRO (1 month) USD',
+                            price: 15,
+                            quantity: 1,
+                        }
+                    ]
+                });
+                widget.open();
+            } catch (e) {
+                console.error(e);
+                alert("Error initializing widget");
+            }
+        });
+
+        document.getElementById('pay-btn-rub').addEventListener('click', function() {
+            try {
+                const widget = new ProdamusWidget({
+                    merchantId: '9f40d6b1-7246-41d7-8ccf-63f329ca2b7a',
+                    salesChannelId: 'f40919dc-6570-4a48-bc45-b9ccac0ce196',
+                    currency: 'rub',
+                    merchantOrderNumber: 'test-order-rub-' + Date.now(),
+                    products: [
+                        {
+                            name: 'Test Product RUB',
+                            price: 1500,
+                            quantity: 1,
+                        }
+                    ]
+                });
+                widget.open();
+            } catch (e) {
+                console.error(e);
+                alert("Error initializing widget");
+            }
+        });
+    </script>
+</body>
+</html>

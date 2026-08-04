@@ -15,6 +15,10 @@ if (process.env.DATABASE_URL) {
 import prisma from "../src/lib/prisma";
 import { analyzeFoodWithAI, getIngredientNutrientsWithAI, calculateTotalNutrients, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI, analyzeProductLabelWithAI, getProactiveNutritionAdvice, determineTimezoneFromCity, generateSupportResponse } from "../src/lib/telegram/ai-services";
 import { generatePeriodicReport } from "../src/lib/reportGenerator";
+import { aggregateUserContext } from "../src/lib/assistant/context";
+import { evaluateLifestyle } from "../src/lib/assistant/rules";
+import { safetyGate, postValidate } from "../src/lib/assistant/safety";
+import { generateAdvice } from "../src/lib/assistant/generate";
 
 const ruMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/ru.json'), 'utf8'));
 const enMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/en.json'), 'utf8'));
@@ -251,6 +255,52 @@ bot.on('message', async (ctx: any, next) => {
 // ----------------------------------------------------
 // Команды
 // ----------------------------------------------------
+
+// --- AI Assistant ---
+async function showLifestyleAnalysis(ctx: any) {
+  const user = ctx.state.user;
+  if (!user || user.role !== 'admin') return;
+
+  await ctx.sendChatAction("typing");
+
+  try {
+    const context = await aggregateUserContext(user.id, 7);
+    const gate = safetyGate(context);
+    if (gate.block) {
+      return ctx.reply(gate.message || "Ошибка безопасности.");
+    }
+
+    const findings = evaluateLifestyle(context);
+    const text = await generateAdvice(context, findings);
+    const safeText = postValidate(text);
+
+    // Временно логируем в консоль вместо БД (так как таблица AssistantMessage еще не создана)
+    console.log(`[ASSISTANT LOG] User: ${user.id}, Findings:`, findings);
+
+    return ctx.reply(safeText, {
+      parse_mode: "Markdown",
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback("👍 Полезно", "advice_up"), Markup.button.callback("👎 Не точно", "advice_down")]
+      ])
+    });
+  } catch (e) {
+    console.error("Lifestyle analysis error:", e);
+    return ctx.reply("Произошла ошибка при анализе данных. Попробуй позже.");
+  }
+}
+
+bot.command("analyze", async (ctx: any) => showLifestyleAnalysis(ctx));
+bot.action("lifestyle_analyze", async (ctx: any) => {
+  await ctx.answerCbQuery().catch(() => {});
+  return showLifestyleAnalysis(ctx);
+});
+
+bot.action("advice_up", async (ctx: any) => {
+  await ctx.answerCbQuery("Спасибо за отзыв! 👍").catch(() => {});
+});
+bot.action("advice_down", async (ctx: any) => {
+  await ctx.answerCbQuery("Спасибо за отзыв! Учтем. 👎").catch(() => {});
+});
 
 // --- Admin Stats ---
 bot.command('stats', async (ctx: any) => {
