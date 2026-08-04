@@ -265,27 +265,30 @@ async function showLifestyleAnalysis(ctx: any) {
 
   try {
     const context = await aggregateUserContext(user.id, 7);
-    const gate = safetyGate(context);
+    const gate = safetyGate(context, user.lang);
     if (gate.block) {
-      return ctx.reply(gate.message || "Ошибка безопасности.");
+      return ctx.reply(gate.message || (user.lang === 'en' ? "Safety error." : "Ошибка безопасности."));
     }
 
     const findings = evaluateLifestyle(context);
     const text = await generateAdvice(context, findings);
-    const safeText = postValidate(text);
+    const safeText = postValidate(text, user.lang);
 
     // Временно логируем в консоль вместо БД (так как таблица AssistantMessage еще не создана)
     console.log(`[ASSISTANT LOG] User: ${user.id}, Findings:`, findings);
 
+    const btnUp = user.lang === 'en' ? "👍 Helpful" : "👍 Полезно";
+    const btnDown = user.lang === 'en' ? "👎 Inaccurate" : "👎 Не точно";
+
     return ctx.reply(safeText, {
       parse_mode: "Markdown",
       ...Markup.inlineKeyboard([
-        [Markup.button.callback("👍 Полезно", "advice_up"), Markup.button.callback("👎 Не точно", "advice_down")]
+        [Markup.button.callback(btnUp, "advice_up"), Markup.button.callback(btnDown, "advice_down")]
       ])
     });
   } catch (e) {
     console.error("Lifestyle analysis error:", e);
-    return ctx.reply("Произошла ошибка при анализе данных. Попробуй позже.");
+    return ctx.reply(user.lang === 'en' ? "An error occurred while analyzing data. Please try again later." : "Произошла ошибка при анализе данных. Попробуй позже.");
   }
 }
 
@@ -296,10 +299,12 @@ bot.action("lifestyle_analyze", async (ctx: any) => {
 });
 
 bot.action("advice_up", async (ctx: any) => {
-  await ctx.answerCbQuery("Спасибо за отзыв! 👍").catch(() => {});
+  const lang = ctx.state.user?.lang || 'ru';
+  await ctx.answerCbQuery(lang === 'en' ? "Thanks for your feedback! 👍" : "Спасибо за отзыв! 👍").catch(() => {});
 });
 bot.action("advice_down", async (ctx: any) => {
-  await ctx.answerCbQuery("Спасибо за отзыв! Учтем. 👎").catch(() => {});
+  const lang = ctx.state.user?.lang || 'ru';
+  await ctx.answerCbQuery(lang === 'en' ? "Thanks for your feedback! We will take it into account. 👎" : "Спасибо за отзыв! Учтем. 👎").catch(() => {});
 });
 
 // --- Admin Stats ---

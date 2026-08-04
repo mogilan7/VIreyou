@@ -7,24 +7,34 @@ const EMERGENCY_PATTERNS = [
 
 export function safetyGate(ctx: LifestyleContext, userText?: string): { block: boolean; message?: string } {
   if (userText && EMERGENCY_PATTERNS.some(r => r.test(userText))) {
+    const isEn = ctx.user.lang === 'en';
     return { 
       block: true, 
-      message: "Судя по описанию, это может требовать срочной помощи. Пожалуйста, обратись к врачу, а при острых симптомах вызови скорую (103/112). Я не могу заменить врача." 
+      message: isEn 
+        ? "Based on your description, this may require urgent help. Please consult a doctor or call emergency services for acute symptoms. I cannot replace a medical professional." 
+        : "Судя по описанию, это может требовать срочной помощи. Пожалуйста, обратись к врачу, а при острых симптомах вызови скорую (103/112). Я не могу заменить врача." 
     };
   }
   return { block: false };
 }
 
-export function postValidate(text: string): string {
+export function postValidate(text: string, lang: string = 'ru'): string {
   // Базовая проверка на запрещенные слова или форматирование.
   // Например, если ИИ начал выписывать препараты с дозировками
-  const forbidden = [/принимай \d+ ?(мг|г|мл|таблеток)/i, /диагноз/i];
+  const forbidden = [/принимай \d+ ?(мг|г|мл|таблеток)/i, /диагноз/i, /take \d+ ?(mg|g|ml|pills)/i, /diagnosis/i];
+  const isEn = lang === 'en';
+  
   if (forbidden.some(r => r.test(text))) {
-    return "Мои алгоритмы обнаружили, что рекомендация могла содержать медицинские советы. Пожалуйста, проконсультируйся с врачом для получения персонализированных назначений.\n\n_Это образовательный сервис, не медицинская консультация._";
+    return isEn 
+      ? "My algorithms detected that the recommendation might contain medical advice. Please consult a doctor for personalized prescriptions.\n\n_This is an educational service, not medical advice._" 
+      : "Мои алгоритмы обнаружили, что рекомендация могла содержать медицинские советы. Пожалуйста, проконсультируйся с врачом для получения персонализированных назначений.\n\n_Это образовательный сервис, не медицинская консультация._";
   }
   
-  const disclaimer = "\n\n_Образовательная рекомендация, не является медицинской консультацией._";
-  if (!text.includes("образовательн") && !text.includes("медицинск")) {
+  const disclaimer = isEn 
+    ? "\n\n_Educational recommendation, not medical advice._" 
+    : "\n\n_Образовательная рекомендация, не является медицинской консультацией._";
+    
+  if (!text.toLowerCase().includes("образовательн") && !text.toLowerCase().includes("медицинск") && !text.toLowerCase().includes("educational") && !text.toLowerCase().includes("medical")) {
     return text + disclaimer;
   }
   return text;
