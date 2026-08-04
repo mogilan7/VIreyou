@@ -9,10 +9,9 @@
         "home": "На главную"
     },
     "Common": {
-        "saveVault": "Сохранить результат",
-        "saved": "Сохранено",
-        "saving": "Сохранение...",
-        "saveError": "Ошибка при сохранении"
+        "loadingData": "Загрузка данных...",
+        "publicOfferText1": "Оплачивая услуги, вы соглашаетесь с условиями ",
+        "publicOfferText2": "Публичной оферты"
     },
     "Landing": {
         "heroTag": "Энергия, молодость, баланс",
@@ -1422,7 +1421,7 @@
         "standardPlan": "VIReyou Standard",
         "proPlan": "VIReyou PRO",
         "proAdmin": "VIReyou PRO (Администратор)",
-                "proEmployee": "VIReyou PRO (Сотрудник)",
+        "proEmployee": "VIReyou PRO (Сотрудник)",
         "perMonth": "/ месяц",
         "orderStandard": "Оформить Standard",
         "orderPro": "Оформить PRO",

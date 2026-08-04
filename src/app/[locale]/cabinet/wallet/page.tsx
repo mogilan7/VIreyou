@@ -12,6 +12,7 @@ import UpgradeButton from '@/components/dashboard/UpgradeButton';
 export default async function WalletPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
     const t = await getTranslations('Wallet');
+    const tCommon = await getTranslations('Common');
     const supabase = await createClient();
     const { data: { user: authUser } } = await supabase.auth.getUser();
 
@@ -174,7 +175,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
 
                 <div className="text-center pt-2 pb-4 text-slate-500 dark:text-slate-400">
                     <p className="text-[10px]">
-                        Оплачивая услуги, вы соглашаетесь с условиями <a href="/offer" target="_blank" className="underline hover:text-[#60B76F]">Публичной оферты</a>.
+                        {tCommon('publicOfferText1')}<a href="/offer" target="_blank" className="underline hover:text-[#60B76F]">{tCommon('publicOfferText2')}</a>.
                     </p>
                 </div>
 

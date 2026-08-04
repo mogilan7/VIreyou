@@ -9,10 +9,9 @@
         "home": "Back to Home"
     },
     "Common": {
-        "saveVault": "Save to Medical Vault",
-        "saved": "Saved",
-        "saving": "Saving...",
-        "saveError": "Error saving"
+        "loadingData": "Loading data...",
+        "publicOfferText1": "By paying for services, you agree to the terms of the ",
+        "publicOfferText2": "Public Offer"
     },
     "Landing": {
         "heroTag": "Energy, youth, balance",
@@ -1416,7 +1415,7 @@
         "referralDesc": "Share VIReyou with those who care. A friend will get 3 days of PRO for free, and you'll get a bonus to your balance every time they renew their subscription. The wider your circle of care, the more comes back to you.",
         "standardPlan": "VIReyou Standard",
         "proPlan": "VIReyou PRO",
-                "proAdmin": "VIReyou PRO (Administrator)",
+        "proAdmin": "VIReyou PRO (Administrator)",
         "proEmployee": "VIReyou PRO (Employee)",
         "perMonth": "/ month",
         "orderStandard": "Get Standard",

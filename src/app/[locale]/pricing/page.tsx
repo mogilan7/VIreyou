@@ -32,6 +32,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
 
 export default function PricingPage() {
     const t = useTranslations("Pricing");
+    const tCommon = useTranslations("Common");
     const locale = useLocale();
     const isRu = locale === "ru";
 
@@ -165,10 +166,7 @@ export default function PricingPage() {
 
                 <div className="text-center mt-6">
                     <p className="text-[10px] text-brand-gray/60">
-                        {isRu
-                            ? <>Оплачивая услуги, вы соглашаетесь с условиями <Link href="/offer" className="underline hover:text-brand-leaf">Публичной оферты</Link>.</>
-                            : <>By purchasing, you agree to our <Link href="/offer" className="underline hover:text-brand-leaf">Public Offer</Link>.</>
-                        }
+                        {tCommon("publicOfferText1")}<Link href="/offer" className="underline hover:text-brand-leaf">{tCommon("publicOfferText2")}</Link>.
                     </p>
                 </div>
 
