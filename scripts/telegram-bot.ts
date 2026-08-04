@@ -266,20 +266,21 @@ async function showLifestyleAnalysis(ctx: any) {
 
   try {
     const context = await aggregateUserContext(user.id, 7);
-    const gate = safetyGate(context, user.lang);
+    const lang = user.language || 'ru';
+    const gate = safetyGate(context, lang);
     if (gate.block) {
-      return ctx.reply(gate.message || (user.lang === 'en' ? "Safety error." : "Ошибка безопасности."));
+      return ctx.reply(gate.message || (lang === 'en' ? "Safety error." : "Ошибка безопасности."));
     }
 
     const findings = evaluateLifestyle(context);
     const text = await generateAdvice(context, findings);
-    const safeText = postValidate(text, user.lang);
+    const safeText = postValidate(text, lang);
 
     // Временно логируем в консоль вместо БД (так как таблица AssistantMessage еще не создана)
     console.log(`[ASSISTANT LOG] User: ${user.id}, Findings:`, findings);
 
-    const btnUp = user.lang === 'en' ? "👍 Helpful" : "👍 Полезно";
-    const btnDown = user.lang === 'en' ? "👎 Inaccurate" : "👎 Не точно";
+    const btnUp = lang === 'en' ? "👍 Helpful" : "👍 Полезно";
+    const btnDown = lang === 'en' ? "👎 Inaccurate" : "👎 Не точно";
 
     return ctx.reply(safeText, {
       parse_mode: "Markdown",
@@ -289,7 +290,7 @@ async function showLifestyleAnalysis(ctx: any) {
     });
   } catch (e) {
     console.error("Lifestyle analysis error:", e);
-    return ctx.reply(user.lang === 'en' ? "An error occurred while analyzing data. Please try again later." : "Произошла ошибка при анализе данных. Попробуй позже.");
+    return ctx.reply(user.language === 'en' ? "An error occurred while analyzing data. Please try again later." : "Произошла ошибка при анализе данных. Попробуй позже.");
   }
 }
 
