@@ -6,10 +6,16 @@ export async function POST(req: NextRequest) {
     try {
         const secretKey = process.env.LAVA_WEBHOOK_SECRET;
         if (!secretKey) {
-            console.error('[LAVA WEBHOOK] Missing webhook secret key');
-            // We shouldn't fail if they haven't set it yet, just log and continue for now,
-            // or return 500. Let's return 500 in production, but since we are testing, 
-            // we will proceed if we can extract orderId.
+            console.error('[LAVA WEBHOOK] Missing webhook secret key in env');
+            return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+        }
+
+        const authHeader = req.headers.get('authorization') || req.headers.get('x-api-key') || '';
+        
+        // Lava might send 'Bearer <key>' or just '<key>'
+        if (!authHeader.includes(secretKey)) {
+             console.error('[LAVA WEBHOOK] Unauthorized request. Invalid API Key provided by Lava.');
+             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         let body: any;
