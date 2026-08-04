@@ -187,7 +187,7 @@ const LifestyleDashboard = ({
               <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">{t('title')}</h1>
               <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 text-xs sm:text-sm md:text-base pr-2">
                 <CheckCircle2 className="w-4 h-4 text-[#60B76F] shrink-0" />
-                <span className="leading-tight">{totalSteps > 8000 ? t('activeDay') : t('goodStart')}</span>
+                <span className="leading-tight">{totalSteps > 8000 ? t('activeDay') : new Date().getHours() >= 18 ? t('goodEvening') : new Date().getHours() >= 12 ? t('goodDay') : t('goodStart')}</span>
               </p>
             </div>
             
