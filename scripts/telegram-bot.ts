@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import cron from "node-cron";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 if (process.env.DATABASE_URL) {
   process.env.DATABASE_URL = process.env.DATABASE_URL + (process.env.DATABASE_URL.includes('?') ? '&' : '?') + 'connection_limit=30&pool_timeout=40';
@@ -243,7 +244,7 @@ bot.on('message', async (ctx: any, next) => {
                     await bot.telegram.copyMessage(targetTelegramId, ctx.chat.id, ctx.message.message_id);
                 }
                 return ctx.reply('✅ Ответ отправлен пользователю.');
-            } catch (e) {
+            } catch (e: any) {
                 console.error("Failed to send admin reply", e);
                 return ctx.reply('❌ Ошибка при отправке ответа пользователю.');
             }
@@ -291,7 +292,7 @@ async function showLifestyleAnalysis(ctx: any) {
         [Markup.button.callback(btnUp, "advice_up"), Markup.button.callback(btnDown, "advice_down")]
       ])
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error("Lifestyle analysis error:", e);
     return ctx.reply(user.language === 'en' ? "An error occurred while analyzing data. Please try again later." : "Произошла ошибка при анализе данных. Попробуй позже.");
   }
@@ -342,7 +343,7 @@ bot.command('stats', async (ctx: any) => {
         const msg = `📊 **Статистика платформы:**\n\n👥 **Пользователи:**\n- Всего регистраций: **${totalUsers}**\n- Новых за 24ч: **+${newUsers}**\n\n💎 **Подписки:**\n- Активных PRO: **${totalPro}**\n- Новых PRO за 24ч: **+${newPro}**\n- Активных триалов: **${activeTrials}**`;
 
         ctx.reply(msg, { parse_mode: 'Markdown' });
-    } catch (e) {
+    } catch (e: any) {
         console.error("Stats error", e);
         ctx.reply("Ошибка при сборе статистики.");
     }
@@ -407,8 +408,7 @@ bot.command('start', async (ctx: any) => {
       });
       
       if (!userRecord) {
-          userRecord = await prisma.user.create({
-              data: {
+          userRecord = await prisma.user.create({ data: { id: crypto.randomUUID(),
                   email: autoEmail,
                   telegram_id: tgId,
                   role: 'client',
@@ -441,7 +441,7 @@ bot.command('start', async (ctx: any) => {
           if (decoded.includes('@')) {
               email = decoded;
           }
-      } catch (e) {
+      } catch (e: any) {
           console.log("Not base64 or failed decoding, using raw:", payload);
       }
   }
@@ -457,7 +457,7 @@ bot.command('start', async (ctx: any) => {
               } else {
                   await ctx.reply(ctx.state.lang === 'en' ? "ℹ️ You are already in this Squad." : "ℹ️ Вы уже участвуете в этом марафоне.");
               }
-          } catch (e) {
+          } catch (e: any) {
               console.error(e);
           }
       }
@@ -512,7 +512,7 @@ bot.command('start', async (ctx: any) => {
         ctx.state.lang = user.language || 'ru';
         await ctx.reply("✅ Telegram успешно привязан! Добро пожаловать.");
         return sendWelcomeMenu(ctx, user);
-    } catch (e) {
+    } catch (e: any) {
         console.error("Deep link error:", e);
         return ctx.reply("❌ Произошла ошибка при привязке. Пожалуйста, обратитесь в поддержку.");
     }
@@ -607,12 +607,12 @@ async function handleMarathonJoinLogic(ctx: any, user: any, lang: string) {
                         t(lang, 'Marathon.broadcastFullText', { limit: result.limit }),
                         { parse_mode: 'Markdown' }
                     );
-                } catch (e) {
+                } catch (e: any) {
                     console.error("Failed to edit channel message:", e);
                 }
             }
         }
-    } catch (e) {
+    } catch (e: any) {
         console.error("Marathon join error:", e);
         ctx.reply(t(lang, 'Confirmation.error'));
     }
@@ -679,7 +679,7 @@ bot.command('marathon_status', async (ctx: any) => {
         const channelId = channelSetting ? channelSetting.value : 'не настроен';
 
         ctx.reply(t(lang, 'Marathon.stats', { count, limit, channelId }), { parse_mode: 'Markdown' });
-    } catch (e) {
+    } catch (e: any) {
         ctx.reply("Ошибка получения статистики.");
     }
 });
@@ -719,7 +719,7 @@ bot.command('marathon_invite', async (ctx: any) => {
         });
 
         ctx.reply(t(lang, 'Marathon.adminUsersTitle'), Markup.inlineKeyboard(buttons));
-    } catch (e) {
+    } catch (e: any) {
         console.error("Marathon invite list error:", e);
         ctx.reply("Ошибка получения списка пользователей.");
     }
@@ -745,7 +745,7 @@ bot.action(/^invite_user:(.+)$/, async (ctx: any) => {
 
         ctx.answerCbQuery(t(lang, 'Marathon.adminInviteSent', { name: targetUser.full_name || targetUser.email }));
         ctx.editMessageText(t(lang, 'Marathon.adminInviteSent', { name: targetUser.full_name || targetUser.email }));
-    } catch (e) {
+    } catch (e: any) {
         console.error("Invite send error:", e);
         ctx.answerCbQuery("Ошибка при отправке приглашения");
     }
@@ -792,7 +792,7 @@ bot.command('marathon_broadcast', async (ctx: any) => {
         });
 
         ctx.reply("✅ Пост с приглашением опубликован в канале.");
-    } catch (e) {
+    } catch (e: any) {
         console.error("Broadcast error:", e);
         ctx.reply("Ошибка при публикации в канал.");
     }
@@ -849,7 +849,7 @@ function getUserLocalDate(timezone?: string): string {
         const dateStr = formatter.format(now); // "YYYY-MM-DD"
         const weekday = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: tz });
         return `${dateStr}, ${weekday}`;
-    } catch (e) {
+    } catch (e: any) {
         return now.toISOString().split('T')[0];
     }
 }
@@ -990,7 +990,7 @@ bot.action(/^onboarding_goal:(.+)$/, async (ctx: any) => {
         }), { parse_mode: 'Markdown' });
         
         await sendWelcomeMenu(ctx, updatedUser);
-    } catch (e) {
+    } catch (e: any) {
         console.error("Onboarding save error:", e);
         await ctx.reply(t(lang, 'Confirmation.error'));
     }
@@ -1059,7 +1059,7 @@ async function checkSubscriptionLevel(ctx: any, user: any, requiredPlan: 'standa
       freshUser = fromDb;
       ctx.state.user = fromDb; // обновляем кэш
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error("[Sub Check] Failed to refresh user from DB, using cached data", e);
   }
 
@@ -1136,7 +1136,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
       } else if (user.full_name) {
           name = user.full_name;
       }
-  } catch (e) {
+  } catch (e: any) {
       console.log("Profile fetch failed:", e);
   }
 
@@ -1214,7 +1214,7 @@ async function saveFoodLog(userId: string, foodData: any, localTodayStr?: string
     'vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K', 'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B5', 'vitamin_B6', 'vitamin_B7', 'vitamin_B9', 'vitamin_B12', 'vitamin_C',
     'calcium', 'iron', 'magnesium', 'phosphorus', 'potassium', 'sodium', 'zinc', 'copper', 'manganese', 'selenium', 'iodine'
   ];
-  const data: any = { user_id: userId };
+  const data: any = { id: crypto.randomUUID(), user_id: userId };
   for (const key of validKeys) {
     if (foodData[key] !== undefined) {
       data[key] = foodData[key];
@@ -1230,8 +1230,7 @@ async function saveFoodLog(userId: string, foodData: any, localTodayStr?: string
   // Если есть вредная привычка
   if (foodData.habit_key) {
       const logDate = data.created_at || new Date();
-      await prisma.habitLog.create({
-          data: {
+      await prisma.habitLog.create({ data: { id: crypto.randomUUID(),
               user_id: userId,
               habit_key: foodData.habit_key,
               completed: true,
@@ -1244,8 +1243,7 @@ async function saveFoodLog(userId: string, foodData: any, localTodayStr?: string
   // Сохраняем объем воды в HydrationLog для отображения на дашборде
   if (foodData.water && foodData.water > 0) {
       const logDate = data.created_at || new Date();
-      await prisma.hydrationLog.create({
-          data: {
+      await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(),
               user_id: userId,
               date: logDate,
               volume_ml: Math.round(foodData.water),
@@ -1565,8 +1563,7 @@ bot.hears(/^(\d+)\s*(мл|ml|миллилитров)$/i, async (ctx: any) => {
 
     if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
 
-    await prisma.hydrationLog.create({
-        data: { user_id: user.id, volume_ml: volume }
+    await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(), user_id: user.id, volume_ml: volume }
     });
 
     return ctx.reply(t(lang, 'Water.saved', { vol: volume }));
@@ -1597,7 +1594,7 @@ bot.on('text', async (ctx: any) => {
            });
            if (ctx.state.user) ctx.state.user.timezone = tz;
            return ctx.reply(`Ваш часовой пояс установлен на: ${tz}`);
-      } catch (e) {
+      } catch (e: any) {
            return ctx.reply(t(lang, 'Settings.tzError'));
       }
   }
@@ -1626,7 +1623,7 @@ bot.on('text', async (ctx: any) => {
                       if (ctx.message.message_id) {
                           await bot.telegram.forwardMessage(admin.telegram_id, ctx.chat.id, ctx.message.message_id);
                       }
-                  } catch (e) {
+                  } catch (e: any) {
                       console.error(`Failed to send support message to admin ${admin.id}`, e);
                   }
               }
@@ -1638,7 +1635,7 @@ bot.on('text', async (ctx: any) => {
                   }
               });
           }
-      } catch (e) {
+      } catch (e: any) {
           console.error("AI Support Error:", e);
           const admins = await prisma.user.findMany({ where: { role: 'admin' } });
           for (const admin of admins) {
@@ -1847,7 +1844,7 @@ bot.on('text', async (ctx: any) => {
 
               await ctx.reply(welcomeText);
               await sendWelcomeMenu(ctx, updatedUser);
-          } catch (e) {
+          } catch (e: any) {
               console.error("Onboarding Save Error:", e);
               await ctx.reply(t(lang, 'Confirmation.error'));
           }
@@ -1947,7 +1944,7 @@ bot.action('save_log_confirm', async (ctx: any) => {
             if (existing) {
                 await prisma.sleepLog.update({ where: { id: existing.id }, data: sleepData });
             } else {
-                await prisma.sleepLog.create({ data: sleepData });
+                sleepData.id = crypto.randomUUID(); await prisma.sleepLog.create({ data: sleepData });
             }
         } else if (cached.type === "ACTIVITY") {
             const startOfDay = new Date(date);
@@ -1971,11 +1968,10 @@ bot.action('save_log_confirm', async (ctx: any) => {
             if (existing) {
                 await prisma.activityLog.update({ where: { id: existing.id }, data: activityData });
             } else {
-                await prisma.activityLog.create({ data: activityData });
+                activityData.id = crypto.randomUUID(); await prisma.activityLog.create({ data: activityData });
             }
         } else if (cached.type === "HABIT") {
-            await prisma.habitLog.create({
-                data: {
+            await prisma.habitLog.create({ data: { id: crypto.randomUUID(),
                     user_id: user.id,
                     habit_key: cached.data.habit_key || 'Привычка',
                     completed: true,
@@ -2084,7 +2080,7 @@ bot.action('menu_what_to_eat', async (ctx: any) => {
         
         const advice = await getProactiveNutritionAdvice(currentNutrients, profile, currentTimeStr, lang);
         await ctx.reply(advice);
-    } catch (e) {
+    } catch (e: any) {
         console.error("Proactive AI Error:", e);
         await ctx.reply(lang === 'en' ? "Failed to analyze." : "Ошибка анализа.");
     }
@@ -2098,12 +2094,12 @@ bot.action('menu_my_squad', async (ctx: any) => {
     
     try {
         const participations = await prisma.squadParticipant.findMany({
-            where: { user_id: user.id, squad: { is_active: true } },
-            include: { squad: true }
+            where: { user_id: user.id, Squad: { is_active: true } },
+            include: { Squad: true }
         });
 
         const buttons = participations.map(p => [
-            Markup.button.callback(`${p.squad.name}`, `view_squad_${p.squad.id}`)
+            Markup.button.callback(`${p.Squad.name}`, `view_squad_${p.Squad.id}`)
         ]);
         
         buttons.push([Markup.button.callback(lang === 'en' ? "➕ Create New Squad" : "➕ Создать новый Сквад", 'create_squad')]);
@@ -2116,7 +2112,7 @@ bot.action('menu_my_squad', async (ctx: any) => {
             parse_mode: 'Markdown',
             ...Markup.inlineKeyboard(buttons)
         });
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
         await ctx.reply(lang === 'en' ? "Error loading squads." : "Ошибка загрузки сквадов.");
     }
@@ -2146,7 +2142,7 @@ bot.action(/^view_squad_(.+)$/, async (ctx: any) => {
             parse_mode: 'HTML',
             ...Markup.inlineKeyboard(buttons)
         });
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
         ctx.reply(lang === 'en' ? "Error." : "Ошибка.");
     }
@@ -2164,20 +2160,20 @@ bot.action(/^manage_squad_(.+)$/, async (ctx: any) => {
 
         const participants = await prisma.squadParticipant.findMany({
             where: { squad_id: squadId },
-            include: { user: true }
+            include: { User: true }
         });
 
         const buttons = participants
             .filter(p => p.user_id !== user.id) // Cannot remove self (creator)
             .map(p => [
-                Markup.button.callback(`❌ ${p.user.full_name || p.user.email || 'User'}`, `rem_p_${p.id}`)
+                Markup.button.callback(`❌ ${p.User.full_name || p.User.email || 'User'}`, `rem_p_${p.id}`)
             ]);
         
         buttons.push([Markup.button.callback(lang === 'en' ? "⬅️ Back" : "⬅️ Назад", `view_squad_${squadId}`)]);
 
         await ctx.reply(lang === 'en' ? "Select a participant to remove:" : "Выберите участника для удаления:", 
             Markup.inlineKeyboard(buttons));
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
         ctx.reply("Error.");
     }
@@ -2191,7 +2187,7 @@ bot.action(/^rem_p_(.+)$/, async (ctx: any) => {
     try {
         const participant = await prisma.squadParticipant.findUnique({
             where: { id: participantId },
-            include: { squad: true }
+            include: { Squad: true }
         });
 
         if (!participant || participant.squad.creator_id !== user.id) {
@@ -2209,16 +2205,16 @@ bot.action(/^rem_p_(.+)$/, async (ctx: any) => {
         const squad = await prisma.squad.findUnique({ where: { id: squadId } });
         const participants = await prisma.squadParticipant.findMany({
             where: { squad_id: squadId },
-            include: { user: true }
+            include: { User: true }
         });
         const buttons = participants
             .filter(p => p.user_id !== user.id)
-            .map(p => [Markup.button.callback(`❌ ${p.user.full_name || p.user.email || 'User'}`, `rem_p_${squadId}_${p.user_id}`)]);
+            .map(p => [Markup.button.callback(`❌ ${p.User.full_name || p.User.email || 'User'}`, `rem_p_${squadId}_${p.user_id}`)]);
         buttons.push([Markup.button.callback(lang === 'en' ? "⬅️ Back" : "⬅️ Назад", `view_squad_${squadId}`)]);
         
         await ctx.editMessageText(lang === 'en' ? "Select a participant to remove:" : "Выберите участника для удаления:", 
             Markup.inlineKeyboard(buttons));
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
         ctx.answerCbQuery("Error: " + e.message);
     }
@@ -2245,7 +2241,7 @@ bot.action('create_squad', async (ctx: any) => {
             : `✅ Марафон "${squadName}" успешно создан!\n\nОтправьте эту ссылку друзьям:\n<code>${inviteLink}</code>`, 
             { parse_mode: 'HTML' });
             
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
         await ctx.reply(lang === 'en' ? "Failed to create." : "Ошибка создания.");
     }
@@ -2352,7 +2348,7 @@ bot.action('menu_checklist', async (ctx: any) => {
             }
         });
 
-    } catch (e) {
+    } catch (e: any) {
         console.error("Checklist Error:", e);
         await ctx.reply(t(lang, 'Confirmation.error'));
     }
@@ -2443,7 +2439,7 @@ bot.action('menu_nutrition_reco', async (ctx: any) => {
 
         await ctx.reply(recommendation);
 
-    } catch (e) {
+    } catch (e: any) {
         console.error("Nutrition Reco Error:", e);
         await ctx.reply(t(lang, 'Confirmation.error'));
     }
@@ -2487,7 +2483,7 @@ async function getPendingTestsList(userId: string, lang: string): Promise<string
             const name = testNameObj ? (testNameObj[lang] || testNameObj['ru']) : tId;
             return `• ${name}`;
         }).join('\n');
-    } catch (e) {
+    } catch (e: any) {
         console.error("Error fetching pending tests:", e);
         return "";
     }
@@ -2543,16 +2539,16 @@ cron.schedule('* * * * *', async () => {
             for (const squad of activeSquads) {
                 const participants = await prisma.squadParticipant.findMany({
                     where: { squad_id: squad.id },
-                    include: { user: true }
+                    include: { User: true }
                 });
 
                 // Check if yesterday was the last day
                 const isLastDay = yesterday.toDateString() === new Date(squad.end_date).toDateString();
                 
                 for (const p of participants) {
-                    if (p.user.telegram_id) {
+                    if (p.User.telegram_id) {
                         const lang = (p.user as any).language || 'ru';
-                        const name = p.user.full_name || 'друг';
+                        const name = p.User.full_name || 'друг';
                         
                         // Generate group summary report personalized for this user
                         const groupSummary = await generateMarathonDailyReport(name, squad.id, lang);
@@ -2567,9 +2563,9 @@ cron.schedule('* * * * *', async () => {
                             }
 
                             try {
-                                await bot.telegram.sendMessage(p.user.telegram_id, msg, { parse_mode: 'Markdown' });
-                            } catch (e) {
-                                console.error(`[CRON] Failed to send group summary to ${p.user.id}:`, e);
+                                await bot.telegram.sendMessage(p.User.telegram_id, msg, { parse_mode: 'Markdown' });
+                            } catch (e: any) {
+                                console.error(`[CRON] Failed to send group summary to ${p.User.id}:`, e);
                             }
                         }
                     }
@@ -2593,17 +2589,17 @@ cron.schedule('* * * * *', async () => {
             for (const squad of endedSquads) {
                 const participants = await prisma.squadParticipant.findMany({
                     where: { squad_id: squad.id },
-                    include: { user: true }
+                    include: { User: true }
                 });
 
                 for (const p of participants) {
-                    if (p.user.telegram_id) {
+                    if (p.User.telegram_id) {
                         try {
                             const lang = (p.user as any).language || "ru";
-                            const { markdown } = await generatePeriodicReport(p.user_id, 7, p.user.full_name || undefined, undefined, lang);
-                            await bot.telegram.sendMessage(p.user.telegram_id, markdown, { parse_mode: 'Markdown' });
-                        } catch (e) {
-                            console.error(`[CRON] Failed to send final report to ${p.user.id}:`, e);
+                            const { markdown } = await generatePeriodicReport(p.user_id, 7, p.User.full_name || undefined, undefined, lang);
+                            await bot.telegram.sendMessage(p.User.telegram_id, markdown, { parse_mode: 'Markdown' });
+                        } catch (e: any) {
+                            console.error(`[CRON] Failed to send final report to ${p.User.id}:`, e);
                         }
                     }
                 }
@@ -2732,8 +2728,7 @@ bot.action('water_750', async (ctx: any) => {
     if (!user) return ctx.answerCbQuery("Пользователь не найден.");
     const lang = (user as any).language || 'ru';
     
-    await prisma.hydrationLog.create({
-        data: { user_id: user.id, volume_ml: 750 }
+    await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(), user_id: user.id, volume_ml: 750 }
     });
     ctx.answerCbQuery(t(lang, 'Water.saved', { vol: 750 }));
     ctx.reply(t(lang, 'Water.text', { vol: 750 }));
@@ -2744,8 +2739,7 @@ bot.action('water_250', async (ctx: any) => {
     if (!user) return ctx.answerCbQuery("Пользователь не найден.");
     const lang = (user as any).language || 'ru';
     
-    await prisma.hydrationLog.create({
-        data: { user_id: user.id, volume_ml: 250 }
+    await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(), user_id: user.id, volume_ml: 250 }
     });
     ctx.answerCbQuery(t(lang, 'Water.saved', { vol: 250 }));
     ctx.reply(t(lang, 'Water.text', { vol: 250 }));
@@ -2756,8 +2750,7 @@ bot.action('water_500', async (ctx: any) => {
     if (!user) return ctx.answerCbQuery("Пользователь не найден.");
     const lang = (user as any).language || 'ru';
     
-    await prisma.hydrationLog.create({
-        data: { user_id: user.id, volume_ml: 500 }
+    await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(), user_id: user.id, volume_ml: 500 }
     });
     ctx.answerCbQuery(t(lang, 'Water.saved', { vol: 500 }));
     ctx.reply(t(lang, 'Water.text', { vol: 500 }));
@@ -2943,7 +2936,7 @@ export async function generateMarathonDailyReport(name?: string, squadId?: strin
         const activeSquadParticipants = await prisma.squadParticipant.findMany({
             where: squadId 
                 ? { squad_id: squadId } 
-                : { squad: { is_active: true } },
+                : { Squad: { is_active: true } },
             select: { user_id: true },
             distinct: ['user_id']
         });
@@ -3170,7 +3163,7 @@ const setTimezone = async (ctx: any, tz: string, text: string) => {
         });
         ctx.answerCbQuery();
         ctx.reply(t(lang, 'Settings.tzSaved', { tzName: text }));
-    } catch (e) {
+    } catch (e: any) {
         console.error("Save timezone error:", e);
         ctx.reply(t(lang, 'Settings.tzError'));
     }
@@ -3235,7 +3228,7 @@ const presetSave = async (ctx: any, t1: string | null, t2: string | null, t3: st
         ctx.answerCbQuery();
         const msg = lang === 'en' ? textEn : textRu;
         ctx.reply(t(lang, 'Settings.remSaved', { time: msg }));
-    } catch (e) {
+    } catch (e: any) {
         console.error("Save time error:", e);
         ctx.reply(t(lang, 'Settings.tzError'));
     }
@@ -3301,7 +3294,7 @@ bot.action(/call_human:(.+)/, async (ctx: any) => {
             if (messageId) {
                 await bot.telegram.forwardMessage(admin.telegram_id, ctx.chat.id, parseInt(messageId));
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error(`Failed to send support message to admin ${admin.id}`, e);
         }
     }
