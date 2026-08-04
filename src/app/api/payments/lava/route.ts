@@ -94,11 +94,21 @@ export async function POST(req: NextRequest) {
         const data = await response.json();
         console.log('[LAVA] Invoice created successfully:', JSON.stringify(data));
         
-        const paymentUrl = data.url || data.paymentUrl || data.data?.url;
+        let paymentUrl = data.url || data.paymentUrl || data.data?.url;
 
         if (!paymentUrl) {
              console.error('[LAVA] No payment URL returned in data:', JSON.stringify(data));
              return NextResponse.json({ error: 'Failed to generate payment link' }, { status: 500 });
+        }
+
+        // Try to force English language via query parameters
+        try {
+             const urlObj = new URL(paymentUrl);
+             urlObj.searchParams.set('lang', 'en');
+             urlObj.searchParams.set('locale', 'en');
+             paymentUrl = urlObj.toString();
+        } catch (e) {
+             // Ignore if URL parsing fails
         }
 
         return NextResponse.json({ 
