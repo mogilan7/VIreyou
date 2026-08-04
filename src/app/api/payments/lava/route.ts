@@ -59,19 +59,20 @@ export async function POST(req: NextRequest) {
         console.log(`[LAVA] Created pending transaction ${orderId} for user ${user.email}, plan: ${plan}`);
 
         // 2. Call Lava.top API to generate the invoice/checkout link
-        const response = await fetch('https://api.lava.top/v1/invoices', {
+        const response = await fetch('https://gate.lava.top/api/v3/invoice', {
             method: 'POST',
             headers: {
+                'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                'Authorization': apiKey // Usually just the API key without Bearer if it works, or Bearer. 400 means auth passed.
+                'X-Api-Key': apiKey 
             },
             body: JSON.stringify({
-                email: user.email || 'customer@vireyou.com', // Lava requires email
+                email: user.email || 'customer@vireyou.com', 
                 offerId: offerId,
-                orderId: orderId, // Some APIs allow custom orderId, we'll keep it just in case
-                customData: JSON.stringify({ userId: user.id, plan: plan }),
-                successUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?payment=success`,
-                failUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?payment=fail`
+                currency: 'USD', // API v3 might require currency, we will use USD since it's for foreigners
+                amount: amount,
+                // successUrl and failUrl are configured inside the product in Lava.top for v3 API
+                customData: JSON.stringify({ userId: user.id, plan: plan, orderId: orderId })
             })
         });
 
