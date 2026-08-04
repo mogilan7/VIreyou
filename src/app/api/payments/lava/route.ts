@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
 
         console.log(`[LAVA] Created pending transaction ${orderId} for user ${user.email}, plan: ${plan}`);
 
+        console.log(`[LAVA] Attempting to create invoice. OfferID: ${offerId}, API Key (first 5 chars): ${apiKey.substring(0,5)}...`);
+
         // 2. Call Lava.top API to generate the invoice/checkout link
         const response = await fetch('https://gate.lava.top/api/v3/invoice', {
             method: 'POST',
@@ -78,17 +80,18 @@ export async function POST(req: NextRequest) {
 
         if (!response.ok) {
             const errText = await response.text();
-            console.error('[LAVA] API Error from Lava.top:', response.status, errText);
+            console.error(`[LAVA] API Error from Lava.top. Status: ${response.status}. Body: ${errText}`);
+            console.error(`[LAVA] Request payload was: offerId=${offerId}, amount=${amount}`);
             return NextResponse.json({ error: `Lava API Error: ${response.status}` }, { status: 500 });
         }
 
         const data = await response.json();
-        console.log('[LAVA] Invoice created:', data);
+        console.log('[LAVA] Invoice created successfully:', JSON.stringify(data));
         
         const paymentUrl = data.url || data.paymentUrl || data.data?.url;
 
         if (!paymentUrl) {
-             console.error('[LAVA] No payment URL returned:', data);
+             console.error('[LAVA] No payment URL returned in data:', JSON.stringify(data));
              return NextResponse.json({ error: 'Failed to generate payment link' }, { status: 500 });
         }
 
