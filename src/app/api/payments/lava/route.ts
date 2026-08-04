@@ -27,7 +27,16 @@ export async function POST(req: NextRequest) {
         }
 
         const apiKey = process.env.LAVA_API_KEY;
-        const offerId = process.env.LAVA_PRO_OFFER_ID; // The specific product ID in Lava.top
+        
+        let offerId;
+        if (plan === 'PRO') {
+            offerId = process.env.LAVA_PRO_OFFER_ID;
+        } else if (plan === 'Standard') {
+            offerId = process.env.LAVA_STANDARD_OFFER_ID;
+        } else {
+            // Fallback to PRO or generic if not explicitly standard
+            offerId = process.env.LAVA_PRO_OFFER_ID;
+        }
 
         if (!apiKey || !offerId) {
             console.error('Lava.top credentials missing (API key or Offer ID)');
