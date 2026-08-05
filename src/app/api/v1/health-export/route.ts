@@ -30,6 +30,22 @@ export async function POST(req: NextRequest) {
     let avgHrv: number | null = null;
     let avgRestingHr: number | null = null;
     let steps = 0;
+    let calories: number | null = null;
+    let activeMinutes: number | null = null;
+
+    const parseNum = (val: unknown): number | null => {
+      if (val === null || val === undefined || val === '') return null;
+      const n = parseFloat(String(val).replace(',', '.'));
+      return isNaN(n) ? null : n;
+    };
+
+    const parseSamples = (val: unknown): number[] => {
+      if (!val) return [];
+      if (Array.isArray(val)) return (val as unknown[]).map(Number).filter(n => !isNaN(n));
+      if (typeof val === 'string') return val.replace(/[^\d.,]/g, ' ').split(/\s+/).map(s => parseFloat(s.replace(',', '.'))).filter(n => !isNaN(n));
+      if (typeof val === 'number') return [val];
+      return [];
+    };
 
     // 1. Process structured metrics array (if provided)
     if (metrics && Array.isArray(metrics)) {
@@ -44,8 +60,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      let hrvValues: number[] = [];
-      let hrValues: number[] = [];
+      const hrvValues: number[] = [];
+      const hrValues: number[] = [];
 
       for (const m of metrics) {
         const metricDate = new Date(m.date || m.startDate);
@@ -65,29 +81,37 @@ export async function POST(req: NextRequest) {
     } 
     // 2. Process flat dictionary (from simple Shortcuts)
     else {
-      const parseSamples = (val: any): number[] => {
-        if (!val) return [];
-        if (Array.isArray(val)) return val.map(Number).filter(n => !isNaN(n));
-        if (typeof val === 'string') return val.replace(/[^\d.,]/g, ' ').split(/\s+/).map(s => parseFloat(s.replace(',', '.'))).filter(n => !isNaN(n));
-        if (typeof val === 'number') return [val];
-        return [];
-      };
-
+      // HRV
       const hrvArr = parseSamples(rawHrv);
       if (hrvArr.length > 0) avgHrv = Math.round(hrvArr.reduce((a, b) => a + b, 0) / hrvArr.length);
 
+      // Resting HR
       const hrArr = parseSamples(rawRestingHr);
       if (hrArr.length > 0) avgRestingHr = Math.round(hrArr.reduce((a, b) => a + b, 0) / hrArr.length);
 
+      // Steps
       const stepsArr = parseSamples(rawSteps);
       if (stepsArr.length > 0) steps = Math.round(stepsArr.reduce((a, b) => a + b, 0));
+
+      // Sleep phases (Core, Deep, REM in seconds → convert to hours)
+      const coreSeconds = parseNum(body.Core) ?? 0;
+      const deepSeconds = parseNum(body.Deep) ?? 0;
+      const remSeconds = parseNum(body.REM) ?? 0;
+      const totalSleepSeconds = coreSeconds + deepSeconds + remSeconds;
+      if (totalSleepSeconds > 0) {
+        sleepDurationHrs = totalSleepSeconds / 3600;
+      }
+
+      // Calories & active minutes
+      calories = parseNum(body.calories);
+      activeMinutes = parseNum(body.active_minutes);
     }
 
     // Save to Database
     
     // 1. Update HealthData
     if (avgHrv || avgRestingHr || sleepDurationHrs > 0) {
-      const healthDataPayload: any = {};
+      const healthDataPayload: Record<string, unknown> = {};
       if (avgHrv) healthDataPayload.hrv_value = avgHrv;
       if (avgRestingHr) healthDataPayload.baseline_resting_hr = avgRestingHr;
       if (sleepDurationHrs > 0) healthDataPayload.sleep_duration_hrs = Number(sleepDurationHrs.toFixed(2));
@@ -122,24 +146,37 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Create ActivityLog if steps exist
-    if (steps > 0) {
+    if (steps > 0 || calories !== null || activeMinutes !== null) {
       await prisma.activityLog.create({
         data: {
           id: crypto.randomUUID(),
           user_id: user.id,
           date: new Date(),
           steps: steps,
+          ...(calories !== null ? { calories_burned: Math.round(calories) } : {}),
+          ...(activeMinutes !== null ? { active_minutes: Math.round(activeMinutes) } : {}),
         },
       });
     }
 
     // Notify user in Telegram
     if (user.telegram_id) {
+      const deepHrs = ((parseNum(body.Deep) ?? 0) / 3600).toFixed(1);
+      const remHrs = ((parseNum(body.REM) ?? 0) / 3600).toFixed(1);
+
       let message = `✅ Метрики здоровья успешно синхронизированы!\n\n`;
-      if (avgHrv) message += `💓 ВСР (во время сна): ${avgHrv} мс\n`;
-      if (avgRestingHr) message += `🫀 Пульс покоя (сон): ${avgRestingHr} уд/мин\n`;
-      if (sleepDurationHrs > 0) message += `😴 Сон: ${sleepDurationHrs.toFixed(1)} ч.\n`;
-      if (steps > 0) message += `👣 Шаги: ${steps}\n`;
+      if (avgHrv) message += `💓 ВСР: ${avgHrv} мс\n`;
+      if (avgRestingHr) message += `🫀 Пульс покоя: ${avgRestingHr} уд/мин\n`;
+      if (sleepDurationHrs > 0) {
+        message += `😴 Сон: ${sleepDurationHrs.toFixed(1)} ч.`;
+        if (parseFloat(deepHrs) > 0 || parseFloat(remHrs) > 0) {
+          message += ` (Глубокий: ${deepHrs}ч, REM: ${remHrs}ч)`;
+        }
+        message += `\n`;
+      }
+      if (steps > 0) message += `👣 Шаги: ${steps.toLocaleString('ru-RU')}\n`;
+      if (calories !== null) message += `🔥 Калории: ${Math.round(calories)}\n`;
+      if (activeMinutes !== null) message += `⚡️ Активность: ${Math.round(activeMinutes)} мин\n`;
 
       try {
         await bot.telegram.sendMessage(user.telegram_id, message);
