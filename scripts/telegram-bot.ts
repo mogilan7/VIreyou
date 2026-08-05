@@ -9,10 +9,8 @@ import cron from "node-cron";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
-if (process.env.DIRECT_URL) {
-  process.env.DATABASE_URL = process.env.DIRECT_URL;
-} else if (process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = process.env.DATABASE_URL + (process.env.DATABASE_URL.includes('?') ? '&' : '?') + 'connection_limit=30&pool_timeout=40';
+if (process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL + (process.env.DATABASE_URL.includes('?') ? '&' : '?') + 'connection_limit=2&pool_timeout=40';
 }
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -321,6 +319,41 @@ bot.action("advice_up", async (ctx: any) => {
 bot.action("advice_down", async (ctx: any) => {
   const lang = ctx.state.user?.lang || 'ru';
   await ctx.answerCbQuery(lang === 'en' ? "Thanks for your feedback! We will take it into account. 👎" : "Спасибо за отзыв! Учтем. 👎").catch(() => {});
+});
+
+// --- Health Export Shortcut ---
+bot.command('link', async (ctx: any) => {
+    try {
+        const telegramId = String(ctx.from.id);
+        let user = await prisma.user.findFirst({ where: { telegram_id: telegramId } });
+        
+        if (!user) {
+            return ctx.reply('Сначала зарегистрируйтесь командой /start.');
+        }
+
+        // Create a 16-character hex token
+        let token = user.health_export_token;
+        if (!token) {
+            token = crypto.randomBytes(8).toString('hex').toUpperCase();
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { health_export_token: token }
+            });
+        }
+
+        const msg = `🍏 **Интеграция с Apple Health**\n\n` +
+                    `Ваш уникальный токен для безопасной передачи данных:\n\n` +
+                    `\`${token}\`\n\n` +
+                    `**Инструкция:**\n` +
+                    `1. Скачайте Быструю команду (Shortcut) по ссылке (тут будет iCloud ссылка)\n` +
+                    `2. При установке вставьте ваш уникальный токен.\n` +
+                    `3. Готово! Команда будет собирать ВСР, пульс во время сна и шаги и отправлять их в наш сервис.`;
+
+        ctx.reply(msg, { parse_mode: 'Markdown' });
+    } catch (e: any) {
+        console.error("Health link error", e);
+        ctx.reply('Произошла ошибка при генерации токена.');
+    }
 });
 
 // --- Admin Stats ---
