@@ -178,16 +178,18 @@ export async function POST(req: NextRequest) {
     if (user.telegram_id) {
       const deepHrs = ((parseNum(body.Deep) ?? 0) / 3600).toFixed(1);
       const remHrs = ((parseNum(body.REM) ?? 0) / 3600).toFixed(1);
+      const coreHrs = ((parseNum(body.Core) ?? 0) / 3600).toFixed(1);
+      const awakeHrs = ((parseNum(body.Awake) ?? 0) / 3600).toFixed(1);
 
       let message = `✅ Метрики здоровья успешно синхронизированы!\n\n`;
       if (avgHrv) message += `💓 ВСР: ${avgHrv} мс\n`;
       if (avgRestingHr) message += `🫀 Пульс покоя: ${avgRestingHr} уд/мин\n`;
       if (sleepDurationHrs > 0) {
-        message += `😴 Сон: ${sleepDurationHrs.toFixed(1)} ч.`;
-        if (parseFloat(deepHrs) > 0 || parseFloat(remHrs) > 0) {
-          message += ` (Глубокий: ${deepHrs}ч, REM: ${remHrs}ч)`;
-        }
-        message += `\n`;
+        message += `😴 Сон: ${sleepDurationHrs.toFixed(1)} ч.\n`;
+        message += `├ Глубокий (Deep): ${deepHrs} ч.\n`;
+        message += `├ Быстрый (REM): ${remHrs} ч.\n`;
+        message += `├ Базовый (Core): ${coreHrs} ч.\n`;
+        message += `└ Пробуждения (Awake): ${awakeHrs} ч.\n\n`;
       }
       if (steps > 0) message += `👣 Шаги: ${steps.toLocaleString('ru-RU')}\n`;
       if (calories !== null) message += `🔥 Калории: ${Math.round(calories)}\n`;
