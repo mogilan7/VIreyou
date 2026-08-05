@@ -8,10 +8,10 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN as string);
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { token, metrics } = body;
+    const { token, metrics, steps: rawSteps, hrv: rawHrv, resting_hr: rawRestingHr } = body;
 
-    if (!token || !metrics || !Array.isArray(metrics)) {
-      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    if (!token) {
+      return NextResponse.json({ error: 'Missing token' }, { status: 400 });
     }
 
     // Find the user with this token
@@ -24,48 +24,64 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Parse metrics
     let sleepDurationHrs = 0;
     let sleepStart: Date | null = null;
     let sleepEnd: Date | null = null;
-
-    // Find sleep window first
-    for (const m of metrics) {
-      if (m.type === 'SleepAnalysis' && (m.value === 'Asleep' || m.value === 'InBed')) {
-        const start = new Date(m.startDate);
-        const end = new Date(m.endDate);
-        const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-        sleepDurationHrs += duration;
-        
-        if (!sleepStart || start < sleepStart) sleepStart = start;
-        if (!sleepEnd || end > sleepEnd) sleepEnd = end;
-      }
-    }
-
-    let hrvValues: number[] = [];
-    let hrValues: number[] = [];
+    let avgHrv: number | null = null;
+    let avgRestingHr: number | null = null;
     let steps = 0;
 
-    for (const m of metrics) {
-      const metricDate = new Date(m.date || m.startDate);
-      const isDuringSleep = sleepStart && sleepEnd ? (metricDate >= sleepStart && metricDate <= sleepEnd) : true; // If no sleep data, use all data sent
-
-      if (m.type === 'HRV' && isDuringSleep) {
-        hrvValues.push(Number(m.value));
-      } else if (m.type === 'RestingHeartRate' && isDuringSleep) {
-        hrValues.push(Number(m.value));
-      } else if (m.type === 'StepCount') {
-        steps += Number(m.value);
+    // 1. Process structured metrics array (if provided)
+    if (metrics && Array.isArray(metrics)) {
+      for (const m of metrics) {
+        if (m.type === 'SleepAnalysis' && (m.value === 'Asleep' || m.value === 'InBed')) {
+          const start = new Date(m.startDate);
+          const end = new Date(m.endDate);
+          const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+          sleepDurationHrs += duration;
+          if (!sleepStart || start < sleepStart) sleepStart = start;
+          if (!sleepEnd || end > sleepEnd) sleepEnd = end;
+        }
       }
-    }
 
-    const avgHrv = hrvValues.length > 0 
-      ? Math.round(hrvValues.reduce((a, b) => a + b, 0) / hrvValues.length) 
-      : null;
-      
-    const avgRestingHr = hrValues.length > 0 
-      ? Math.round(hrValues.reduce((a, b) => a + b, 0) / hrValues.length) 
-      : null;
+      let hrvValues: number[] = [];
+      let hrValues: number[] = [];
+
+      for (const m of metrics) {
+        const metricDate = new Date(m.date || m.startDate);
+        const isDuringSleep = sleepStart && sleepEnd ? (metricDate >= sleepStart && metricDate <= sleepEnd) : true;
+
+        if (m.type === 'HRV' && isDuringSleep) {
+          hrvValues.push(Number(m.value));
+        } else if (m.type === 'RestingHeartRate' && isDuringSleep) {
+          hrValues.push(Number(m.value));
+        } else if (m.type === 'StepCount') {
+          steps += Number(m.value);
+        }
+      }
+
+      if (hrvValues.length > 0) avgHrv = Math.round(hrvValues.reduce((a, b) => a + b, 0) / hrvValues.length);
+      if (hrValues.length > 0) avgRestingHr = Math.round(hrValues.reduce((a, b) => a + b, 0) / hrValues.length);
+    } 
+    // 2. Process flat dictionary (from simple Shortcuts)
+    else {
+      const parseSamples = (val: any): number[] => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val.map(Number).filter(n => !isNaN(n));
+        if (typeof val === 'string') return val.replace(/[^\d.,]/g, ' ').split(/\s+/).map(s => parseFloat(s.replace(',', '.'))).filter(n => !isNaN(n));
+        if (typeof val === 'number') return [val];
+        return [];
+      };
+
+      const hrvArr = parseSamples(rawHrv);
+      if (hrvArr.length > 0) avgHrv = Math.round(hrvArr.reduce((a, b) => a + b, 0) / hrvArr.length);
+
+      const hrArr = parseSamples(rawRestingHr);
+      if (hrArr.length > 0) avgRestingHr = Math.round(hrArr.reduce((a, b) => a + b, 0) / hrArr.length);
+
+      const stepsArr = parseSamples(rawSteps);
+      if (stepsArr.length > 0) steps = Math.round(stepsArr.reduce((a, b) => a + b, 0));
+    }
 
     // Save to Database
     
