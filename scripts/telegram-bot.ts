@@ -342,14 +342,14 @@ bot.command('link', async (ctx: any) => {
         }
 
         const msg = `🍏 **Интеграция с Apple Health**\n\n` +
-                    `Ваш уникальный токен для безопасной передачи данных:\n\n` +
-                    `\`${token}\`\n\n` +
+                    `Ваш уникальный токен для безопасной передачи данных отправлен следующим сообщением (нажмите на него, чтобы скопировать).\n\n` +
                     `**Инструкция:**\n` +
                     `1. Скачайте Быструю команду (Shortcut) по ссылке: https://www.icloud.com/shortcuts/a9cbe5dbca884cd5a2953efa4107eba9\n` +
                     `2. При установке вставьте ваш уникальный токен.\n` +
                     `3. Готово! Команда будет собирать ВСР, пульс во время сна и шаги и отправлять их в наш сервис.`;
 
-        ctx.reply(msg, { parse_mode: 'Markdown' });
+        await ctx.reply(msg, { parse_mode: 'Markdown', disable_web_page_preview: true });
+        await ctx.reply(`\`${token}\``, { parse_mode: 'Markdown' });
     } catch (e: any) {
         console.error("Health link error", e);
         ctx.reply('Произошла ошибка при генерации токена.');
