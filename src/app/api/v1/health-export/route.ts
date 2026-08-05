@@ -114,7 +114,14 @@ export async function POST(req: NextRequest) {
       const healthDataPayload: Record<string, unknown> = {};
       if (avgHrv) healthDataPayload.hrv_value = avgHrv;
       if (avgRestingHr) healthDataPayload.baseline_resting_hr = avgRestingHr;
-      if (sleepDurationHrs > 0) healthDataPayload.sleep_duration_hrs = Number(sleepDurationHrs.toFixed(2));
+      
+      if (sleepDurationHrs > 0) {
+        healthDataPayload.sleep_duration_hrs = Number(sleepDurationHrs.toFixed(2));
+        const deepSecs = parseNum(body.Deep) ?? 0;
+        const remSecs = parseNum(body.REM) ?? 0;
+        if (deepSecs > 0) healthDataPayload.deep_sleep_hrs = Number((deepSecs / 3600).toFixed(2));
+        if (remSecs > 0) healthDataPayload.rem_sleep_hrs = Number((remSecs / 3600).toFixed(2));
+      }
 
       if (user.HealthData) {
         await prisma.healthData.update({
@@ -133,12 +140,19 @@ export async function POST(req: NextRequest) {
 
     // 2. Create SleepLog if sleep data exists
     if (sleepDurationHrs > 0) {
+      const deepSecs = parseNum(body.Deep) ?? 0;
+      const remSecs = parseNum(body.REM) ?? 0;
+      const coreSecs = parseNum(body.Core) ?? 0;
+      
       await prisma.sleepLog.create({
         data: {
           id: crypto.randomUUID(),
           user_id: user.id,
           date: new Date(),
           duration_hrs: sleepDurationHrs,
+          deep_hrs: deepSecs > 0 ? Number((deepSecs / 3600).toFixed(2)) : null,
+          rem_hrs: remSecs > 0 ? Number((remSecs / 3600).toFixed(2)) : null,
+          light_hrs: coreSecs > 0 ? Number((coreSecs / 3600).toFixed(2)) : null,
           hrv: avgHrv,
           resting_heart_rate: avgRestingHr,
         },
