@@ -24,7 +24,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
         where: { email: authUser.email || undefined },
         include: {
             Transaction: { 
-                where: { type: { notIn: ['PENDING', 'PENDING_PRODAMUS'] } },
+                where: { type: { notIn: ['PENDING', 'PENDING_PRODAMUS', 'PENDING_LAVA'] } },
                 orderBy: { created_at: 'desc' }, 
                 take: 10 
             },
