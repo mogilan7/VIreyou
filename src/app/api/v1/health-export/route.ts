@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 import { Telegraf } from 'telegraf';
 import crypto from 'crypto';
 
-const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN as string);
+const bot = new Telegraf((process.env.TELEGRAM_BOT_TOKEN || '8648031032:AAFsHotkxGXhwNnUPNMED6Tqvbzwm--PXuY') as string);
 
 export async function POST(req: NextRequest) {
   try {
