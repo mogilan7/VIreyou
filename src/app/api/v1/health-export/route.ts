@@ -193,15 +193,17 @@ export async function POST(req: NextRequest) {
       if (activeMinutes !== null) message += `⚡️ Активность: ${Math.round(activeMinutes)} мин\n`;
 
       try {
-        await bot.telegram.sendMessage(user.telegram_id, message);
-      } catch (err) {
+        const msgRes = await bot.telegram.sendMessage(user.telegram_id, message);
+        return NextResponse.json({ success: true, telegram_response: msgRes });
+      } catch (err: any) {
         console.error('Failed to notify telegram user:', err);
+        return NextResponse.json({ success: true, telegram_error: err.message });
       }
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in health export:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
   }
 }
