@@ -4,9 +4,6 @@ import React from 'react';
 import { BarChart, Bar, ResponsiveContainer, Tooltip } from 'recharts';
 import { useDashboardTheme } from '../ThemeContext';
 
-import { format, subDays } from 'date-fns';
-import { enUS, ru } from 'date-fns/locale';
-
 interface SleepPhasesChartProps {
     sleepLogs?: any[];
 }
@@ -25,16 +22,26 @@ export default function SleepPhasesChart({ sleepLogs = [] }: SleepPhasesChartPro
     // Group logs by day (last 7 days)
     const today = new Date();
     const data = Array.from({ length: 7 }).map((_, i) => {
-        const d = subDays(today, 6 - i);
-        const dayStr = format(d, 'yyyy-MM-dd');
+        const d = new Date(today);
+        d.setDate(today.getDate() - (6 - i));
+        
+        // YYYY-MM-DD
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dayStr = `${year}-${month}-${day}`;
         
         // Find logs for this day
         const logsForDay = sleepLogs.filter(log => {
             if (!log.date) return false;
-            return format(new Date(log.date), 'yyyy-MM-dd') === dayStr;
+            const logDate = new Date(log.date);
+            const lYear = logDate.getFullYear();
+            const lMonth = String(logDate.getMonth() + 1).padStart(2, '0');
+            const lDay = String(logDate.getDate()).padStart(2, '0');
+            return `${lYear}-${lMonth}-${lDay}` === dayStr;
         });
 
-        // Sum up the phases for the day (if multiple entries, though usually one per day)
+        // Sum up the phases for the day
         let deep = 0;
         let rem = 0;
         let light = 0;
@@ -45,8 +52,10 @@ export default function SleepPhasesChart({ sleepLogs = [] }: SleepPhasesChartPro
             if (log.light_hrs) light += log.light_hrs;
         });
 
+        const ruDays = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
         return {
-            name: format(d, 'E', { locale: ru }), // e.g. "Пн", "Вт"
+            name: ruDays[d.getDay()], // e.g. "Пн", "Вт"
             deep: Number(deep.toFixed(2)),
             rem: Number(rem.toFixed(2)),
             light: Number(light.toFixed(2)),
