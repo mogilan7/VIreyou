@@ -327,8 +327,10 @@ async function handleAppleHealthLink(ctx: any) {
         const telegramId = String(ctx.from.id);
         let user = await prisma.user.findFirst({ where: { telegram_id: telegramId } });
         
+        const lang = ctx.state?.lang || user?.language || 'ru';
+
         if (!user) {
-            return ctx.reply('Сначала зарегистрируйтесь командой /start.');
+            return ctx.reply(lang === 'en' ? 'Please register first using /start command.' : 'Сначала зарегистрируйтесь командой /start.');
         }
 
         // Create a 16-character hex token
@@ -341,18 +343,32 @@ async function handleAppleHealthLink(ctx: any) {
             });
         }
 
-        const msg = `🍏 **Интеграция с Apple Health**\n\n` +
-                    `Ваш уникальный токен для безопасной передачи данных отправлен следующим сообщением (нажмите на него, чтобы скопировать).\n\n` +
-                    `**Инструкция:**\n` +
-                    `1. Скачайте Быструю команду (Shortcut) по ссылке: https://www.icloud.com/shortcuts/8df0593c18b14952926fd15bc3271777\n` +
-                    `2. При установке вставьте ваш уникальный токен.\n` +
-                    `3. Готово! Команда будет собирать ВСР, пульс во время сна и шаги и отправлять их в наш сервис.`;
+        // TODO: Replace with the actual English shortcut link when provided by the user
+        const shortcutLinkRu = 'https://www.icloud.com/shortcuts/8df0593c18b14952926fd15bc3271777';
+        const shortcutLinkEn = 'https://www.icloud.com/shortcuts/8df0593c18b14952926fd15bc3271777'; 
+
+        const msgRu = `🍏 **Интеграция с Apple Health**\n\n` +
+                      `Ваш уникальный токен для безопасной передачи данных отправлен следующим сообщением (нажмите на него, чтобы скопировать).\n\n` +
+                      `**Инструкция:**\n` +
+                      `1. Скачайте Быструю команду (Shortcut) по ссылке: ${shortcutLinkRu}\n` +
+                      `2. При установке вставьте ваш уникальный токен.\n` +
+                      `3. Готово! Команда будет собирать ВСР, пульс во время сна и шаги и отправлять их в наш сервис.`;
+                      
+        const msgEn = `🍏 **Apple Health Integration**\n\n` +
+                      `Your unique token for secure data transfer is sent in the next message (tap it to copy).\n\n` +
+                      `**Instructions:**\n` +
+                      `1. Download the Shortcut from this link: ${shortcutLinkEn}\n` +
+                      `2. Paste your unique token during installation.\n` +
+                      `3. All set! The shortcut will automatically collect HRV, sleeping heart rate, and steps, sending them to our service.`;
+
+        const msg = lang === 'en' ? msgEn : msgRu;
 
         await ctx.reply(msg, { parse_mode: 'Markdown', disable_web_page_preview: true });
         await ctx.reply(`\`${token}\``, { parse_mode: 'Markdown' });
     } catch (e: any) {
         console.error("Health link error", e);
-        ctx.reply('Произошла ошибка при генерации токена.');
+        const lang = ctx.state?.lang || 'ru';
+        ctx.reply(lang === 'en' ? 'An error occurred while generating the token.' : 'Произошла ошибка при генерации токена.');
     }
 }
 
