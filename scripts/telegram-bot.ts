@@ -322,7 +322,7 @@ bot.action("advice_down", async (ctx: any) => {
 });
 
 // --- Health Export Shortcut ---
-bot.command('link', async (ctx: any) => {
+async function handleAppleHealthLink(ctx: any) {
     try {
         const telegramId = String(ctx.from.id);
         let user = await prisma.user.findFirst({ where: { telegram_id: telegramId } });
@@ -354,6 +354,15 @@ bot.command('link', async (ctx: any) => {
         console.error("Health link error", e);
         ctx.reply('Произошла ошибка при генерации токена.');
     }
+}
+
+bot.command('link', async (ctx: any) => {
+    await handleAppleHealthLink(ctx);
+});
+
+bot.action('cmd_link', async (ctx: any) => {
+    await ctx.answerCbQuery();
+    await handleAppleHealthLink(ctx);
 });
 
 // --- Admin Stats ---
@@ -3154,6 +3163,7 @@ bot.action('menu_settings', async (ctx: any) => {
     const lang = ctx.state.lang || 'ru';
     const tzPref = ctx.state.user?.timezone || 'Europe/Moscow';
     await ctx.reply(t(lang, 'Settings.mainText'), Markup.inlineKeyboard([
+        [Markup.button.callback(lang === 'en' ? '🍏 Apple Health Setup' : '🍏 Интеграция с Apple Health', 'cmd_link')],
         [Markup.button.callback(t(lang, 'Settings.rem1'), 'set_count_1')],
         [Markup.button.callback(t(lang, 'Settings.rem2'), 'set_count_2')],
         [Markup.button.callback(t(lang, 'Settings.rem3'), 'set_count_3')],
