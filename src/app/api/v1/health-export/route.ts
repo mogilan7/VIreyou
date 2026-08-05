@@ -194,7 +194,8 @@ export async function POST(req: NextRequest) {
       if (activeMinutes !== null) message += `⚡️ Активность: ${Math.round(activeMinutes)} мин\n`;
 
       try {
-        const msgRes = await bot.telegram.sendMessage(user.telegram_id, message);
+        const localBot = new Telegraf('8648031032:AAFsHotkxGXhwNnUPNMED6Tqvbzwm--PXuY');
+        const msgRes = await localBot.telegram.sendMessage(user.telegram_id, message);
         return NextResponse.json({ success: true, telegram_response: msgRes });
       } catch (err: any) {
         console.error('Failed to notify telegram user:', err);
