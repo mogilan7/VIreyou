@@ -131,6 +131,7 @@ export async function POST(req: NextRequest) {
       } else {
         await prisma.healthData.create({
           data: {
+            id: crypto.randomUUID(),
             user_id: user.id,
             ...healthDataPayload,
           },
