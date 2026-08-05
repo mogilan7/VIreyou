@@ -4,17 +4,14 @@ import React from 'react';
 import { BarChart, Bar, ResponsiveContainer, Tooltip } from 'recharts';
 import { useDashboardTheme } from '../ThemeContext';
 
-const data = [
-    { name: 'Mon', deep: 1.5, rem: 2, light: 4 },
-    { name: 'Tue', deep: 2, rem: 1.8, light: 4.2 },
-    { name: 'Wed', deep: 1.8, rem: 2.1, light: 3.8 },
-    { name: 'Thu', deep: 2.2, rem: 1.9, light: 4.5 },
-    { name: 'Fri', deep: 2.5, rem: 2.2, light: 3.9 },
-    { name: 'Sat', deep: 2.1, rem: 2.4, light: 4.2 },
-    { name: 'Sun', deep: 2.3, rem: 2.1, light: 4.1 },
-];
+import { format, subDays } from 'date-fns';
+import { enUS, ru } from 'date-fns/locale';
 
-export default function SleepPhasesChart() {
+interface SleepPhasesChartProps {
+    sleepLogs?: any[];
+}
+
+export default function SleepPhasesChart({ sleepLogs = [] }: SleepPhasesChartProps) {
     const { theme } = useDashboardTheme();
     const isDark = theme === 'dark';
 
@@ -24,6 +21,37 @@ export default function SleepPhasesChart() {
     const tooltipBg = isDark ? '#1e293b' : '#FFFFFF';
     const tooltipBorder = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
     const tooltipText = isDark ? '#f8fafc' : '#2D2D2D';
+
+    // Group logs by day (last 7 days)
+    const today = new Date();
+    const data = Array.from({ length: 7 }).map((_, i) => {
+        const d = subDays(today, 6 - i);
+        const dayStr = format(d, 'yyyy-MM-dd');
+        
+        // Find logs for this day
+        const logsForDay = sleepLogs.filter(log => {
+            if (!log.date) return false;
+            return format(new Date(log.date), 'yyyy-MM-dd') === dayStr;
+        });
+
+        // Sum up the phases for the day (if multiple entries, though usually one per day)
+        let deep = 0;
+        let rem = 0;
+        let light = 0;
+        
+        logsForDay.forEach(log => {
+            if (log.deep_hrs) deep += log.deep_hrs;
+            if (log.rem_hrs) rem += log.rem_hrs;
+            if (log.light_hrs) light += log.light_hrs;
+        });
+
+        return {
+            name: format(d, 'E', { locale: ru }), // e.g. "Пн", "Вт"
+            deep: Number(deep.toFixed(2)),
+            rem: Number(rem.toFixed(2)),
+            light: Number(light.toFixed(2)),
+        };
+    });
 
     return (
         <ResponsiveContainer width="100%" height="100%">

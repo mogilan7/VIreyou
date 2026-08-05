@@ -825,7 +825,7 @@ export default function DashboardViews({ profile, testResults, healthData, bioma
                                     <span className={`${accentColor} italic`}>Gold Standard: 8.0h</span>
                                 </div>
                                 <div className="h-16 mt-2">
-                                    <SleepPhasesChart />
+                                    <SleepPhasesChart sleepLogs={sleepLogs} />
                                 </div>
                             </div>
 
