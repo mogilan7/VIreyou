@@ -827,6 +827,7 @@ model User {
   telegram_username                             String?
   health_export_token                           String?            @unique
   created_at                                    DateTime?          @default(now()) @db.Timestamptz(6)
+  dailyActionEnabled                            Boolean            @default(true)
   AccessPermission                              AccessPermission[]
   ActivityLog                                   ActivityLog[]
   BiomarkerResult                               BiomarkerResult[]
@@ -844,6 +845,7 @@ model User {
   User                                          User?              @relation("UserToUser", fields: [referrer_id], references: [id])
   other_User                                    User[]             @relation("UserToUser")
   AssistantMessage                              AssistantMessage[]
+  DailyActionLog                                DailyActionLog[]
 
   @@schema("public")
 }
@@ -1108,5 +1110,45 @@ model AssistantMessage {
   User       User     @relation(fields: [user_id], references: [id])
 
   @@index([user_id, created_at(sort: Desc)])
+  @@schema("public")
+}
+
+model TipContent {
+  id         String   @id @default(cuid())
+  area       String
+  kind       String   @default("deficit")
+  lang       String   @default("ru")
+  whyShort   String
+  whyFull    String
+  actionIdea String
+  active     Boolean  @default(true)
+  
+  @@unique([area, kind, lang])
+  @@schema("public")
+}
+
+model PatternContent {
+  id         String   @id @default(cuid())
+  patternId  String
+  lang       String   @default("ru")
+  whyShort   String
+  whyFull    String
+  actionIdea String
+  active     Boolean  @default(true)
+  
+  @@unique([patternId, lang])
+  @@schema("public")
+}
+
+model DailyActionLog {
+  id         String   @id @default(cuid())
+  userId     String
+  area       String
+  value      Float?
+  target     String?
+  created_at DateTime @default(now())
+  User       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, created_at(sort: Desc)])
   @@schema("public")
 }

@@ -24,6 +24,9 @@ export interface LifestyleContext {
       addedSugarPctKcal: number | null;
       iron: number | null;
       vitaminD: number | null;
+      avgSodiumMg: number | null;
+      avgSatFatPct: number | null;
+      avgTransFatPct: number | null;
     };
     habits: {
       smoking: boolean;
@@ -106,6 +109,9 @@ export async function aggregateUserContext(userId: string, days = 7): Promise<Li
         addedSugarPctKcal: avg(nutrition.map(n => (n.added_sugar && n.calories) ? ((n.added_sugar * 4) / n.calories) * 100 : null).filter(x => x !== null) as number[]),
         iron: avg(nutrition.map(n => n.iron || 0).filter(x => x > 0)),
         vitaminD: avg(nutrition.map(n => n.vitamin_D || 0).filter(x => x > 0)),
+        avgSodiumMg: avg(nutrition.map(n => n.sodium || 0).filter(x => x > 0)),
+        avgSatFatPct: null, // Saturated fat is not tracked yet
+        avgTransFatPct: avg(nutrition.map(n => (n.trans_fat && n.calories) ? ((n.trans_fat * 9) / n.calories) * 100 : null).filter(x => x !== null) as number[]),
       },
       habits: {
         smoking: hasSmoking,

@@ -1,9 +1,9 @@
 import { LifestyleContext } from "./context";
-import { GUIDELINES } from "./guidelines";
+import { GUIDELINES, UPPER_LIMITS } from "./guidelines";
 
 export interface Findings {
-  l1: Array<{ category: string; status: 'good' | 'improve' | 'no_data'; message: string }>;
-  l2: Array<{ metric: string; status: 'trend_up' | 'trend_down' | 'trend_stable' | 'no_data'; message: string }>;
+  l1: Array<{ category: string; status: 'good' | 'improve' | 'excess' | 'no_data'; message: string; value?: number; target?: string; severity?: string }>;
+  l2: Array<{ metric: string; status: 'trend_up' | 'trend_down' | 'trend_stable' | 'no_data'; message: string; value?: number; target?: string; severity?: string }>;
   l3: Array<{ marker: string; status: 'in_range' | 'out_of_range' | 'no_data'; message: string }>;
 }
 
@@ -77,6 +77,74 @@ export function evaluateLifestyle(ctx: LifestyleContext): Findings {
   } else {
     f.l3.push({ marker: "general", status: "no_data", message: "Нет загруженных анализов." });
   }
+  
+  // -- EVALUATE EXCESS --
+  evaluateExcess(ctx, f);
 
   return f;
+}
+
+function evaluateExcess(ctx: LifestyleContext, f: Findings): void {
+  // Sodium
+  if (ctx.l1.nutrition.avgSodiumMg != null) {
+    const isExcess = ctx.l1.nutrition.avgSodiumMg > UPPER_LIMITS.sodiumMgMax;
+    f.l1.push({
+      category: "sodium",
+      status: isExcess ? "excess" : "good",
+      message: isExcess ? `Натрий (${ctx.l1.nutrition.avgSodiumMg} мг) выше нормы.` : `Натрий в норме.`,
+      value: ctx.l1.nutrition.avgSodiumMg,
+      target: `≤${UPPER_LIMITS.sodiumMgMax} мг`,
+      severity: "low"
+    });
+  }
+
+  // Saturated Fat
+  if (ctx.l1.nutrition.avgSatFatPct != null) {
+    const isExcess = ctx.l1.nutrition.avgSatFatPct > UPPER_LIMITS.satFatPctKcalMax;
+    f.l1.push({
+      category: "saturated_fat",
+      status: isExcess ? "excess" : "good",
+      message: isExcess ? `Насыщенные жиры (${ctx.l1.nutrition.avgSatFatPct}%) выше нормы.` : `Насыщенные жиры в норме.`,
+      value: ctx.l1.nutrition.avgSatFatPct,
+      target: `≤${UPPER_LIMITS.satFatPctKcalMax}%`,
+      severity: "low"
+    });
+  }
+  
+  // Trans Fat
+  if (ctx.l1.nutrition.avgTransFatPct != null) {
+    const isExcess = ctx.l1.nutrition.avgTransFatPct > UPPER_LIMITS.transFatPctKcalMax;
+    f.l1.push({
+      category: "trans_fat",
+      status: isExcess ? "excess" : "good",
+      message: isExcess ? `Трансжиры (${ctx.l1.nutrition.avgTransFatPct}%) выше нормы.` : `Трансжиры в норме.`,
+      value: ctx.l1.nutrition.avgTransFatPct,
+      target: `≤${UPPER_LIMITS.transFatPctKcalMax}%`,
+      severity: "low"
+    });
+  }
+
+  // Added Sugar
+  if (ctx.l1.nutrition.addedSugarPctKcal != null) {
+    const isExcess = ctx.l1.nutrition.addedSugarPctKcal > UPPER_LIMITS.addedSugarMaxPctKcal;
+    f.l1.push({
+      category: "added_sugar",
+      status: isExcess ? "excess" : "good",
+      message: isExcess ? `Добавленный сахар (${ctx.l1.nutrition.addedSugarPctKcal}%) выше нормы.` : `Добавленный сахар в норме.`,
+      value: ctx.l1.nutrition.addedSugarPctKcal,
+      target: `≤${UPPER_LIMITS.addedSugarMaxPctKcal}%`,
+      severity: "low"
+    });
+  }
+
+  // Alcohol
+  if (ctx.l1.habits.alcohol) {
+    // If they drink alcohol, it's flagged as excess since there's no safe level
+    f.l1.push({
+      category: "alcohol",
+      status: "excess",
+      message: "Употребление алкоголя.",
+      severity: "low"
+    });
+  }
 }

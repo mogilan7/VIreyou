@@ -29,6 +29,7 @@ import { evaluateLifestyle } from "../src/lib/assistant/rules";
 import { safetyGate, postValidate } from "../src/lib/assistant/safety";
 import { generateAdvice } from "../src/lib/assistant/generate";
 import { calculateAllUserBaselines } from "../src/lib/assistant/baselines";
+import { generateDailyAction } from "../src/lib/assistant/daily_action";
 
 const ruMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/ru.json'), 'utf8'));
 const enMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/en.json'), 'utf8'));
@@ -2788,6 +2789,36 @@ cron.schedule('* * * * *', async () => {
                  }
              }
 
+             // --- Утренний Daily Action (09:00) ---
+             if (currentTime === '09:00' && (user as any).dailyActionEnabled) {
+                 try {
+                     const context = await aggregateUserContext(user.id, 7);
+                     const findings = evaluateLifestyle(context);
+                     const action = await generateDailyAction(context, findings);
+
+                     if (action && action.teaser && action.expansion) {
+                         // Cache expansion in memory or DB? No easy DB field for arbitrary payload, 
+                         // but we can just use `tempLog` or a new dict for expansions to keep it simple,
+                         // since it's ephemeral.
+                         tempLog[`daily_action_${user.id}`] = action.expansion;
+
+                         await bot.telegram.sendMessage(
+                             user.telegram_id!,
+                             action.teaser,
+                             {
+                                 parse_mode: 'HTML',
+                                 ...Markup.inlineKeyboard([
+                                     [Markup.button.callback(lang === 'en' ? '✨ Tell me more' : '✨ Подробнее', 'daily_action_expand')]
+                                 ])
+                             }
+                         );
+                         console.log(`[CRON] Daily action sent: ${user.full_name || user.email}`);
+                     }
+                 } catch (err: any) {
+                     console.error(`[CRON] Error sending daily action for ${user.id}:`, err);
+                 }
+             }
+
              // --- Периодический Отчет (11:00) ---
              if (currentTime === '11:00') {
                  const period = (user as any).report_period_days || 7;
@@ -2828,7 +2859,6 @@ cron.schedule('* * * * *', async () => {
     }
 });
 
-// Обработчики кнопок
 bot.action('menu_water', async (ctx: any) => {
     ctx.answerCbQuery();
     const lang = ctx.state.lang || 'ru';
@@ -2839,6 +2869,21 @@ bot.action('menu_water', async (ctx: any) => {
             [Markup.button.callback(t(lang, 'Water.btn750'), 'water_750')]
         ])
     );
+});
+
+bot.action('daily_action_expand', async (ctx: any) => {
+    const user = ctx.state.user;
+    if (!user) return ctx.answerCbQuery();
+
+    const expansion = tempLog[`daily_action_${user.id}`];
+    if (expansion) {
+        await ctx.answerCbQuery();
+        await ctx.reply(markdownToHtml(expansion), { parse_mode: "HTML" });
+        delete tempLog[`daily_action_${user.id}`];
+    } else {
+        const lang = user.language || 'ru';
+        await ctx.answerCbQuery(lang === 'en' ? "Action already viewed or expired." : "Подробности уже просмотрены или устарели.");
+    }
 });
 
 bot.action('water_750', async (ctx: any) => {
