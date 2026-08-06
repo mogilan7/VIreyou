@@ -117,25 +117,7 @@ bot.telegram.editMessageText = async (chatId: any, messageId: any, inlineMessage
     return originalEditMessageText(chatId, messageId, inlineMessageId, text, extra);
 };
 
-// Patch ctx.reply safely without triggering getters
-const origReply = bot.context.reply;
-bot.context.reply = async function (this: any, text: string, extra?: any) {
-    if (extra && extra.parse_mode === 'Markdown') {
-        text = markdownToHtml(text);
-        extra.parse_mode = 'HTML';
-    }
-    return origReply.call(this, text, extra);
-};
 
-// Patch ctx.editMessageText safely
-const origEdit = bot.context.editMessageText;
-bot.context.editMessageText = async function (this: any, text: string, extra?: any) {
-    if (extra && extra.parse_mode === 'Markdown') {
-        text = markdownToHtml(text);
-        extra.parse_mode = 'HTML';
-    }
-    return origEdit.call(this, text, extra);
-};
 
 /**
  * Скачивает файл по его TG file_id.
