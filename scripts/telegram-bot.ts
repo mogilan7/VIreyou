@@ -298,12 +298,21 @@ async function showLifestyleAnalysis(ctx: any) {
 
     const htmlText = markdownToHtml(safeText);
 
-    return ctx.reply(htmlText, {
+    await ctx.reply(htmlText, {
       parse_mode: "HTML",
       ...Markup.inlineKeyboard([
         [Markup.button.callback(btnUp, "advice_up"), Markup.button.callback(btnDown, "advice_down")]
       ])
     });
+
+    await prisma.assistantMessage.create({
+      data: {
+        user_id: user.id,
+        message: safeText
+      }
+    });
+
+    return;
   } catch (e: any) {
     console.error("Lifestyle analysis error:", e);
     return ctx.reply(user.language === 'en' ? "An error occurred while analyzing data. Please try again later." : "Произошла ошибка при анализе данных. Попробуй позже.");

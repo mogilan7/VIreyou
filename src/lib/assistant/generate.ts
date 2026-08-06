@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import prisma from "../../lib/prisma";
 import type { LifestyleContext } from "./context";
 import type { Findings } from "./rules";
 
@@ -98,8 +99,12 @@ export async function generateAdvice(ctx: LifestyleContext, findings: Findings):
     ? improve[dayOfYear() % improve.length].category
     : (findings.l1.length ? findings.l1[dayOfYear() % findings.l1.length].category : "sleep");
 
-  // TODO: Implement getRecentAssistantTexts when database table is available.
-  const recentMessages: string[] = [];
+  const recentRecords = await prisma.assistantMessage.findMany({
+    where: { user_id: ctx.user.id },
+    orderBy: { created_at: 'desc' },
+    take: 4,
+  });
+  const recentMessages: string[] = recentRecords.map(r => r.message).reverse();
 
   const content = JSON.stringify({
     lang: ctx.user.lang,

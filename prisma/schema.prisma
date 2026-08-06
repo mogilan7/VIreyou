@@ -843,6 +843,7 @@ model User {
   Transaction                                   Transaction[]
   User                                          User?              @relation("UserToUser", fields: [referrer_id], references: [id])
   other_User                                    User[]             @relation("UserToUser")
+  AssistantMessage                              AssistantMessage[]
 
   @@schema("public")
 }
@@ -1095,5 +1096,16 @@ enum target_platform {
   telegram
   max
 
+  @@schema("public")
+}
+
+model AssistantMessage {
+  id         String   @id @default(uuid())
+  user_id    String
+  message    String
+  created_at DateTime @default(now())
+  User       User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, created_at(sort: Desc)])
   @@schema("public")
 }

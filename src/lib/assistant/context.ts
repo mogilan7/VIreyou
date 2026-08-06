@@ -2,6 +2,7 @@ import prisma from "../prisma";
 
 export interface LifestyleContext {
   user: {
+    id: string;
     age: number | null;
     gender: string | null;
     weightKg: number | null;
@@ -75,6 +76,7 @@ export async function aggregateUserContext(userId: string, days = 7): Promise<Li
 
   return {
     user: {
+      id: userId,
       age: user?.age ?? null,
       gender: user?.gender ?? null,
       weightKg: user?.weight ?? null,
