@@ -117,6 +117,29 @@ bot.telegram.editMessageText = async (chatId: any, messageId: any, inlineMessage
     return originalEditMessageText(chatId, messageId, inlineMessageId, text, extra);
 };
 
+// Middleware to intercept ctx.reply and ctx.editMessageText
+bot.use((ctx: any, next) => {
+    const origReply = ctx.reply.bind(ctx);
+    ctx.reply = async (text: string, extra?: any) => {
+        if (extra && extra.parse_mode === 'Markdown') {
+            text = markdownToHtml(text);
+            extra.parse_mode = 'HTML';
+        }
+        return origReply(text, extra);
+    };
+
+    const origEdit = ctx.editMessageText.bind(ctx);
+    ctx.editMessageText = async (text: string, extra?: any) => {
+        if (extra && extra.parse_mode === 'Markdown') {
+            text = markdownToHtml(text);
+            extra.parse_mode = 'HTML';
+        }
+        return origEdit(text, extra);
+    };
+    
+    return next();
+});
+
 /**
  * Скачивает файл по его TG file_id.
  */
@@ -294,8 +317,10 @@ async function showLifestyleAnalysis(ctx: any) {
     const btnUp = lang === 'en' ? "👍 Helpful" : "👍 Полезно";
     const btnDown = lang === 'en' ? "👎 Inaccurate" : "👎 Не точно";
 
-    return ctx.reply(safeText, {
-      parse_mode: "Markdown",
+    const htmlText = markdownToHtml(safeText);
+
+    return ctx.reply(htmlText, {
+      parse_mode: "HTML",
       ...Markup.inlineKeyboard([
         [Markup.button.callback(btnUp, "advice_up"), Markup.button.callback(btnDown, "advice_down")]
       ])
