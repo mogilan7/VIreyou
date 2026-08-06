@@ -18,6 +18,7 @@ export interface LifestyleContext {
     activity: { avgSteps: number | null; activeMinPerWeek: number | null; strengthDays: number };
     hydration: { avgMl: number | null };
     nutrition: {
+      loggedDays: number;
       avgKcal: number | null;
       avgProteinG: number | null;
       avgFiberG: number | null;
@@ -103,6 +104,7 @@ export async function aggregateUserContext(userId: string, days = 7): Promise<Li
         avgMl: avg(hydration.map(h => h.volume_ml || 0).filter(v => v > 0)) 
       },
       nutrition: {
+        loggedDays: new Set(nutrition.map(n => n.date.toISOString().split('T')[0])).size,
         avgKcal: avg(nutrition.map(n => n.calories || 0).filter(c => c > 0)),
         avgProteinG: avg(nutrition.map(n => n.protein || 0).filter(p => p > 0)),
         avgFiberG: avg(nutrition.map(n => n.fiber || 0).filter(f => f > 0)),

@@ -395,8 +395,8 @@ async function handleAppleHealthLink(ctx: any) {
         }
 
         // TODO: Replace with the actual English shortcut link when provided by the user
-        const shortcutLinkRu = 'https://www.icloud.com/shortcuts/8df0593c18b14952926fd15bc3271777';
-        const shortcutLinkEn = 'https://www.icloud.com/shortcuts/8df0593c18b14952926fd15bc3271777'; 
+        const shortcutLinkRu = 'https://www.icloud.com/shortcuts/05a4fc92c6c04c83bb89c4be22045e44';
+        const shortcutLinkEn = 'https://www.icloud.com/shortcuts/8df0593c18b14952926fd15bc3271777'; // TODO: Update when EN link is ready
 
         const msgRu = `🍏 **Интеграция с Apple Health**\n\n` +
                       `Ваш уникальный токен для безопасной передачи данных отправлен следующим сообщением (нажмите на него, чтобы скопировать).\n\n` +
@@ -1236,6 +1236,18 @@ async function checkSubscription(ctx: any, user: any): Promise<boolean> {
   return checkSubscriptionLevel(ctx, user, 'standard');
 }
 
+// Вспомогательная функция для тихих проверок доступа к PRO-функциям (для cron)
+function hasProAccessSilent(user: any): boolean {
+  const hasActiveSub = user.subscription_expires_at && new Date(user.subscription_expires_at) > new Date();
+  const createdDate = user.created_at ? new Date(user.created_at) : new Date();
+  const daysSinceCreated = (new Date().getTime() - createdDate.getTime()) / (1000 * 3600 * 24);
+  const isTrial = daysSinceCreated <= 3;
+  if (isTrial) return true;
+  if (!hasActiveSub) return false;
+  const userPlan = (user.role === 'PRO' || user.role === 'admin' || user.role === 'employee') ? 'pro' : 'standard';
+  return userPlan === 'pro';
+}
+
 // Вспомогательная функция для отображения меню
 async function sendWelcomeMenu(ctx: any, user: any) {
   const imagePath = path.join(__dirname, '../public/bot_assistant_avatar.png');
@@ -1583,7 +1595,7 @@ bot.on('voice', async (ctx: any) => {
             let parsedData;
 
             if (logData.type === "NUTRITION" && logData.base64) {
-                const correctionText = `ПОПРАВКА ОТ ПОЛЬЗОВАТЕЛЯ к предыдущему анализу: "${text}". Предыдущий результат: ${previousData}. Пересчитай с учетом поправки.`;
+                const correctionText = `ПОПРАВКА ОТ ПОЛЬЗОВАТЕЛЯ к предыдущему анализу: "${text}". Предыдущий результат: ${previousData}. Пересчитай с учетом поправки. Если пользователь пишет, что вес или объем неверный, но не называет точную цифру — переоцени вес САМОСТОЯТЕЛЬНО (например, две маленькие голени весят ~150-200г, а не 450г).`;
                 const foodData = await analyzeFoodWithAI(logData.base64, correctionText, getUserLocalDate(ctx.state.user?.timezone), lang);
                 console.log(`[DEBUG] foodData from LOG_EDIT for user ${user.id}:`, JSON.stringify(foodData, null, 2));
                 if (foodData.status === "SUCCESS") {
@@ -1604,7 +1616,7 @@ bot.on('voice', async (ctx: any) => {
                     parsedData = { status: "ERROR", debug: foodData };
                 }
             } else {
-                parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON. ВЕРНИ ВСЕ ИНГРЕДИЕНТЫ И ИХ ВЕСА (grams) из предыдущего состояния, изменив только то, что просит пользователь!`, getUserLocalDate(ctx.state.user?.timezone), lang);
+                parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON. ВЕРНИ ВСЕ ИНГРЕДИЕНТЫ И ИХ ВЕСА (grams) из предыдущего состояния, изменив только то, что просит пользователь! Если пользователь оспаривает вес, но не дает точной цифры, ПЕРЕОЦЕНИ вес адекватно здравому смыслу (например, 2 маленькие голени = 150г)!`, getUserLocalDate(ctx.state.user?.timezone), lang);
             }
 
             if (parsedData.status === "SUCCESS") {
@@ -1827,7 +1839,7 @@ bot.on('text', async (ctx: any) => {
           let parsedData;
 
           if (logData.type === "NUTRITION" && logData.base64) {
-              const correctionText = `ПОПРАВКА ОТ ПОЛЬЗОВАТЕЛЯ к предыдущему анализу: "${text}". Предыдущий результат: ${previousData}. Пересчитай с учетом поправки.`;
+              const correctionText = `ПОПРАВКА ОТ ПОЛЬЗОВАТЕЛЯ к предыдущему анализу: "${text}". Предыдущий результат: ${previousData}. Пересчитай с учетом поправки. Если пользователь пишет, что вес или объем неверный, но не называет точную цифру — переоцени вес САМОСТОЯТЕЛЬНО (например, две маленькие голени весят ~150-200г, а не 450г).`;
               const foodData = await analyzeFoodWithAI(logData.base64, correctionText, getUserLocalDate(ctx.state.user?.timezone), lang);
               console.log(`[DEBUG] foodData from LOG_EDIT for user ${user.id}:`, JSON.stringify(foodData, null, 2));
               if (foodData.status === "SUCCESS") {
@@ -1848,7 +1860,7 @@ bot.on('text', async (ctx: any) => {
                   parsedData = { status: "ERROR", debug: foodData };
               }
           } else {
-              parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON. ВЕРНИ ВСЕ ИНГРЕДИЕНТЫ И ИХ ВЕСА (grams) из предыдущего состояния, изменив только то, что просит пользователь!`, getUserLocalDate(ctx.state.user?.timezone), lang);
+              parsedData = await analyzeTextWithAI(`Корректировка показателей. Предыдущее состояние: ${previousData}. Правки пользователя: "${text}". Пересчитай показатели заново и верни JSON. ВЕРНИ ВСЕ ИНГРЕДИЕНТЫ И ИХ ВЕСА (grams) из предыдущего состояния, изменив только то, что просит пользователь! Если пользователь оспаривает вес, но не дает точной цифры, ПЕРЕОЦЕНИ вес адекватно здравому смыслу (например, 2 маленькие голени = 150г)!`, getUserLocalDate(ctx.state.user?.timezone), lang);
           }
 
           if (parsedData.status === "SUCCESS") {
@@ -2875,6 +2887,12 @@ bot.action('daily_action_expand', async (ctx: any) => {
     const user = ctx.state.user;
     if (!user) return ctx.answerCbQuery();
 
+    if (!hasProAccessSilent(user)) {
+        const lang = user.language || 'ru';
+        const msg = lang === 'en' ? "The full analysis is part of PRO 🤍... let me open PRO for you 🌿" : "Полный разбор — часть PRO 🤍… открою для вас PRO 🌿";
+        return ctx.answerCbQuery(msg, { show_alert: true });
+    }
+
     const expansion = tempLog[`daily_action_${user.id}`];
     if (expansion) {
         await ctx.answerCbQuery();
@@ -3374,7 +3392,7 @@ bot.action('set_count_0', async (ctx: any) => {
     const lang = ctx.state.lang || 'ru';
     await prisma.user.update({
         where: { id: user.id },
-        data: { reminder_time1: null, reminder_time2: null, reminder_time3: null }
+        data: { reminder_time1: null, reminder_time2: null, reminder_time3: null, dailyActionEnabled: false }
     });
     ctx.answerCbQuery();
     ctx.reply(t(lang, 'Settings.remOff'));
@@ -3387,7 +3405,7 @@ const presetSave = async (ctx: any, t1: string | null, t2: string | null, t3: st
     try {
         await prisma.user.update({
             where: { id: user.id },
-            data: { reminder_time1: t1, reminder_time2: t2, reminder_time3: t3 }
+            data: { reminder_time1: t1, reminder_time2: t2, reminder_time3: t3, dailyActionEnabled: true }
         });
         ctx.answerCbQuery();
         const msg = lang === 'en' ? textEn : textRu;

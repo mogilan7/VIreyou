@@ -130,12 +130,17 @@ const LifestyleDashboard = ({
     { name: t('light'), value: Number((lastSleep?.light_hrs || ((lastSleep?.duration_hrs || 0) - (lastSleep?.deep_hrs || 0) - (lastSleep?.rem_hrs || 0))).toFixed(1)), color: '#93C5FD' },
   ].filter(d => d.value > 0);
 
-  // Nutrition Pie Data
+  // Nutrition Pie Data & Averages
+  const uniqueNutritionDays = new Set(nutritionToday.map((n: any) => getLocalDateString(new Date(n.created_at)))).size;
+  const numDays = Math.max(1, uniqueNutritionDays);
+
   const totalMacros = {
-    protein: nutritionToday.reduce((s: number, n: any) => s + Number(n.protein || 0), 0),
-    fat: nutritionToday.reduce((s: number, n: any) => s + Number(n.fat || 0), 0),
-    carbs: nutritionToday.reduce((s: number, n: any) => s + Number(n.carbs || 0), 0),
+    protein: nutritionToday.reduce((s: number, n: any) => s + Number(n.protein || 0), 0) / numDays,
+    fat: nutritionToday.reduce((s: number, n: any) => s + Number(n.fat || 0), 0) / numDays,
+    carbs: nutritionToday.reduce((s: number, n: any) => s + Number(n.carbs || 0), 0) / numDays,
   };
+  const displayCalories = Math.round(totalCalories / numDays);
+  
   const nutritionPieData = [
     { name: t('proteins'), value: totalMacros.protein },
     { name: t('fats'), value: totalMacros.fat },
@@ -316,7 +321,7 @@ const LifestyleDashboard = ({
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-lg sm:text-xl md:text-2xl font-bold">{totalCalories > 1000 ? (totalCalories/1000).toFixed(1) + 'k' : totalCalories}</span>
+                <span className="text-lg sm:text-xl md:text-2xl font-bold">{displayCalories > 1000 ? (displayCalories/1000).toFixed(1) + 'k' : displayCalories}</span>
                 <span className="text-[9px] sm:text-[10px] md:text-xs text-slate-500">{t('kcal')}</span>
               </div>
             </div>
@@ -325,7 +330,7 @@ const LifestyleDashboard = ({
               <MacroItem label={t('proteins')} current={totalMacros.protein} target={nutritionNorms.protein.norm} color={MACRO_COLORS.proteins} unit={t('unitGram')} />
               <MacroItem label={t('fats')} current={totalMacros.fat} target={nutritionNorms.fat.norm} color={MACRO_COLORS.fats} unit={t('unitGram')} />
               <MacroItem label={t('carbs')} current={totalMacros.carbs} target={nutritionNorms.carbs.norm} color={MACRO_COLORS.carbs} unit={t('unitGram')} />
-              <MacroItem label={t('fiber')} current={nutritionToday.reduce((s: number, n: any) => s + Number(n.fiber || 0), 0)} target={nutritionNorms.fiber.norm} color={MACRO_COLORS.fiber} unit={t('unitGram')} />
+              <MacroItem label={t('fiber')} current={nutritionToday.reduce((s: number, n: any) => s + Number(n.fiber || 0), 0) / numDays} target={nutritionNorms.fiber.norm} color={MACRO_COLORS.fiber} unit={t('unitGram')} />
             </div>
           </div>
 
@@ -336,11 +341,23 @@ const LifestyleDashboard = ({
               </summary>
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-[10px] text-gray-500 dark:text-slate-400 bg-white/30 dark:bg-black/10 p-3 rounded-2xl border border-white/10">
                   {Object.entries(nutritionNorms).map(([key, config]: any) => {
-                      const val = nutritionToday.reduce((sum: number, n: any) => sum + Number(n[key] || 0), 0);
+                      const totalVal = nutritionToday.reduce((sum: number, n: any) => sum + Number(n[key] || 0), 0);
+                      const val = totalVal / numDays;
                       const pct = (val / config.norm) * 100;
                       let emoji = '🔴';
-                      if (pct >= 80) emoji = '🟢';
-                      else if (pct >= 50) emoji = '🟡';
+                      
+                      // For max limit nutrients (sugar, saturated fat, cholesterol, sodium)
+                      const isMaxLimit = ['sugar_fast', 'added_sugar', 'trans_fat', 'cholesterol', 'sodium'].includes(key);
+                      
+                      if (isMaxLimit) {
+                          if (pct <= 100) emoji = '🟢';
+                          else if (pct <= 120) emoji = '🟡';
+                      } else {
+                          // Normal minimum goals
+                          if (pct >= 80 && pct <= 200) emoji = '🟢';
+                          else if (pct >= 50 && pct <= 250) emoji = '🟡';
+                      }
+                      
                       return (
                           <div key={key} className="flex justify-between items-center py-1 px-2 hover:bg-white/40 dark:hover:bg-white/5 rounded-lg transition-colors border-b border-slate-100/50 dark:border-white/5 last:border-0 sm:border-0">
                               <span className="truncate pr-2">{emoji} {nutrientNames[key]}</span>

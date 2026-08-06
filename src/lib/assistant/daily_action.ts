@@ -3,6 +3,8 @@ import prisma from "../../lib/prisma";
 import type { LifestyleContext } from "./context";
 import type { Findings } from "./rules";
 import { Pattern, detectPatterns } from "./patterns";
+import { safetyGate } from "./safety";
+import { pickReliableFocus, buildKnowledge, validateGrounding, KNOWLEDGE_INSTRUCTION, assessReliability, applyReliability } from "./grounding";
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.BOT_OPENAI_API_KEY || process.env.OPENAI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
@@ -34,8 +36,6 @@ const SYSTEM_PROMPT = `Ты — копирайтер VIReyou. Твоя зада�
   "expansion": "Текст расширенного сообщения"
 }`;
 
-import { safetyGate } from "./safety";
-
 export async function generateDailyAction(ctx: LifestyleContext, findings: Findings): Promise<DailyActionContent | null> {
   if (!apiKey) {
     console.error("No LLM API key configured");
@@ -55,92 +55,84 @@ export async function generateDailyAction(ctx: LifestyleContext, findings: Findi
   });
   const recentAreas = new Set(recentLogs.map(l => l.area));
 
-  // 2. Select insight (Pattern or Finding)
-  const patterns = detectPatterns(findings, ctx);
-  let selectedInsight: { isPattern: boolean, areaOrId: string, value?: number, target?: string, kind: string } | null = null;
+  // 2. Adjust findings for reliability and select insight (Pattern or Finding)
+  const r = assessReliability(ctx);
+  const adjustedL1 = applyReliability(findings.l1, r);
+  const adjustedFindings: Findings = { l1: adjustedL1, l2: findings.l2, l3: findings.l3 };
   
-  // Try pattern first
-  for (const p of patterns) {
-    if (!recentAreas.has(p.id)) {
-      selectedInsight = { isPattern: true, areaOrId: p.id, kind: p.severity };
-      break;
-    }
-  }
+  const patterns = detectPatterns(adjustedFindings, ctx);
+  const focus = await pickReliableFocus(adjustedFindings, patterns, ctx, recentAreas, prisma);
 
-  // Fallback to L1
-  if (!selectedInsight) {
-    const l1Candidates = findings.l1.filter(f => f.status === "improve" || f.status === "excess");
-    for (const c of l1Candidates) {
-      if (!recentAreas.has(c.category)) {
-         selectedInsight = { isPattern: false, areaOrId: c.category, value: c.value, target: c.target, kind: c.status };
-         break;
-      }
-    }
-  }
-  
-  // Fallback to general if nothing actionable or everything was recently sent
-  if (!selectedInsight) {
-    selectedInsight = { isPattern: false, areaOrId: "general", kind: "general" };
-  }
-
-  // 3. Fetch from DB
-  let knowledge: any = null;
-  if (selectedInsight.isPattern) {
-    knowledge = await prisma.patternContent.findFirst({
-      where: { patternId: selectedInsight.areaOrId, lang: ctx.user.lang }
-    });
-  } else {
-    knowledge = await prisma.tipContent.findFirst({
-      where: { area: selectedInsight.areaOrId, lang: ctx.user.lang, kind: selectedInsight.kind }
-    });
-    // Fallback if not found for specific kind
-    if (!knowledge) {
-        knowledge = await prisma.tipContent.findFirst({
-            where: { area: "general", lang: ctx.user.lang }
-        });
-    }
-  }
-
-  if (!knowledge) {
+  if (!focus) {
+      // Should not send onboarding today due to cooldown
       return null;
   }
 
-  // 4. Generate with LLM
+  // 3. Fetch full KNOWLEDGE from DB
+  const knowledge = await buildKnowledge(prisma, focus, ctx.user.lang);
+  if (!knowledge) {
+      console.error("No knowledge found in DB for focus:", focus);
+      return null;
+  }
+
+  // 4. Generate with LLM (with retry loop for grounding validation)
+  const system = `${SYSTEM_PROMPT}\n\n${KNOWLEDGE_INSTRUCTION}`;
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
     generationConfig: { temperature: 0.6, responseMimeType: "application/json" }
   });
 
   const payload = {
-      area: selectedInsight.areaOrId,
+      area: focus.areaOrId,
       whyShort: knowledge.whyShort,
       whyFull: knowledge.whyFull,
       actionIdea: knowledge.actionIdea,
-      currentValue: selectedInsight.value,
-      targetValue: selectedInsight.target
+      currentValue: focus.value,
+      targetValue: focus.target
   };
 
+  let out: DailyActionContent;
+  
   try {
-      const result = await model.generateContent([
-          { text: SYSTEM_PROMPT },
+      let result = await model.generateContent([
+          { text: system },
           { text: JSON.stringify(payload) }
       ]);
-      const jsonRes = JSON.parse(result.response.text());
+      let jsonRes = JSON.parse(result.response.text());
+      out = { teaser: jsonRes.teaser, expansion: jsonRes.expansion };
+
+      let check = validateGrounding(out.teaser + "\n" + out.expansion, { findings: adjustedL1, knowledge });
       
+      if (!check.ok) {
+          console.warn("Grounding issues detected:", check.issues, "- Retrying generation...");
+          
+          // One retry
+          result = await model.generateContent([
+              { text: system },
+              { text: JSON.stringify(payload) }
+          ]);
+          jsonRes = JSON.parse(result.response.text());
+          out = { teaser: jsonRes.teaser, expansion: jsonRes.expansion };
+          check = validateGrounding(out.teaser + "\n" + out.expansion, { findings: adjustedL1, knowledge });
+          
+          if (!check.ok) {
+              console.warn("Grounding issues persisted after retry:", check.issues, "- Falling back to curated text.");
+              // Fallback without free generation
+              out = { teaser: knowledge.whyShort, expansion: knowledge.whyFull + "\n\n" + knowledge.actionIdea };
+          }
+      }
+
       // Log the action
       await prisma.dailyActionLog.create({
           data: {
               userId: ctx.user.id,
-              area: selectedInsight.areaOrId,
-              value: selectedInsight.value,
-              target: selectedInsight.target
+              area: focus.areaOrId,
+              value: focus.value || null,
+              target: focus.target || null
           }
       });
 
-      return {
-          teaser: jsonRes.teaser,
-          expansion: jsonRes.expansion
-      };
+      return out;
   } catch (e) {
       console.error("Daily Action generation failed", e);
       return null;
