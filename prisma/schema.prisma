@@ -1103,6 +1103,7 @@ model AssistantMessage {
   id         String   @id @default(uuid())
   user_id    String
   message    String
+  feedback   String?
   created_at DateTime @default(now())
   User       User     @relation(fields: [user_id], references: [id])
 

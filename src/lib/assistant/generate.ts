@@ -11,7 +11,9 @@ const SYSTEM_PROMPT = `Ты — тёплый ассистент-собеседн
 Тон: спокойный, мягкий, внимательный, с тёплым любопытством к организму.
 
 Тебе передают ГОТОВЫЙ разбор данных (findings) по 3 уровням, а также recentMessages
-(твои последние сообщения) и focusArea (тема дня для углублённого разбора).
+(твои последние сообщения вместе с оценками пользователя) и focusArea (тема дня).
+Если в recentMessages пользователь поставил 👎 (feedback: 'down'), обязательно смени подход,
+тональность или тему — не предлагай то же самое и учти, что прошлый формат не подошёл.
 НЕ пересчитывай цифры и НЕ придумывай пороги.
 
 ОБРАЩЕНИЕ И ГОЛОС:
@@ -104,7 +106,10 @@ export async function generateAdvice(ctx: LifestyleContext, findings: Findings):
     orderBy: { created_at: 'desc' },
     take: 4,
   });
-  const recentMessages: string[] = recentRecords.map(r => r.message).reverse();
+  const recentMessages = recentRecords.map(r => ({
+    message: r.message,
+    feedback: r.feedback === 'up' ? '👍 Понравилось' : (r.feedback === 'down' ? '👎 Не точно/Не понравилось' : 'Без оценки')
+  })).reverse();
 
   const content = JSON.stringify({
     lang: ctx.user.lang,

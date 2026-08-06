@@ -327,10 +327,47 @@ bot.action("lifestyle_analyze", async (ctx: any) => {
 
 bot.action("advice_up", async (ctx: any) => {
   const lang = ctx.state.user?.lang || 'ru';
+  
+  if (ctx.from?.id) {
+    const telegramId = String(ctx.from.id);
+    const user = await prisma.user.findFirst({ where: { telegram_id: telegramId } });
+    if (user) {
+      const lastMessage = await prisma.assistantMessage.findFirst({
+        where: { user_id: user.id },
+        orderBy: { created_at: 'desc' }
+      });
+      if (lastMessage) {
+        await prisma.assistantMessage.update({
+          where: { id: lastMessage.id },
+          data: { feedback: "up" }
+        });
+      }
+    }
+  }
+
   await ctx.answerCbQuery(lang === 'en' ? "Thanks for your feedback! 👍" : "Спасибо за отзыв! 👍").catch(() => {});
 });
+
 bot.action("advice_down", async (ctx: any) => {
   const lang = ctx.state.user?.lang || 'ru';
+
+  if (ctx.from?.id) {
+    const telegramId = String(ctx.from.id);
+    const user = await prisma.user.findFirst({ where: { telegram_id: telegramId } });
+    if (user) {
+      const lastMessage = await prisma.assistantMessage.findFirst({
+        where: { user_id: user.id },
+        orderBy: { created_at: 'desc' }
+      });
+      if (lastMessage) {
+        await prisma.assistantMessage.update({
+          where: { id: lastMessage.id },
+          data: { feedback: "down" }
+        });
+      }
+    }
+  }
+
   await ctx.answerCbQuery(lang === 'en' ? "Thanks for your feedback! We will take it into account. 👎" : "Спасибо за отзыв! Учтем. 👎").catch(() => {});
 });
 
