@@ -117,28 +117,25 @@ bot.telegram.editMessageText = async (chatId: any, messageId: any, inlineMessage
     return originalEditMessageText(chatId, messageId, inlineMessageId, text, extra);
 };
 
-// Middleware to intercept ctx.reply and ctx.editMessageText
-bot.use((ctx: any, next) => {
-    const origReply = ctx.reply.bind(ctx);
-    ctx.reply = async (text: string, extra?: any) => {
-        if (extra && extra.parse_mode === 'Markdown') {
-            text = markdownToHtml(text);
-            extra.parse_mode = 'HTML';
-        }
-        return origReply(text, extra);
-    };
+// Patch ctx.reply safely without triggering getters
+const origReply = bot.context.reply;
+bot.context.reply = async function (this: any, text: string, extra?: any) {
+    if (extra && extra.parse_mode === 'Markdown') {
+        text = markdownToHtml(text);
+        extra.parse_mode = 'HTML';
+    }
+    return origReply.call(this, text, extra);
+};
 
-    const origEdit = ctx.editMessageText.bind(ctx);
-    ctx.editMessageText = async (text: string, extra?: any) => {
-        if (extra && extra.parse_mode === 'Markdown') {
-            text = markdownToHtml(text);
-            extra.parse_mode = 'HTML';
-        }
-        return origEdit(text, extra);
-    };
-    
-    return next();
-});
+// Patch ctx.editMessageText safely
+const origEdit = bot.context.editMessageText;
+bot.context.editMessageText = async function (this: any, text: string, extra?: any) {
+    if (extra && extra.parse_mode === 'Markdown') {
+        text = markdownToHtml(text);
+        extra.parse_mode = 'HTML';
+    }
+    return origEdit.call(this, text, extra);
+};
 
 /**
  * Скачивает файл по его TG file_id.
