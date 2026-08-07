@@ -86,47 +86,66 @@ function dayOfYear(): number {
   return Math.floor(diff / oneDay);
 }
 
-export async function generateAdvice(ctx: LifestyleContext, findings: Findings): Promise<string> {
-  if (!apiKey) return "Ой, я не могу подключиться к своим нейросетям (нет ключа API).";
+import { generateDailyReviewCard } from "./daily_review";
+import { generateNutrientAssessment } from "./nutrient_assessment";
+
+const DAILY_REVIEW_PROMPT = `Ты — тёплый ассистент-собеседник VIReyou, голос заботливого эксперта.
+Тебе передают контракт (JSON) ежедневного разбора (Module A).
+Контракт содержит уровень детализации (ladder_state) и блоки карточки (card_blocks).
+
+Твоя задача — написать короткое ежедневное сообщение для пользователя, следуя правилам:
+- Обращение: мягкое "я замечаю", "вижу в ваших данных". На "вы", но без официоза.
+- Ключевое слово "организм" (хотя бы 1 раз).
+- Короткие абзацы (1-2 строки), минимум форматирования.
+- Отвечай в соответствии с ladder_state (если level_1_full - делай полный разбор с похвалой и зоной роста. Если level_6_nudge - просто короткое напоминание без нотаций).
+- Не используй дашборды, смайлы типа 🟢🟡🔴.
+- Объем: до 600 знаков.`;
+
+const NUTRIENT_PROMPT = `Ты — PRO-модуль оценки нутриентов VIReyou.
+Тебе передают контракт (JSON) периодического разбора (Module B).
+Если стоит sufficient: false, ты НЕ даешь выводов по этому слою, а объясняешь, что данных недостаточно (согласно rules).
+Если sufficient: true, ты аккуратно подсвечиваешь тренды.
+
+Правила:
+- Тон экспертный, но теплый.
+- Никаких медицинских диагнозов.
+- Обязательно выведи блок "disclosure" из контракта.
+- Объем: 1000-1500 знаков.`;
+
+export async function generateDailyReview(userId: string): Promise<string> {
+  if (!apiKey) return "Ой, я не могу подключиться к своим нейросетям.";
   
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
-    generationConfig: {
-      temperature: 0.7,
-    }
-  });
-
-  const improve = findings.l1.filter(f => f.status === "improve");
-  const focusArea = improve.length
-    ? improve[dayOfYear() % improve.length].category
-    : (findings.l1.length ? findings.l1[dayOfYear() % findings.l1.length].category : "sleep");
-
-  const recentRecords = await prisma.assistantMessage.findMany({
-    where: { user_id: ctx.user.id },
-    orderBy: { created_at: 'desc' },
-    take: 4,
-  });
-  const recentMessages = recentRecords.map(r => ({
-    message: r.message,
-    feedback: r.feedback === 'up' ? '👍 Понравилось' : (r.feedback === 'down' ? '👎 Не точно/Не понравилось' : 'Без оценки')
-  })).reverse();
-
-  const content = JSON.stringify({
-    lang: ctx.user.lang,
-    flags: ctx.user.conditionsFlags,
-    recentMessages,
-    focusArea,
-    findings,
-  });
-
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { temperature: 0.7 } });
+  
+  const contract = await generateDailyReviewCard(userId);
+  
   try {
     const result = await model.generateContent([
-      { text: SYSTEM_PROMPT },
-      { text: `Входные данные:\n${content}` }
+      { text: DAILY_REVIEW_PROMPT },
+      { text: \`Входные данные (JSON контракта):\n\${JSON.stringify(contract, null, 2)}\` }
     ]);
     return result.response.text();
   } catch (error) {
-    console.error("Failed to generate advice:", error);
-    return "Произошла ошибка при формировании разбора. Пожалуйста, попробуй позже.";
+    console.error("Failed to generate daily review:", error);
+    return "Произошла ошибка при формировании разбора.";
+  }
+}
+
+export async function generateNutrientReview(userId: string, forceShow: boolean = false): Promise<string> {
+  if (!apiKey) return "Ой, я не могу подключиться к своим нейросетям.";
+  
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { temperature: 0.7 } });
+  
+  const contract = await generateNutrientAssessment(userId, 14, forceShow);
+  
+  try {
+    const result = await model.generateContent([
+      { text: NUTRIENT_PROMPT },
+      { text: \`Входные данные (JSON контракта):\n\${JSON.stringify(contract, null, 2)}\` }
+    ]);
+    return result.response.text();
+  } catch (error) {
+    console.error("Failed to generate nutrient review:", error);
+    return "Произошла ошибка при формировании нутриентной оценки.";
   }
 }

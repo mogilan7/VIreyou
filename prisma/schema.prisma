@@ -828,6 +828,7 @@ model User {
   health_export_token                           String?            @unique
   created_at                                    DateTime?          @default(now()) @db.Timestamptz(6)
   dailyActionEnabled                            Boolean            @default(true)
+  dailyReviewEnabled                            Boolean            @default(true)
   AccessPermission                              AccessPermission[]
   ActivityLog                                   ActivityLog[]
   BiomarkerResult                               BiomarkerResult[]
@@ -846,6 +847,11 @@ model User {
   other_User                                    User[]             @relation("UserToUser")
   AssistantMessage                              AssistantMessage[]
   DailyActionLog                                DailyActionLog[]
+  DomainBaseline                                DomainBaseline[]
+  NutrientCalc                                  NutrientCalc?
+  AdviceLog                                     AdviceLog[]
+  EngagementState                               EngagementState[]
+  DisclosureLog                                 DisclosureLog[]
 
   @@schema("public")
 }
@@ -1118,6 +1124,8 @@ model TipContent {
   area       String
   kind       String   @default("deficit")
   lang       String   @default("ru")
+  genre      String   @default("daily")
+  domain     String?
   whyShort   String
   whyFull    String
   actionIdea String
@@ -1131,6 +1139,8 @@ model PatternContent {
   id         String   @id @default(cuid())
   patternId  String
   lang       String   @default("ru")
+  genre      String   @default("daily")
+  domain     String?
   whyShort   String
   whyFull    String
   actionIdea String
@@ -1152,3 +1162,66 @@ model DailyActionLog {
   @@index([userId, created_at(sort: Desc)])
   @@schema("public")
 }
+
+model DomainBaseline {
+  id        String   @id @default(cuid())
+  userId    String
+  domain    String
+  median    Float
+  points    Int
+  window    Int
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, domain])
+  @@schema("public")
+}
+
+model NutrientCalc {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  window    Int
+  updatedAt DateTime @updatedAt
+  data      Json
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@schema("public")
+}
+
+model AdviceLog {
+  id            String   @id @default(cuid())
+  userId        String
+  date          DateTime @db.Date
+  target_metric String
+  verifiable    Boolean
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, date])
+  @@schema("public")
+}
+
+model EngagementState {
+  id                     String   @id @default(cuid())
+  userId                 String
+  domain                 String
+  status                 String   // "stable", "decaying", "never"
+  empty_streak           Int      @default(0)
+  days_since_last_nudge  Int      @default(0)
+  recovery_streak        Int      @default(0)
+  updatedAt              DateTime @updatedAt
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, domain])
+  @@schema("public")
+}
+
+model DisclosureLog {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@schema("public")
+}
+

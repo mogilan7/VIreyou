@@ -27,7 +27,7 @@ import { generatePeriodicReport } from "../src/lib/reportGenerator";
 import { aggregateUserContext } from "../src/lib/assistant/context";
 import { evaluateLifestyle } from "../src/lib/assistant/rules";
 import { safetyGate, postValidate } from "../src/lib/assistant/safety";
-import { generateAdvice } from "../src/lib/assistant/generate";
+import { generateDailyReview, generateNutrientReview } from "../src/lib/assistant/generate";
 import { calculateAllUserBaselines } from "../src/lib/assistant/baselines";
 import { generateDailyAction } from "../src/lib/assistant/daily_action";
 
@@ -287,9 +287,7 @@ async function showLifestyleAnalysis(ctx: any) {
       return ctx.reply(gate.message || (lang === 'en' ? "Safety error." : "Ошибка безопасности."));
     }
 
-    const findings = evaluateLifestyle(context);
-    const text = await generateAdvice(context, findings);
-    const safeText = postValidate(text, lang);
+    const safeText = await generateNutrientReview(user.id, false);
 
     // Временно логируем в консоль вместо БД (так как таблица AssistantMessage еще не создана)
     console.log(`[ASSISTANT LOG] User: ${user.id}, Findings:`, findings);
@@ -2636,6 +2634,27 @@ cron.schedule('* * * * *', async () => {
         minute: '2-digit' 
     });
 
+    // --- Daily Review (Module A) (09:00 MSK) ---
+    if (mskTime === '09:00') {
+        try {
+            console.log("[CRON] Sending Daily Reviews (Module A)...");
+            const users = await prisma.user.findMany({
+                where: { dailyReviewEnabled: true, telegram_id: { not: null } }
+            });
+
+            for (const u of users) {
+                try {
+                    const review = await generateDailyReview(u.id);
+                    await bot.telegram.sendMessage(u.telegram_id!.toString(), review, { parse_mode: "HTML" });
+                } catch (e) {
+                    console.error(`[CRON] Failed daily review for ${u.id}:`, e);
+                }
+            }
+        } catch (e) {
+            console.error("[CRON] Daily Review error:", e);
+        }
+    }
+
     if (mskTime === '03:00') {
         try {
             // --- Calculate AI Baselines ---
@@ -3291,17 +3310,38 @@ bot.action('menu_settings', async (ctx: any) => {
     ctx.answerCbQuery();
     const lang = ctx.state.lang || 'ru';
     const tzPref = ctx.state.user?.timezone || 'Europe/Moscow';
-    await ctx.reply(t(lang, 'Settings.mainText'), Markup.inlineKeyboard([
-        [Markup.button.callback(lang === 'en' ? '🍏 Apple Health Setup' : '🍏 Интеграция с Apple Health', 'cmd_link')],
-        [Markup.button.callback(t(lang, 'Settings.rem1'), 'set_count_1')],
-        [Markup.button.callback(t(lang, 'Settings.rem2'), 'set_count_2')],
-        [Markup.button.callback(t(lang, 'Settings.rem3'), 'set_count_3')],
-        [Markup.button.callback(t(lang, 'Settings.rem0'), 'set_count_0')],
-        [Markup.button.callback(`${t(lang, 'Settings.timezone')} (${tzPref})`, 'menu_timezone')],
-        [Markup.button.callback(t(lang, 'Settings.languageBtn'), 'settings_language')],
-        [Markup.button.callback(t(lang, 'Settings.profileBtn'), 'menu_profile')],
-        [Markup.button.callback(t(lang, 'Settings.supportBtn'), 'support_care')]
-    ]));
+    const keyboard = {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+            [Markup.button.callback(t(lang, 'Settings.notificationsBtn'), 'menu_notifications')],
+            [Markup.button.callback(lang === 'en' ? '🍏 Apple Health Setup' : '🍏 Интеграция с Apple Health', 'cmd_link')],
+            [Markup.button.callback(`${t(lang, 'Settings.timezone')} (${tzPref})`, 'menu_timezone')],
+            [Markup.button.callback(t(lang, 'Settings.languageBtn'), 'settings_language')],
+            [Markup.button.callback(t(lang, 'Settings.profileBtn'), 'menu_profile')],
+            [Markup.button.callback(t(lang, 'Settings.supportBtn'), 'support_care')]
+        ])
+    };
+
+    try {
+        await ctx.editMessageText(t(lang, 'Settings.mainText'), keyboard);
+    } catch (e) {
+        await ctx.reply(t(lang, 'Settings.mainText'), keyboard);
+    }
+});
+
+bot.action('menu_notifications', async (ctx: any) => {
+    ctx.answerCbQuery();
+    const lang = ctx.state.lang || 'ru';
+    await ctx.editMessageText(t(lang, 'Settings.notificationsPrompt'), {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+            [Markup.button.callback(t(lang, 'Settings.rem1'), 'set_count_1')],
+            [Markup.button.callback(t(lang, 'Settings.rem2'), 'set_count_2')],
+            [Markup.button.callback(t(lang, 'Settings.rem3'), 'set_count_3')],
+            [Markup.button.callback(t(lang, 'Settings.rem0'), 'set_count_0')],
+            [Markup.button.callback(lang === 'en' ? '🔙 Back' : '🔙 Назад', 'menu_settings')]
+        ])
+    });
 });
 
 bot.action('support_care', async (ctx: any) => {
