@@ -2634,25 +2634,34 @@ cron.schedule('* * * * *', async () => {
         minute: '2-digit' 
     });
 
-    // --- Daily Review (Module A) (09:00 MSK) ---
-    if (mskTime === '09:00') {
-        try {
-            console.log("[CRON] Sending Daily Reviews (Module A)...");
-            const users = await prisma.user.findMany({
-                where: { dailyReviewEnabled: true, telegram_id: { not: null } }
-            });
+    // --- Daily Review (Module A) (09:00 User Time) ---
+    try {
+        const users = await prisma.user.findMany({
+            where: { dailyReviewEnabled: true, telegram_id: { not: null } }
+        });
 
-            for (const u of users) {
-                try {
+        for (const u of users) {
+            try {
+                const userTz = u.timezone || 'Europe/Moscow';
+                const userTime = now.toLocaleTimeString('en-US', {
+                    timeZone: userTz,
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                // If it is 09:00 in the user's timezone, send the daily review
+                if (userTime === '09:00') {
+                    console.log(`[CRON] Sending Daily Review (Module A) to user ${u.id} in timezone ${userTz}...`);
                     const review = await generateDailyReview(u.id);
                     await bot.telegram.sendMessage(u.telegram_id!.toString(), review, { parse_mode: "HTML" });
-                } catch (e) {
-                    console.error(`[CRON] Failed daily review for ${u.id}:`, e);
                 }
+            } catch (e) {
+                console.error(`[CRON] Failed daily review for ${u.id}:`, e);
             }
-        } catch (e) {
-            console.error("[CRON] Daily Review error:", e);
         }
+    } catch (e) {
+        console.error("[CRON] Daily Review error:", e);
     }
 
     if (mskTime === '03:00') {
