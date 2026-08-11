@@ -28,6 +28,7 @@ const LifestyleDashboard = ({
   userMetadata,
   userTz,
   deleteNutritionLog,
+  deleteGenericLog,
   fromStr,
   toStr,
   currentFromDate
@@ -36,6 +37,7 @@ const LifestyleDashboard = ({
   userMetadata: any,
   userTz: string,
   deleteNutritionLog: any,
+  deleteGenericLog?: (id: string, type: string) => Promise<void>,
   fromStr?: string,
   toStr?: string,
   currentFromDate: Date
@@ -238,23 +240,29 @@ const LifestyleDashboard = ({
             color="bg-blue-500"
             history={hydrationWeek}
             userTz={userTz}
+            historyValueKey="volume_ml"
+            historyUnit={t('ml')}
             locale={locale}
             t={t}
+            logType="hydration"
+            onDelete={deleteGenericLog}
           />
           <SummaryCard 
             icon={<Moon className="text-indigo-500" />} 
             label={t('sleep')} 
-            value={lastSleep ? Math.floor(lastSleep.duration_hrs).toString() : "0"} 
-            unit={lastSleep ? `${t('hrs')} ${Math.round((lastSleep.duration_hrs % 1) * 60)}${t('min')}` : t('hrs')} 
-            target={lastSleep?.deep_hrs ? `${t('deep')}: ${lastSleep.deep_hrs.toFixed(1)}${t('hrs')}` : `8${t('hrs')} ${t('sleepGoal')}`}
-            progress={( (lastSleep?.duration_hrs || 0) / 8) * 100}
+            value={`${Math.floor(lastSleep?.duration_hrs || 0)}`} 
+            unit={t('h') + ` ${Math.round(((lastSleep?.duration_hrs || 0) % 1) * 60)}` + t('m')} 
+            target={t('deepSleep') + `: ${lastSleep?.deep_hrs || 0}${t('h')}`}
+            progress={((lastSleep?.duration_hrs || 0) / 8) * 100}
             color="bg-indigo-500"
             history={sleepWeek}
             userTz={userTz}
             historyValueKey="duration_hrs"
-            historyUnit={t('hrs')}
+            historyUnit={t('h')}
             locale={locale}
             t={t}
+            logType="sleep"
+            onDelete={deleteGenericLog}
           />
           <SummaryCard 
             icon={<Activity className="text-[#60B76F]" />} 
@@ -270,6 +278,8 @@ const LifestyleDashboard = ({
             historyUnit=""
             locale={locale}
             t={t}
+            logType="activity"
+            onDelete={deleteGenericLog}
           />
           <SummaryCard 
             icon={<Utensils className="text-orange-500" />} 
@@ -624,44 +634,69 @@ const LifestyleDashboard = ({
 
 // --- Helper Components ---
 
-const SummaryCard = ({ icon, label, value, unit, target, progress, color, history, userTz, historyValueKey = 'volume_ml', historyUnit = 'ml', locale = 'ru', t }: any) => (
-  <div className="glass-card p-2 sm:p-3 md:p-4 rounded-2xl sm:rounded-3xl space-y-1.5 sm:space-y-2 md:space-y-3 transition-transform hover:-translate-y-1 flex flex-col justify-between w-full min-w-0">
-    <div className="flex justify-between items-start">
-      <div className="p-1 sm:p-1.5 md:p-2 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800/80 shrink-0">
-        {React.cloneElement(icon as React.ReactElement<any>, { className: "w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" })}
-      </div>
-      <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-tighter truncate ml-1">{label}</span>
-    </div>
-    <div className="w-full min-w-0">
-      <div className="flex items-baseline gap-0.5 sm:gap-1">
-        <span className="text-sm sm:text-base md:text-xl font-bold dark:text-white truncate">{value}</span>
-        <span className="text-[8px] sm:text-[10px] text-slate-400 font-medium shrink-0">{unit}</span>
-      </div>
-      <p className="text-[7.5px] sm:text-[9px] text-slate-500 font-medium truncate w-full">{target}</p>
-    </div>
-    <div className="h-1 sm:h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shrink-0 mt-auto">
-      <div 
-        className={`h-full ${color} transition-all duration-1000`} 
-        style={{ width: `${Math.min(progress, 100)}%` }} 
-      />
-    </div>
+const SummaryCard = ({ icon, label, value, unit, target, progress, color, history, userTz, historyValueKey = 'volume_ml', historyUnit = 'ml', locale = 'ru', t, onDelete, logType }: any) => {
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
-    {/* Dropdown lists - "За неделю" */}
-    <details className="group mt-1 sm:mt-2 pt-1 sm:pt-2 border-t border-slate-100 dark:border-white/5 w-full shrink-0">
-        <summary className="text-[8px] md:text-[9px] text-[#60B76F] cursor-pointer list-none flex items-center justify-between font-bold uppercase tracking-wider">
-            <span className="truncate mr-1">{t('last7Days')}</span> <ChevronDown size={10} className="group-open:rotate-180 transition-transform shrink-0" />
-        </summary>
-        <div className="mt-1 sm:mt-2 space-y-1 max-h-24 overflow-y-auto text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 dark:text-slate-400 custom-scrollbar pr-1">
-            {history && history.length > 0 ? history.slice(0, 7).map((h: any) => (
-                <div key={h.id} className="flex justify-between pb-0.5 border-b border-slate-50 dark:border-white/5 last:border-0 overflow-hidden gap-1">
-                  <span className="shrink-0">{new Date(h.created_at).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US', {day:'2-digit', month:'2-digit', timeZone: userTz})}</span>
-                  <span className="font-bold truncate text-right">{h[historyValueKey]?.toFixed(0)} <span className="text-[7px] sm:text-[8px] font-normal">{historyUnit}</span></span>
-                </div>
-            )) : <p className="text-center py-1 opacity-50">{t('noData')}</p>}
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!window.confirm("Удалить запись?")) return;
+    setIsDeleting(id);
+    if (onDelete && logType) {
+      await onDelete(id, logType);
+    }
+    setIsDeleting(null);
+  };
+
+  return (
+    <div className="glass-card p-2 sm:p-3 md:p-4 rounded-2xl sm:rounded-3xl space-y-1.5 sm:space-y-2 md:space-y-3 transition-transform hover:-translate-y-1 flex flex-col justify-between w-full min-w-0">
+      <div className="flex justify-between items-start">
+        <div className="p-1 sm:p-1.5 md:p-2 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800/80 shrink-0">
+          {React.cloneElement(icon as React.ReactElement<any>, { className: "w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" })}
         </div>
-    </details>
-  </div>
-);
+        <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-tighter truncate ml-1">{label}</span>
+      </div>
+      <div className="w-full min-w-0">
+        <div className="flex items-baseline gap-0.5 sm:gap-1">
+          <span className="text-sm sm:text-base md:text-xl font-bold dark:text-white truncate">{value}</span>
+          <span className="text-[8px] sm:text-[10px] text-slate-400 font-medium shrink-0">{unit}</span>
+        </div>
+        <p className="text-[7.5px] sm:text-[9px] text-slate-500 font-medium truncate w-full">{target}</p>
+      </div>
+      <div className="h-1 sm:h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shrink-0 mt-auto">
+        <div 
+          className={`h-full ${color} transition-all duration-1000`} 
+          style={{ width: `${Math.min(progress, 100)}%` }} 
+        />
+      </div>
+
+      {/* Dropdown lists - "За неделю" */}
+      <details className="group mt-1 sm:mt-2 pt-1 sm:pt-2 border-t border-slate-100 dark:border-white/5 w-full shrink-0">
+          <summary className="text-[8px] md:text-[9px] text-[#60B76F] cursor-pointer list-none flex items-center justify-between font-bold uppercase tracking-wider">
+              <span className="truncate mr-1">{t('last7Days')}</span> <ChevronDown size={10} className="group-open:rotate-180 transition-transform shrink-0" />
+          </summary>
+          <div className="mt-1 sm:mt-2 space-y-1 max-h-24 overflow-y-auto text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 dark:text-slate-400 custom-scrollbar pr-1">
+              {history && history.length > 0 ? history.slice(0, 7).map((h: any) => (
+                  <div key={h.id} className="flex justify-between items-center pb-0.5 border-b border-slate-50 dark:border-white/5 last:border-0 overflow-hidden gap-1">
+                    <span className="shrink-0">{new Date(h.created_at).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US', {day:'2-digit', month:'2-digit', timeZone: userTz})}</span>
+                    <div className="flex items-center gap-2 text-right">
+                      <span className="font-bold truncate">{h[historyValueKey]?.toFixed(0)} <span className="text-[7px] sm:text-[8px] font-normal">{historyUnit}</span></span>
+                      {onDelete && (
+                        <button 
+                          onClick={(e) => handleDelete(h.id, e)} 
+                          className="text-red-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                          disabled={isDeleting === h.id}
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+              )) : <p className="text-center py-1 opacity-50">{t('noData')}</p>}
+          </div>
+      </details>
+    </div>
+  );
+};
 
 const MacroItem = ({ label, current, target, color, unit }: any) => (
   <div className="space-y-1">

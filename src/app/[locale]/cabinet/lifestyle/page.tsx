@@ -2,7 +2,7 @@
 import React from 'react';
 import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
-import { deleteNutritionLog } from './actions';
+import { deleteNutritionLog, deleteGenericLog } from './actions';
 import LifestyleDashboard from "@/components/dashboard/LifestyleDashboard";
 import { getTranslations } from 'next-intl/server';
 
@@ -157,6 +157,7 @@ export default async function LifestylePage({
                 userMetadata={user?.user_metadata}
                 userTz={userTz}
                 deleteNutritionLog={deleteNutritionLog}
+                deleteGenericLog={deleteGenericLog}
                 fromStr={fromStr}
                 toStr={toStr}
                 currentFromDate={fromDate}
