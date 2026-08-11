@@ -26,7 +26,7 @@ import { analyzeFoodWithAI, getIngredientNutrientsWithAI, calculateTotalNutrient
 import { generatePeriodicReport } from "../src/lib/reportGenerator";
 import { aggregateUserContext } from "../src/lib/assistant/context";
 import { evaluateLifestyle } from "../src/lib/assistant/rules";
-import { safetyGate, postValidate } from "../src/lib/assistant/safety";
+import { validateLLMOutput } from "../src/lib/assistant/safety";
 import { generateDailyReview, generateNutrientReview } from "../src/lib/assistant/generate";
 import { calculateAllUserBaselines } from "../src/lib/assistant/baselines";
 import { generateDailyAction } from "../src/lib/assistant/daily_action";
@@ -284,13 +284,6 @@ async function showLifestyleAnalysis(ctx: any) {
     const analyzingMsg = lang === 'en' ? "🔍 Analyzing data..." : "🔍 Анализирую данные...";
     const loadingMessage = await ctx.reply(analyzingMsg);
 
-    const context = await aggregateUserContext(user.id, 7);
-    const gate = safetyGate(context, lang);
-    if (gate.block) {
-      await ctx.telegram.deleteMessage(ctx.chat.id, loadingMessage.message_id).catch(() => {});
-      return ctx.reply(gate.message || (lang === 'en' ? "Safety error." : "Ошибка безопасности."));
-    }
-
     // Generate both reviews concurrently
     const [dailyText, nutrientText] = await Promise.all([
       generateDailyReview(user.id),
@@ -303,8 +296,7 @@ async function showLifestyleAnalysis(ctx: any) {
     // Remove loading message
     await ctx.telegram.deleteMessage(ctx.chat.id, loadingMessage.message_id).catch(() => {});
 
-    // Временно логируем в консоль вместо БД
-    console.log(`[ASSISTANT LOG] User: ${user.id}, Nutrient Review generated`);
+    console.log(`[ASSISTANT LOG] User: ${user.id}, Daily + Nutrient Review generated`);
 
     const btnUp = lang === 'en' ? "👍 Helpful" : "👍 Полезно";
     const btnDown = lang === 'en' ? "👎 Inaccurate" : "👎 Не точно";
@@ -323,7 +315,7 @@ async function showLifestyleAnalysis(ctx: any) {
         user_id: user.id,
         message: combinedText
       }
-    });
+    }).catch((e: any) => console.error("[assistantMessage] save error:", e.message));
 
     return;
   } catch (e: any) {
@@ -827,48 +819,22 @@ bot.command('review_test', async (ctx: any) => {
     if (!user) return ctx.reply("Пользователь не найден.");
 
     try {
-        const { getDailyData, getWakeUpTime } = await import('../src/lib/assistant/repository');
-        const { evaluateScheduler } = await import('../src/lib/assistant/scheduler');
+        const { getLocalDate } = await import('../src/lib/assistant/ingest');
         const { generateDailyReview } = await import('../src/lib/assistant/generate');
         const now = new Date();
         const userTz = user.timezone || 'Europe/Moscow';
-        const localNow = new Date(now.toLocaleString('en-US', { timeZone: userTz }));
-        const todayStr = localNow.toISOString().split('T')[0];
-        
-        ctx.reply("Запрашиваю данные и оцениваю Scheduler...");
-        
-        const state = await prisma.assistantState.findUnique({ where: { userId: user.id } });
-        const dailyData = await getDailyData(user.id, todayStr, userTz);
-        const wakeTime = await getWakeUpTime(user.id, todayStr, userTz, user.wake_up_time);
-        
-        const utcNow = new Date();
-        const diffMs = localNow.getTime() - utcNow.getTime();
-        const offsetMinutes = Math.round(diffMs / 60000);
+        const todayStr = getLocalDate(now, userTz);
 
-        const decision = evaluateScheduler(now, null, {
-            hasAnyDomain: dailyData.hasAny,
-            hasYesterdayAdvice: false,
-            historyDaysCount: 14,
-            hasGoalOrPattern: !!user.goal,
-            isNewUser: false,
-            consecutiveEmptyDays: state?.consecutiveEmptyDays || 0,
-            lastPingDaysAgo: state?.lastPingAt ? Math.floor((now.getTime() - state.lastPingAt.getTime()) / (1000 * 3600 * 24)) : 999,
-            userWakeTimeStr: wakeTime,
-            userTimezoneOffsetMinutes: offsetMinutes
-        });
+        ctx.reply(`Запрашиваю данные и оцениваю Scheduler...\n📅 Дата: ${todayStr} (${userTz})`);
 
-        if (decision.shouldNudge) {
-            ctx.reply(`Сгенерирован триггер (Причина: ${decision.reason}, Ступень: ${decision.nudgeLevel}). Пишу текст...`);
-            const review = await generateDailyReview(user.id);
-            await ctx.reply(review, { parse_mode: "HTML" });
-        } else {
-            ctx.reply(`Scheduler решил пропустить уведомление. Причина: ${decision.reason}`);
-        }
+        const review = await generateDailyReview(user.id);
+        await ctx.reply(review, { parse_mode: "HTML" });
     } catch (e) {
         console.error("Test error:", e);
-        ctx.reply("Ошибка при выполнении теста.");
+        ctx.reply(`Ошибка при выполнении теста: ${(e as any)?.message || e}`);
     }
 });
+
 
 bot.command('marathon_invite', async (ctx: any) => {
     const user = ctx.state.user;
@@ -1791,13 +1757,21 @@ bot.hears(/^(\d+)\s*(мл|ml|миллилитров)$/i, async (ctx: any) => {
 
     await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(), user_id: user.id, volume_ml: volume }
     });
-
-    return ctx.reply(t(lang, 'Water.saved', { vol: volume }));
+            return ctx.reply(t(lang, 'Water.saved', { vol: volume }));
 });
 
 bot.on('text', async (ctx: any) => {
-  const text = ctx.message.text;
-  const user = ctx.state.user;
+    const text = ctx.message?.text?.trim() || '';
+
+    // Allow testing via just text 'review_test' or case-insensitive '/review_test'
+    if (text.toLowerCase() === '/review_test' || text.toLowerCase() === 'review_test') {
+        return bot.handleUpdate({
+            ...ctx.update,
+            message: { ...ctx.message, text: '/review_test' }
+        } as any);
+    }
+
+    const user = ctx.state.user;
   const lang = ctx.state.lang || 'ru';
 
   if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));

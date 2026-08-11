@@ -1,34 +1,49 @@
 import prisma from "../../lib/prisma";
 
 export function getLocalDate(date: Date, timezone: string = "Europe/Moscow"): string {
+  if (!date || isNaN(date.getTime())) {
+    // fallback: return today's UTC date
+    return new Date().toISOString().split('T')[0];
+  }
   return date.toLocaleDateString('en-CA', { timeZone: timezone });
 }
 
 export function getLocalDayRangeUTC(dateStr: string, timezone: string = "Europe/Moscow"): { start: Date, end: Date } {
-  // Try to create a Date in that timezone. The easiest way without external libs is tricky, 
-  // but we can parse it roughly or just assume ISO parsing.
-  // Actually, to get exactly 00:00:00 local time in UTC:
-  // We can construct a string that JS native parses if we have the offset, or use Intl.
-  
-  // A hacky but reliable way in modern Node to get offset:
-  const dt = new Date(`${dateStr}T12:00:00Z`); // midday UTC
-  const dtf = new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'shortOffset', hour12: false });
-  const parts = dtf.formatToParts(dt);
-  const tzPart = parts.find(p => p.type === 'timeZoneName')?.value || 'GMT'; // e.g. GMT+3
-  
-  let offset = tzPart.replace('GMT', ''); // e.g. +3, -4
-  if (offset === '') {
-    offset = 'Z';
-  } else {
-    // some systems return +03:00, some +3. If it's single digit, fix it
-    if (/^[+-]\d$/.test(offset)) {
-      offset = offset[0] + '0' + offset[1] + ':00';
-    } else if (/^[+-]\d{2}$/.test(offset)) {
-      offset = offset + ':00';
-    }
+  // Validate dateStr format YYYY-MM-DD
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    dateStr = todayStr;
   }
 
-  const start = new Date(`${dateStr}T00:00:00${offset}`);
+  const [year, month, day] = dateStr.split('-').map(Number);
+
+  // Find the UTC offset for this timezone on this day by using Intl
+  // We'll binary-search or just use a known-good reference point:
+  // Create a date that represents noon UTC on this date, then check what local time it is.
+  // The UTC midnight = noon_utc - localHour*3600000 - localMinute*60000
+  const noonUTC = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(noonUTC);
+  const get = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0', 10);
+  const localHour = get('hour');
+  const localMinute = get('minute');
+  const localSecond = get('second');
+
+  // At noonUTC, local clock shows localHour:localMinute:localSecond.
+  // Local midnight = noonUTC - that many milliseconds.
+  const start = new Date(noonUTC.getTime() - (localHour * 3600000 + localMinute * 60000 + localSecond * 1000));
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
 
   return { start, end };

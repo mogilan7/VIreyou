@@ -1,5 +1,6 @@
 import prisma from "../../lib/prisma";
 import { BASELINE_WINDOW, MIN_BASELINE_POINTS, SPIKE_SD, REPEAT_THRESHOLD } from "./config";
+import { getLocalDate as getLocalDateStr, getLocalDayRangeUTC } from "./ingest";
 
 // --- Baseline Engine ---
 
@@ -12,19 +13,24 @@ function median(values: number[]): number {
 }
 
 export async function getDomainBaselines(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } });
+  const tz = user?.timezone || "Europe/Moscow";
   const now = new Date();
-  const windowStart = new Date(now.getTime() - BASELINE_WINDOW * 24 * 60 * 60 * 1000);
+  const todayStr = getLocalDateStr(now, tz);
+  // windowStart = start of local day BASELINE_WINDOW days ago
+  const windowAgo = new Date(now.getTime() - BASELINE_WINDOW * 24 * 60 * 60 * 1000);
+  const windowAgoStr = getLocalDateStr(windowAgo, tz);
+  const { start: windowStart } = getLocalDayRangeUTC(windowAgoStr, tz);
 
-  const [user, sleep, activity, water, nutrition] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } }),
+  const [sleep, activity, water, nutrition] = await Promise.all([
     prisma.sleepLog.findMany({ where: { user_id: userId, date: { gte: windowStart } } }),
     prisma.activityLog.findMany({ where: { user_id: userId, date: { gte: windowStart } } }),
     prisma.hydrationLog.findMany({ where: { user_id: userId, date: { gte: windowStart } } }),
     prisma.nutritionLog.findMany({ where: { user_id: userId, date: { gte: windowStart } } }),
   ]);
+  // tz already obtained above — use in getLocalDate below
 
-  const tz = user?.timezone || "Europe/Moscow";
-  const getLocalDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: tz });
+  const getLocalDate = (d: Date) => getLocalDateStr(d, tz);
 
   const baselines: any = {};
   const data_sufficiency: any = {
@@ -163,11 +169,16 @@ export function detectDeviations(todayData: any, baselines: any, targets: any) {
 export async function generateDailyReviewCard(userId: string) {
   const { baselines, data_sufficiency } = await getDomainBaselines(userId);
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  
+  const tz = user?.timezone || "Europe/Moscow";
+  const getLocalDate = (d: Date) => getLocalDateStr(d, tz);
+
   const now = new Date();
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  yesterday.setHours(0,0,0,0);
-  const todayEnd = new Date(yesterday.getTime() + 2 * 24 * 60 * 60 * 1000);
+  // Use timezone-aware day boundaries for yesterday and today
+  const todayStr = getLocalDateStr(now, tz);
+  const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayStr = getLocalDateStr(yesterdayDate, tz);
+  const { start: yesterday } = getLocalDayRangeUTC(yesterdayStr, tz);
+  const { end: todayEnd } = getLocalDayRangeUTC(todayStr, tz);
 
   // Fetch recent data (yesterday and today)
   const [sleep, activity, water, nutrition] = await Promise.all([
@@ -176,9 +187,6 @@ export async function generateDailyReviewCard(userId: string) {
     prisma.hydrationLog.findMany({ where: { user_id: userId, date: { gte: yesterday, lt: todayEnd } } }),
     prisma.nutritionLog.findMany({ where: { user_id: userId, date: { gte: yesterday, lt: todayEnd } } }),
   ]);
-
-  const tz = user?.timezone || "Europe/Moscow";
-  const getLocalDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: tz });
 
   const todayData: any = {};
   
