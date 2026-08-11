@@ -280,22 +280,36 @@ async function showLifestyleAnalysis(ctx: any) {
   await ctx.sendChatAction("typing");
 
   try {
-    const context = await aggregateUserContext(user.id, 7);
     const lang = user.language || 'ru';
+    const analyzingMsg = lang === 'en' ? "🔍 Analyzing data..." : "🔍 Анализирую данные...";
+    const loadingMessage = await ctx.reply(analyzingMsg);
+
+    const context = await aggregateUserContext(user.id, 7);
     const gate = safetyGate(context, lang);
     if (gate.block) {
+      await ctx.telegram.deleteMessage(ctx.chat.id, loadingMessage.message_id).catch(() => {});
       return ctx.reply(gate.message || (lang === 'en' ? "Safety error." : "Ошибка безопасности."));
     }
 
-    const safeText = await generateNutrientReview(user.id, false);
+    // Generate both reviews concurrently
+    const [dailyText, nutrientText] = await Promise.all([
+      generateDailyReview(user.id),
+      generateNutrientReview(user.id, false)
+    ]);
 
-    // Временно логируем в консоль вместо БД (так как таблица AssistantMessage еще не создана)
-    console.log(`[ASSISTANT LOG] User: ${user.id}, Findings:`, findings);
+    // Combine them
+    const combinedText = `*Ежедневный свод (Сон, Активность, Гидратация)*\n\n${dailyText}\n\n---\n\n*Нутриентный профиль (Долгосрочные тренды)*\n\n${nutrientText}`;
+
+    // Remove loading message
+    await ctx.telegram.deleteMessage(ctx.chat.id, loadingMessage.message_id).catch(() => {});
+
+    // Временно логируем в консоль вместо БД
+    console.log(`[ASSISTANT LOG] User: ${user.id}, Nutrient Review generated`);
 
     const btnUp = lang === 'en' ? "👍 Helpful" : "👍 Полезно";
     const btnDown = lang === 'en' ? "👎 Inaccurate" : "👎 Не точно";
 
-    const htmlText = markdownToHtml(safeText);
+    const htmlText = markdownToHtml(combinedText);
 
     await ctx.reply(htmlText, {
       parse_mode: "HTML",
@@ -307,7 +321,7 @@ async function showLifestyleAnalysis(ctx: any) {
     await prisma.assistantMessage.create({
       data: {
         user_id: user.id,
-        message: safeText
+        message: combinedText
       }
     });
 
@@ -806,6 +820,54 @@ bot.command('marathon_test', async (ctx: any) => {
     // const report = await generateMarathonDailyReport(undefined, undefined, lang);
     // if (!report) return ctx.reply("Нет данных для отчета или участников.");
     // ctx.reply(report, { parse_mode: 'Markdown' });
+});
+
+bot.command('review_test', async (ctx: any) => {
+    const user = ctx.state.user;
+    if (!user) return ctx.reply("Пользователь не найден.");
+
+    try {
+        const { getDailyData, getWakeUpTime } = await import('../src/lib/assistant/repository');
+        const { evaluateScheduler } = await import('../src/lib/assistant/scheduler');
+        const { generateDailyReview } = await import('../src/lib/assistant/generate');
+        const now = new Date();
+        const userTz = user.timezone || 'Europe/Moscow';
+        const localNow = new Date(now.toLocaleString('en-US', { timeZone: userTz }));
+        const todayStr = localNow.toISOString().split('T')[0];
+        
+        ctx.reply("Запрашиваю данные и оцениваю Scheduler...");
+        
+        const state = await prisma.assistantState.findUnique({ where: { userId: user.id } });
+        const dailyData = await getDailyData(user.id, todayStr, userTz);
+        const wakeTime = await getWakeUpTime(user.id, todayStr, userTz, user.wake_up_time);
+        
+        const utcNow = new Date();
+        const diffMs = localNow.getTime() - utcNow.getTime();
+        const offsetMinutes = Math.round(diffMs / 60000);
+
+        const decision = evaluateScheduler(now, null, {
+            hasAnyDomain: dailyData.hasAny,
+            hasYesterdayAdvice: false,
+            historyDaysCount: 14,
+            hasGoalOrPattern: !!user.goal,
+            isNewUser: false,
+            consecutiveEmptyDays: state?.consecutiveEmptyDays || 0,
+            lastPingDaysAgo: state?.lastPingAt ? Math.floor((now.getTime() - state.lastPingAt.getTime()) / (1000 * 3600 * 24)) : 999,
+            userWakeTimeStr: wakeTime,
+            userTimezoneOffsetMinutes: offsetMinutes
+        });
+
+        if (decision.shouldNudge) {
+            ctx.reply(`Сгенерирован триггер (Причина: ${decision.reason}, Ступень: ${decision.nudgeLevel}). Пишу текст...`);
+            const review = await generateDailyReview(user.id);
+            await ctx.reply(review, { parse_mode: "HTML" });
+        } else {
+            ctx.reply(`Scheduler решил пропустить уведомление. Причина: ${decision.reason}`);
+        }
+    } catch (e) {
+        console.error("Test error:", e);
+        ctx.reply("Ошибка при выполнении теста.");
+    }
 });
 
 bot.command('marathon_invite', async (ctx: any) => {
@@ -1418,19 +1480,54 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
         }
     } else if (parsedData.type === "SLEEP") {
         const d = parsedData.data;
+        const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
+        const date = new Date(localToday);
+        date.setDate(date.getDate() + dateOffset);
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0,0,0,0);
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23,59,59,999);
+
+        const existing = await prisma.sleepLog.findFirst({
+            where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
+        });
+
+        const dur = d.duration_hrs !== undefined ? d.duration_hrs : (existing?.duration_hrs || 0);
+        const deep = d.deep_hrs !== undefined ? d.deep_hrs : (existing?.deep_hrs || 0);
+        const rem = d.rem_hrs !== undefined ? d.rem_hrs : (existing?.rem_hrs || 0);
+        const light = d.light_hrs !== undefined ? d.light_hrs : (existing?.light_hrs || 0);
+        const hr = d.resting_heart_rate !== undefined ? d.resting_heart_rate : (existing?.resting_heart_rate || null);
+        const hrv = d.hrv !== undefined ? d.hrv : (existing?.hrv || null);
+
         text = t(lang, 'Sleep.saved', {
-            dur: d.duration_hrs ? Number(d.duration_hrs).toFixed(1) : 0, 
-            deep: d.deep_hrs ? Number(d.deep_hrs).toFixed(1) : 0, 
-            rem: d.rem_hrs ? Number(d.rem_hrs).toFixed(1) : 0, 
-            light: d.light_hrs ? Number(d.light_hrs).toFixed(1) : 0,
-            hr: d.resting_heart_rate ? Number(d.resting_heart_rate).toFixed(0) : '--', 
-            hrv: d.hrv ? Number(d.hrv).toFixed(0) : '--', 
+            dur: dur ? Number(dur).toFixed(1) : 0, 
+            deep: deep ? Number(deep).toFixed(1) : 0, 
+            rem: rem ? Number(rem).toFixed(1) : 0, 
+            light: light ? Number(light).toFixed(1) : 0,
+            hr: hr ? Number(hr).toFixed(0) : '--', 
+            hrv: hrv ? Number(hrv).toFixed(0) : '--', 
             desc: parsedData.description
         });
     } else if (parsedData.type === "ACTIVITY") {
         const d = parsedData.data;
+        const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
+        const date = new Date(localToday);
+        date.setDate(date.getDate() + dateOffset);
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0,0,0,0);
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23,59,59,999);
+
+        const existing = await prisma.activityLog.findFirst({
+            where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
+        });
+
+        const steps = d.steps !== undefined ? d.steps : (existing?.steps || 0);
+        const cal = d.calories_burned !== undefined ? d.calories_burned : (existing?.calories_burned || 0);
+        const mins = d.active_minutes !== undefined ? d.active_minutes : (existing?.active_minutes || 0);
+
         text = t(lang, 'Activity.saved', {
-            steps: d.steps || 0, cal: d.calories_burned || 0, mins: d.active_minutes || 0, desc: parsedData.description
+            steps: steps || 0, cal: cal || 0, mins: mins || 0, desc: parsedData.description
         });
     } else if (parsedData.type === "HABIT") {
         const d = parsedData.data;
@@ -2636,25 +2733,70 @@ cron.schedule('* * * * *', async () => {
 
     // --- Daily Review (Module A) (09:00 User Time) ---
     try {
+        const { getDailyData, getWakeUpTime } = await import('../src/lib/assistant/repository');
+        const { evaluateScheduler } = await import('../src/lib/assistant/scheduler');
+        const { generateDailyReview } = await import('../src/lib/assistant/generate');
         const users = await prisma.user.findMany({
-            where: { dailyReviewEnabled: true, telegram_id: { not: null } }
+            where: { dailyReviewEnabled: true, telegram_id: { not: null } },
+            include: { AssistantState: true }
         });
 
         for (const u of users) {
             try {
                 const userTz = u.timezone || 'Europe/Moscow';
-                const userTime = now.toLocaleTimeString('en-US', {
-                    timeZone: userTz,
-                    hour12: false,
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
+                // Calculate local time components
+                const localNow = new Date(now.toLocaleString('en-US', { timeZone: userTz }));
+                const localHour = localNow.getHours();
+                const localMin = localNow.getMinutes();
+                const localTimeString = `${localHour.toString().padStart(2, '0')}:${localMin.toString().padStart(2, '0')}`;
                 
-                // If it is 09:00 in the user's timezone, send the daily review
-                if (userTime === '09:00') {
-                    console.log(`[CRON] Sending Daily Review (Module A) to user ${u.id} in timezone ${userTz}...`);
-                    const review = await generateDailyReview(u.id);
-                    await bot.telegram.sendMessage(u.telegram_id!.toString(), review, { parse_mode: "HTML" });
+                // Only consider sending if it's 09:00 or later
+                if (localTimeString >= '09:00') {
+                    const todayStr = localNow.toISOString().split('T')[0];
+                    const state = u.AssistantState;
+                    
+                    // Check if already sent today
+                    if (state && state.lastPingAt) {
+                        const lastPingLocal = new Date(state.lastPingAt.toLocaleString('en-US', { timeZone: userTz }));
+                        if (lastPingLocal.toISOString().split('T')[0] === todayStr) {
+                            continue; // Already sent today
+                        }
+                    }
+
+                    // Gather context for scheduler
+                    const dailyData = await getDailyData(u.id, todayStr, userTz);
+                    const wakeTime = await getWakeUpTime(u.id, todayStr, userTz, u.wake_up_time);
+                    
+                    // Calculate timezone offset in minutes for UTC -> Local
+                    const tzOffsetMatches = userTz.match(/([+-]?\d+)/); 
+                    // To properly get offset without parsing strings, we can calculate difference between UTC and Local Date
+                    const utcNow = new Date();
+                    const diffMs = localNow.getTime() - utcNow.getTime();
+                    const offsetMinutes = Math.round(diffMs / 60000);
+
+                    const decision = evaluateScheduler(now, null, {
+                        hasAnyDomain: dailyData.hasAny,
+                        hasYesterdayAdvice: false, // For now
+                        historyDaysCount: 14, // Replace with actual history count if needed
+                        hasGoalOrPattern: !!u.goal,
+                        isNewUser: false,
+                        consecutiveEmptyDays: state?.consecutiveEmptyDays || 0,
+                        lastPingDaysAgo: state?.lastPingAt ? Math.floor((now.getTime() - state.lastPingAt.getTime()) / (1000 * 3600 * 24)) : 999,
+                        userWakeTimeStr: wakeTime,
+                        userTimezoneOffsetMinutes: offsetMinutes
+                    });
+
+                    if (decision.shouldNudge) {
+                        console.log(`[CRON] Sending Daily Review (Module A) to user ${u.id} in timezone ${userTz} (Reason: ${decision.reason})...`);
+                        const review = await generateDailyReview(u.id);
+                        await bot.telegram.sendMessage(u.telegram_id!.toString(), review, { parse_mode: "HTML" });
+                        
+                        await prisma.assistantState.upsert({
+                            where: { userId: u.id },
+                            update: { lastPingAt: now, consecutiveEmptyDays: dailyData.hasAny ? 0 : { increment: 1 } },
+                            create: { userId: u.id, lastPingAt: now, consecutiveEmptyDays: dailyData.hasAny ? 0 : 1 }
+                        });
+                    }
                 }
             } catch (e) {
                 console.error(`[CRON] Failed daily review for ${u.id}:`, e);

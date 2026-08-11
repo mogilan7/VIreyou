@@ -15,35 +15,48 @@ export async function getDomainBaselines(userId: string) {
   const now = new Date();
   const windowStart = new Date(now.getTime() - BASELINE_WINDOW * 24 * 60 * 60 * 1000);
 
-  const [sleep, activity, water, nutrition] = await Promise.all([
+  const [user, sleep, activity, water, nutrition] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } }),
     prisma.sleepLog.findMany({ where: { user_id: userId, date: { gte: windowStart } } }),
     prisma.activityLog.findMany({ where: { user_id: userId, date: { gte: windowStart } } }),
     prisma.hydrationLog.findMany({ where: { user_id: userId, date: { gte: windowStart } } }),
     prisma.nutritionLog.findMany({ where: { user_id: userId, date: { gte: windowStart } } }),
   ]);
 
-  const baselines: any = {};
+  const tz = user?.timezone || "Europe/Moscow";
+  const getLocalDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: tz });
 
-  // Sleep duration median
-  const sleepDurations = sleep.map(s => {
-    if (!s.sleep_start || !s.sleep_end) return 0;
-    let duration = (s.sleep_end.getTime() - s.sleep_start.getTime()) / (1000 * 60);
-    if (duration < 0) duration += 24 * 60; // crossed midnight
-    return duration;
-  }).filter(d => d > 0);
-  
-  if (sleepDurations.length >= MIN_BASELINE_POINTS) {
-    baselines.sleep_duration = { median: median(sleepDurations), points: sleepDurations.length, unit: "min" };
+  const baselines: any = {};
+  const data_sufficiency: any = {
+    hrv: { sufficient: false, points: 0, needed: MIN_BASELINE_POINTS },
+    resting_heart_rate: { sufficient: false, points: 0, needed: MIN_BASELINE_POINTS }
+  };
+
+  // HRV median (unique days)
+  const hrvDays = new Set(sleep.filter(s => s.hrv && s.hrv > 0).map(s => getLocalDate(s.date)));
+  data_sufficiency.hrv.points = hrvDays.size;
+  if (hrvDays.size >= MIN_BASELINE_POINTS) {
+    const sorted = Array.from(hrvDays).map(d => sleep.find(s => getLocalDate(s.date) === d)!.hrv).sort((a,b) => (a||0)-(b||0)) as number[];
+    baselines.hrv = { median: sorted[Math.floor(sorted.length / 2)], points: hrvDays.size, unit: "ms" };
+    data_sufficiency.hrv.sufficient = true;
   }
 
-  // Activity steps median
-  const steps = activity.map(a => a.steps || 0).filter(s => s > 0);
-  if (steps.length >= MIN_BASELINE_POINTS) {
-    baselines.steps = { median: median(steps), points: steps.length, unit: "steps" };
+  // RHR median (unique days)
+  const rhrDays = new Set(sleep.filter(s => s.resting_heart_rate && s.resting_heart_rate > 0).map(s => getLocalDate(s.date)));
+  data_sufficiency.resting_heart_rate.points = rhrDays.size;
+  if (rhrDays.size >= MIN_BASELINE_POINTS) {
+    const sorted = Array.from(rhrDays).map(d => sleep.find(s => getLocalDate(s.date) === d)!.resting_heart_rate).sort((a,b) => (a||0)-(b||0)) as number[];
+    baselines.resting_heart_rate = { median: sorted[Math.floor(sorted.length / 2)], points: rhrDays.size, unit: "bpm" };
+    data_sufficiency.resting_heart_rate.sufficient = true;
   }
 
   // Water median
-  const waterAmounts = water.map(w => w.amount_ml).filter(a => a > 0);
+  const waterByDay: Record<string, number> = {};
+  water.forEach(w => {
+    const d = getLocalDate(w.date);
+    waterByDay[d] = (waterByDay[d] || 0) + (w.volume_ml || 0);
+  });
+  const waterAmounts = Object.values(waterByDay).filter(a => a > 0);
   if (waterAmounts.length >= MIN_BASELINE_POINTS) {
     baselines.water_ml = { median: median(waterAmounts), points: waterAmounts.length, unit: "ml" };
   }
@@ -67,38 +80,77 @@ export async function getDomainBaselines(userId: string) {
     });
   }
 
-  return baselines;
+  return { baselines, data_sufficiency };
 }
 
 // --- Deviation Detection ---
 
-export function detectDeviations(todayData: any, baselines: any) {
+export function detectDeviations(todayData: any, baselines: any, targets: any) {
   const deviations = [];
-  
-  // Sleep deviation (spike detection)
-  if (todayData.sleep_duration && baselines.sleep_duration) {
-    // A simplified spike detection (assume SD = median * 0.2 for now, ideally calculate real SD)
-    const sd = baselines.sleep_duration.median * 0.2; 
-    const diff = todayData.sleep_duration - baselines.sleep_duration.median;
-    if (Math.abs(diff) > SPIKE_SD * sd) {
+  const SPIKE_SD = 1.5; // Trigger threshold
+
+  // Sleep deviation (target-based: 7-8 hours)
+  if (todayData.sleep_duration_hrs) {
+    if (todayData.sleep_duration_hrs < 7) { 
       deviations.push({
         domain: "sleep",
         type: "spike",
-        magnitude_sd: Math.abs(diff) / sd,
+        direction: "down"
+      });
+    } else if (todayData.sleep_duration_hrs > 9) {
+      deviations.push({
+        domain: "sleep",
+        type: "spike",
+        direction: "up"
+      });
+    }
+  }
+
+  // Activity deviation (target-based)
+  if (todayData.steps && targets.steps) {
+    const diff = todayData.steps - targets.steps;
+    if (Math.abs(diff) > targets.steps * 0.3) { // 30% deviation
+      deviations.push({
+        domain: "activity",
+        type: "spike",
         direction: diff > 0 ? "up" : "down"
       });
     }
   }
 
-  // Activity deviation
-  if (todayData.steps && baselines.steps) {
-    const sd = baselines.steps.median * 0.3; // Approx SD for steps
-    const diff = todayData.steps - baselines.steps.median;
+  // Water deviation (target-based)
+  if (todayData.water_ml && targets.water_ml) {
+    const diff = todayData.water_ml - targets.water_ml;
+    if (diff < -500) {
+      deviations.push({
+        domain: "water",
+        type: "spike",
+        direction: "down"
+      });
+    }
+  }
+
+  // HRV deviation (baseline-based)
+  if (todayData.hrv && baselines.hrv) {
+    const sd = baselines.hrv.median * 0.1; // Approx SD 10%
+    const diff = todayData.hrv - baselines.hrv.median;
     if (Math.abs(diff) > SPIKE_SD * sd) {
       deviations.push({
-        domain: "activity",
+        domain: "hrv",
         type: "spike",
-        magnitude_sd: Math.abs(diff) / sd,
+        direction: diff > 0 ? "up" : "down"
+      });
+    }
+  }
+
+  // RHR deviation (baseline-based)
+  if (todayData.resting_heart_rate && baselines.resting_heart_rate) {
+    const sd = baselines.resting_heart_rate.median * 0.05; // Approx SD 5%
+    const diff = todayData.resting_heart_rate - baselines.resting_heart_rate.median;
+    if (Math.abs(diff) > SPIKE_SD * sd) {
+      deviations.push({
+        domain: "resting_heart_rate",
+        type: "spike",
         direction: diff > 0 ? "up" : "down"
       });
     }
@@ -109,7 +161,9 @@ export function detectDeviations(todayData: any, baselines: any) {
 
 // --- Card Generator ---
 export async function generateDailyReviewCard(userId: string) {
-  const baselines = await getDomainBaselines(userId);
+  const { baselines, data_sufficiency } = await getDomainBaselines(userId);
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  
   const now = new Date();
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   yesterday.setHours(0,0,0,0);
@@ -123,12 +177,37 @@ export async function generateDailyReviewCard(userId: string) {
     prisma.nutritionLog.findMany({ where: { user_id: userId, date: { gte: yesterday, lt: todayEnd } } }),
   ]);
 
-  const todayData: any = {};
-  if (sleep.length) todayData.sleep_duration = (sleep[0].sleep_end?.getTime()! - sleep[0].sleep_start?.getTime()!) / (1000 * 60);
-  if (activity.length) todayData.steps = activity[0].steps;
-  if (water.length) todayData.water_ml = water[0].amount_ml;
+  const tz = user?.timezone || "Europe/Moscow";
+  const getLocalDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: tz });
 
-  const deviations = detectDeviations(todayData, baselines);
+  const todayData: any = {};
+  
+  const allDates = [...sleep, ...activity].map(x => getLocalDate(x.date));
+  if (allDates.length > 0) {
+    allDates.sort();
+    const latestDateStr = allDates[allDates.length - 1];
+
+    const todaySleep = sleep.filter(s => getLocalDate(s.date) === latestDateStr);
+    const todayActivity = activity.filter(a => getLocalDate(a.date) === latestDateStr);
+
+    if (todaySleep.length && (todaySleep[0] as any).duration_hrs) {
+      todayData.sleep_duration_hrs = (todaySleep[0] as any).duration_hrs;
+      if (todaySleep[0].hrv) todayData.hrv = todaySleep[0].hrv;
+      if (todaySleep[0].resting_heart_rate) todayData.resting_heart_rate = todaySleep[0].resting_heart_rate;
+    }
+    if (todayActivity.length) {
+      if (todayActivity[0].steps) todayData.steps = todayActivity[0].steps;
+      if (todayActivity[0].active_minutes) todayData.active_minutes = todayActivity[0].active_minutes;
+    }
+  }
+
+  const targets = {
+    steps: user?.target_steps || 10000,
+    active_minutes: user?.target_active_minutes || 30,
+    sleep_duration_hrs: "7-8"
+  };
+
+  const deviations = detectDeviations(todayData, baselines, targets);
   
   // Degradation Ladder
   let ladderState = "level_1_full";
@@ -182,8 +261,10 @@ export async function generateDailyReviewCard(userId: string) {
   const contract = {
     date: new Date().toISOString().split('T')[0],
     ladder_state: ladderState,
+    data_sufficiency,
     baselines,
     today: todayData,
+    targets,
     deviations,
     yesterday_advice: lastAdvice ? lastAdvice.target_metric : null,
     engagement: { empty_streak: emptyStreak },

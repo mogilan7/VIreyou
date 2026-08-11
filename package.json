@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "bot": "npx tsx scripts/telegram-bot.ts"
+    "bot": "npx tsx scripts/telegram-bot.ts",
+    "demo:card": "tsx src/lib/assistant/demo.ts card",
+    "demo:report": "tsx src/lib/assistant/demo.ts report"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -49,11 +51,13 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "@vitest/ui": "^4.1.10",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "prisma": "^5.22.0",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

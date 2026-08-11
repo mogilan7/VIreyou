@@ -390,6 +390,8 @@ Return STRICT JSON:
 - ACTIVITY: { "steps": 5000, "active_minutes": 30, "calories_burned": 250 }
 - HABIT: { "habit_key": "Alcohol" | "Smoking" | "Sugar" }
 
+CRITICAL RULE FOR ALL TYPES: If a specific metric (like duration_hrs, steps, hrv, etc.) is NOT explicitly mentioned by the user, OMIT IT entirely from the JSON object (do NOT return 0 or null).
+
 If the message is completely unintelligible or irrelevant to health, return status "ERROR". Be lenient with typos (e.g., "мне выпил" = "я выпил").`;
 
   const model = getModel("gemini-2.5-flash", 0.2);

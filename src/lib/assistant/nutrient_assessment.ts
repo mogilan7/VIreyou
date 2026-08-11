@@ -30,52 +30,96 @@ export async function getValidDays(userId: string, windowDays: number = 14) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("User not found");
 
+  const tz = user.timezone || "Europe/Moscow";
+  const getLocalDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: tz });
+
   const bmr = calculateBMR(user.weight || 0, user.height || 0, user.age || 0, user.gender || 'unknown');
   const minKcal = Math.max(bmr * MIN_EI_BMR_RATIO, MIN_KCAL_FALLBACK);
 
-  const nutritionLogs = await prisma.nutritionLog.findMany({
-    where: { user_id: userId, date: { gte: windowStart } },
-    orderBy: { date: 'asc' }
-  });
+  const [nutritionLogs, hydrationLogs] = await Promise.all([
+    prisma.nutritionLog.findMany({
+      where: { user_id: userId, date: { gte: windowStart } },
+      orderBy: { date: 'asc' }
+    }),
+    prisma.hydrationLog.findMany({
+      where: { user_id: userId, date: { gte: windowStart } }
+    })
+  ]);
 
-  // Group by date (assuming nutritionLogs are per entry, we need to sum per day)
-  // Or if nutritionLogs are already aggregated per day, we check them directly.
-  // Assuming they are daily aggregates for this user:
+  // Aggregate nutrition logs by day (YYYY-MM-DD)
+  const dailySums: Record<string, { kcal: number, protein: number, carbs: number, fat: number, fiber: number, meals: number, date: Date }> = {};
   
+  for (const log of nutritionLogs) {
+    const dayStr = getLocalDate(log.date);
+    if (!dailySums[dayStr]) {
+       dailySums[dayStr] = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, meals: 0, date: log.date };
+    }
+    dailySums[dayStr].kcal += log.calories || 0;
+    dailySums[dayStr].protein += log.protein || 0;
+    dailySums[dayStr].carbs += log.carbs || 0;
+    dailySums[dayStr].fat += log.fat || 0;
+    dailySums[dayStr].fiber += log.fiber || 0;
+    dailySums[dayStr].meals += 1;
+  }
+
   const validDays = [];
   const excludedDays = [];
   let weekendDaysCount = 0;
 
-  for (const log of nutritionLogs) {
-    // We assume log has kcal and meals_count fields or we count them
-    // If meals count is not in DB, we'd have to approximate or update schema.
-    // For now, let's assume valid if kcal > minKcal and kcal < MAX_KCAL_PER_DAY
-    const kcal = (log as any).calories || (log as any).kcal || 0; // Replace with actual field
-    const isAnomalous = kcal > MAX_KCAL_PER_DAY;
-    const isSufficientEnergy = kcal >= minKcal;
+  for (const dayStr of Object.keys(dailySums)) {
+    const dayData = dailySums[dayStr];
+    const isAnomalous = dayData.kcal > MAX_KCAL_PER_DAY;
+    const isSufficientEnergy = dayData.kcal >= minKcal;
     
-    // Check meals count (stub: assuming 3 meals for now if kcal > minKcal, in reality check Meal table)
-    const mealsCount = 3; 
-    
-    if (!isAnomalous && isSufficientEnergy && mealsCount >= MIN_MEALS_PER_DAY) {
-      validDays.push(log);
-      if (log.date && isWeekend(log.date)) weekendDaysCount++;
+    if (!isAnomalous && isSufficientEnergy && dayData.meals >= MIN_MEALS_PER_DAY) {
+      validDays.push(dayData);
+      if (isWeekend(dayData.date)) weekendDaysCount++;
     } else {
-      excludedDays.push({ date: log.date, reason: isAnomalous ? 'anomalous' : 'insufficient' });
+      excludedDays.push({ date: dayData.date, reason: isAnomalous ? 'anomalous' : 'insufficient' });
     }
   }
 
+  // Habits logic
+  const habitLogs = await prisma.habitLog.findMany({
+    where: { user_id: userId, date: { gte: windowStart } }
+  });
+
+  const habitsCount: Record<string, number> = {};
+  for (const log of habitLogs) {
+    if (log.completed) {
+      habitsCount[log.habit_key] = (habitsCount[log.habit_key] || 0) + 1;
+    }
+  }
+
+  // Water logic
+  const dailyWaterSums: Record<string, number> = {};
+  for (const log of hydrationLogs) {
+    const dayStr = getLocalDate(log.date);
+    dailyWaterSums[dayStr] = (dailyWaterSums[dayStr] || 0) + log.volume_ml;
+  }
+  const validWaterDays = Object.values(dailyWaterSums).filter(v => v > 0);
+  let averageWater = null;
+  if (validWaterDays.length > 0) {
+    averageWater = Math.round(validWaterDays.reduce((a, b) => a + b, 0) / validWaterDays.length);
+  }
+
+  validDays.sort((a,b) => a.date.getTime() - b.date.getTime());
+
   return {
+    bmr,
     validDays,
     excludedDays,
     weekendDaysCount,
+    habitsCount,
+    validWaterDaysCount: validWaterDays.length,
+    averageWater,
     coverage: validDays.length / windowDays,
     lastEntryDate: validDays.length > 0 ? validDays[validDays.length - 1].date : null
   };
 }
 
 export async function generateNutrientAssessment(userId: string, windowDays: number = 14, forceShow: boolean = false) {
-  const { validDays, excludedDays, weekendDaysCount, coverage, lastEntryDate } = await getValidDays(userId, windowDays);
+  const { bmr, validDays, excludedDays, weekendDaysCount, habitsCount, coverage, lastEntryDate, validWaterDaysCount, averageWater } = await getValidDays(userId, windowDays);
   
   const validDaysCount = validDays.length;
   
@@ -90,6 +134,33 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
     no_weekend_day: weekendDaysCount === 0
   };
 
+  // Calculate means if sufficient
+  let macrosValue = null;
+  if (macrosSufficient) {
+    const sum = validDays.reduce((acc, d) => ({
+      kcal: acc.kcal + d.kcal,
+      protein: acc.protein + d.protein,
+      carbs: acc.carbs + d.carbs,
+      fat: acc.fat + d.fat
+    }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+    
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    
+    // Fallback to BMR if target_calories is missing
+    const targetKcal = user?.target_calories || Math.round(bmr * 1.2); 
+    
+    macrosValue = {
+      kcal: Math.round(sum.kcal / validDaysCount),
+      protein: Math.round(sum.protein / validDaysCount),
+      carbs: Math.round(sum.carbs / validDaysCount),
+      fat: Math.round(sum.fat / validDaysCount),
+      target_kcal: Math.round(targetKcal),
+      target_protein: Math.round(user?.target_protein || ((targetKcal * 0.20) / 4)), 
+      target_carbs: Math.round(user?.target_carbs || ((targetKcal * 0.50) / 4)), 
+      target_fat: Math.round(user?.target_fat || ((targetKcal * 0.30) / 9)), 
+    };
+  }
+
   // Compile contract
   const contract = {
     window: windowDays,
@@ -97,11 +168,12 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
     valid_weekend_days: weekendDaysCount,
     coverage,
     flags,
+    habits: habitsCount,
     nutrients: {
       macros: {
         sufficient: macrosSufficient,
         days_required: GATING.MACROS,
-        value: macrosSufficient ? "calculated_mean" : null, // TODO: Compute actual mean
+        value: macrosValue,
         descriptive: forceShow ? "descriptive_data" : null
       },
       fiber_minerals: {
@@ -115,6 +187,11 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
         days_required: GATING.MICROS_VITAMINS,
         value: microsVitaminsSufficient ? "calculated_median" : null,
         descriptive: forceShow ? "descriptive_data" : null
+      },
+      water: {
+        sufficient: validWaterDaysCount >= GATING.MACROS,
+        days_required: GATING.MACROS,
+        value: validWaterDaysCount >= GATING.MACROS ? { average_ml: averageWater, target_ml: 2000 } : null
       }
     },
     disclosure: `Взято ${validDaysCount} дней из ${windowDays} · последняя запись ${flags.stale ? 'давно' : 'недавно'}.`

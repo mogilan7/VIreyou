@@ -599,15 +599,29 @@ model FoodItem {
 }
 
 model HabitLog {
-  id         String   @id
+  id         String     @id
   user_id    String
-  date       DateTime @default(now())
+  date       DateTime   @default(now())
   habit_key  String
-  completed  Boolean  @default(false)
-  created_at DateTime @default(now())
-  User       User     @relation(fields: [user_id], references: [id])
+  completed  Boolean    @default(false)
+  created_at DateTime   @default(now())
+  User       User       @relation(fields: [user_id], references: [id])
 
   @@index([user_id, date])
+  @@schema("public")
+}
+
+model HabitEpisode {
+  id          String   @id @default(cuid())
+  user_id     String
+  habit_key   String
+  occurred_at DateTime
+  quantity    Float?
+  unit        String?
+  note        String?
+  User        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, habit_key, occurred_at])
   @@schema("public")
 }
 
@@ -734,6 +748,8 @@ model SleepLog {
   light_hrs          Float?
   hrv                Int?
   resting_heart_rate Int?
+  subjective_quality String?
+  end_time           DateTime?
   User               User     @relation(fields: [user_id], references: [id])
 
   @@index([user_id, date])
@@ -806,6 +822,7 @@ model User {
   reminder_time1                                String?            @default("21:00")
   reminder_time2                                String?
   reminder_time3                                String?
+  wake_up_time                                  String?            @default("07:00")
   timezone                                      String?            @default("Europe/Moscow")
   report_period_days                            Int?               @default(7)
   last_report_date                              DateTime?
@@ -824,6 +841,8 @@ model User {
   target_protein                                Float?
   target_fat                                    Float?
   target_carbs                                  Float?
+  target_steps                                  Int?
+  target_active_minutes                         Int?
   telegram_username                             String?
   health_export_token                           String?            @unique
   created_at                                    DateTime?          @default(now()) @db.Timestamptz(6)
@@ -835,6 +854,7 @@ model User {
   Consultation_Consultation_client_idToUser     Consultation[]     @relation("Consultation_client_idToUser")
   Consultation_Consultation_specialist_idToUser Consultation[]     @relation("Consultation_specialist_idToUser")
   HabitLog                                      HabitLog[]
+  HabitEpisode                                  HabitEpisode[]
   HealthData                                    HealthData?
   HydrationLog                                  HydrationLog[]
   MedicalDocument                               MedicalDocument[]
@@ -852,6 +872,8 @@ model User {
   AdviceLog                                     AdviceLog[]
   EngagementState                               EngagementState[]
   DisclosureLog                                 DisclosureLog[]
+  ConsultantLog                                 ConsultantLog[]
+  AssistantState                                AssistantState?
 
   @@schema("public")
 }
@@ -1164,14 +1186,15 @@ model DailyActionLog {
 }
 
 model DomainBaseline {
-  id        String   @id @default(cuid())
-  userId    String
-  domain    String
-  median    Float
-  points    Int
-  window    Int
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String
+  domain     String
+  median     Float
+  points     Int
+  window     Int
+  is_outdated Boolean @default(false)
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@unique([userId, domain])
   @@schema("public")
@@ -1200,6 +1223,17 @@ model AdviceLog {
   @@schema("public")
 }
 
+model AssistantState {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  consecutiveEmptyDays Int       @default(0)
+  lastPingAt           DateTime?
+  updatedAt            DateTime  @updatedAt
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@schema("public")
+}
+
 model EngagementState {
   id                     String   @id @default(cuid())
   userId                 String
@@ -1225,3 +1259,19 @@ model DisclosureLog {
   @@schema("public")
 }
 
+model ConsultantLog {
+  id               String   @id @default(cuid())
+  userId           String
+  date             DateTime @default(now())
+  event_type       String
+  requested_period Int?
+  valid_days       Int?
+  coverage         Float?
+  shown_values     Json?
+  flags            Json?
+  explicit_consent Boolean  @default(false)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, date])
+  @@schema("public")
+}
