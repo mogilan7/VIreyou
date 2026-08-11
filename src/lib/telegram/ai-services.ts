@@ -358,7 +358,7 @@ Current date: ${todayStr}. Use it as a reference for "today", "yesterday" (date_
 Return STRICT JSON:
 {
   "status": "SUCCESS" | "ERROR",
-  "type": "NUTRITION" | "SLEEP" | "ACTIVITY" | "HABIT",
+  "type": "NUTRITION" | "SLEEP" | "ACTIVITY" | "HABIT" | "HYDRATION",
   "description": "Short description in ${lang === 'en' ? 'English' : 'Russian'}.",
   "data": { ... },
   "date_offset_days": 0,
@@ -389,7 +389,7 @@ Return STRICT JSON:
 - SLEEP: { "duration_hrs": 8, "deep_hrs": 1.5, "rem_hrs": 2, "light_hrs": 4.5, "hrv": 60, "resting_heart_rate": 55 }
 - ACTIVITY: { "steps": 5000, "active_minutes": 30, "calories_burned": 250 }
 - HABIT: { "habit_key": "Alcohol" | "Smoking" | "Sugar" }
-
+- HYDRATION: { "volume_ml": 250 } (Use ONLY when the user explicitly logs drinking water or pure hydration beverages like tea, not when water is part of food)
 CRITICAL RULE FOR ALL TYPES: If a specific metric (like duration_hrs, steps, hrv, etc.) is NOT explicitly mentioned by the user, OMIT IT entirely from the JSON object (do NOT return 0 or null).
 
 If the message is completely unintelligible or irrelevant to health, return status "ERROR". Be lenient with typos (e.g., "мне выпил" = "я выпил").`;

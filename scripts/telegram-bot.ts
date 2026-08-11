@@ -1397,17 +1397,7 @@ async function saveFoodLog(userId: string, foodData: any, localTodayStr?: string
       });
   }
 
-  // Сохраняем объем воды в HydrationLog для отображения на дашборде
-  if (foodData.water && foodData.water > 0) {
-      const logDate = data.created_at || new Date();
-      await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(),
-              user_id: userId,
-              date: logDate,
-              volume_ml: Math.round(foodData.water),
-              created_at: logDate
-          }
-      });
-  }
+  // Убрано логирование воды из пищи по просьбе пользователя. Вода логируется только вручную.
 
   return log;
 }
@@ -1498,6 +1488,9 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
     } else if (parsedData.type === "HABIT") {
         const d = parsedData.data;
         text = t(lang, 'Habits.saved', { habit: formatHabitName(d.habit_key || parsedData.habit_key, lang), desc: parsedData.description });
+    } else if (parsedData.type === "HYDRATION") {
+        const d = parsedData.data;
+        text = t(lang, 'Water.saved', { vol: d.volume_ml || 0 });
     }
 
     const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
@@ -2177,6 +2170,14 @@ bot.action('save_log_confirm', async (ctx: any) => {
                     completed: true,
                     created_at: date,
                     date: date
+                }
+            });
+        } else if (cached.type === "HYDRATION") {
+            await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(),
+                    user_id: user.id,
+                    date: date,
+                    volume_ml: Number(cached.data.volume_ml || 0),
+                    created_at: date
                 }
             });
         }
