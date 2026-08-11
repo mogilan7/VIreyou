@@ -139,39 +139,68 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Create SleepLog if sleep data exists
+    const startOfDay = new Date();
+    startOfDay.setHours(0,0,0,0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23,59,59,999);
+
+    // 2. Create or Update SleepLog if sleep data exists
     if (sleepDurationHrs > 0) {
       const deepSecs = parseNum(body.Deep) ?? 0;
       const remSecs = parseNum(body.REM) ?? 0;
       const coreSecs = parseNum(body.Core) ?? 0;
       
-      await prisma.sleepLog.create({
-        data: {
-          id: crypto.randomUUID(),
-          user_id: user.id,
-          date: new Date(),
-          duration_hrs: sleepDurationHrs,
-          deep_hrs: deepSecs > 0 ? Number((deepSecs / 3600).toFixed(2)) : null,
-          rem_hrs: remSecs > 0 ? Number((remSecs / 3600).toFixed(2)) : null,
-          light_hrs: coreSecs > 0 ? Number((coreSecs / 3600).toFixed(2)) : null,
-          hrv: avgHrv,
-          resting_heart_rate: avgRestingHr,
-        },
+      const existingSleep = await prisma.sleepLog.findFirst({
+        where: { user_id: user.id, date: { gte: startOfDay, lte: endOfDay } }
       });
+      
+      const sleepData = {
+          duration_hrs: sleepDurationHrs,
+          deep_hrs: deepSecs > 0 ? Number((deepSecs / 3600).toFixed(2)) : (existingSleep?.deep_hrs || null),
+          rem_hrs: remSecs > 0 ? Number((remSecs / 3600).toFixed(2)) : (existingSleep?.rem_hrs || null),
+          light_hrs: coreSecs > 0 ? Number((coreSecs / 3600).toFixed(2)) : (existingSleep?.light_hrs || null),
+          hrv: avgHrv ?? existingSleep?.hrv,
+          resting_heart_rate: avgRestingHr ?? existingSleep?.resting_heart_rate,
+      };
+
+      if (existingSleep) {
+        await prisma.sleepLog.update({ where: { id: existingSleep.id }, data: sleepData });
+      } else {
+        await prisma.sleepLog.create({
+          data: {
+            id: crypto.randomUUID(),
+            user_id: user.id,
+            date: new Date(),
+            ...sleepData
+          },
+        });
+      }
     }
 
-    // 3. Create ActivityLog if steps exist
+    // 3. Create or Update ActivityLog if steps exist
     if (steps > 0 || calories !== null || activeMinutes !== null) {
-      await prisma.activityLog.create({
-        data: {
-          id: crypto.randomUUID(),
-          user_id: user.id,
-          date: new Date(),
-          steps: steps,
-          ...(calories !== null ? { calories_burned: Math.round(calories) } : {}),
-          ...(activeMinutes !== null ? { active_minutes: Math.round(activeMinutes) } : {}),
-        },
+      const existingActivity = await prisma.activityLog.findFirst({
+        where: { user_id: user.id, date: { gte: startOfDay, lte: endOfDay } }
       });
+      
+      const activityData = {
+          steps: steps > 0 ? steps : (existingActivity?.steps || 0),
+          ...(calories !== null ? { calories_burned: Math.round(calories) } : (existingActivity?.calories_burned ? { calories_burned: existingActivity.calories_burned } : {})),
+          ...(activeMinutes !== null ? { active_minutes: Math.round(activeMinutes) } : (existingActivity?.active_minutes ? { active_minutes: existingActivity.active_minutes } : {})),
+      };
+
+      if (existingActivity) {
+        await prisma.activityLog.update({ where: { id: existingActivity.id }, data: activityData });
+      } else {
+        await prisma.activityLog.create({
+          data: {
+            id: crypto.randomUUID(),
+            user_id: user.id,
+            date: new Date(),
+            ...activityData
+          },
+        });
+      }
     }
 
     // Notify user in Telegram
