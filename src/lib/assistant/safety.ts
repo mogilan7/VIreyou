@@ -62,3 +62,8 @@ export function validateLLMOutput(text: string): SafetyResult {
     violations
   };
 }
+
+export function safetyGate(ctx: any, lang: string): { block: boolean, reason?: string } {
+  // Temporary stub since safetyGate was missing
+  return { block: false };
+}
