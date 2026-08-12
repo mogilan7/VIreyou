@@ -1,5 +1,5 @@
 import prisma from "../../lib/prisma";
-import { BASELINE_WINDOW, MIN_BASELINE_POINTS, SPIKE_SD, REPEAT_THRESHOLD } from "./config";
+import { CONFIG } from "./config";
 import { getLocalDate as getLocalDateStr, getLocalDayRangeUTC } from "./ingest";
 
 // --- Baseline Engine ---
@@ -17,8 +17,8 @@ export async function getDomainBaselines(userId: string) {
   const tz = user?.timezone || "Europe/Moscow";
   const now = new Date();
   const todayStr = getLocalDateStr(now, tz);
-  // windowStart = start of local day BASELINE_WINDOW days ago
-  const windowAgo = new Date(now.getTime() - BASELINE_WINDOW * 24 * 60 * 60 * 1000);
+  // windowStart = start of local day CONFIG.BASELINE_WINDOW days ago
+  const windowAgo = new Date(now.getTime() - CONFIG.BASELINE_WINDOW * 24 * 60 * 60 * 1000);
   const windowAgoStr = getLocalDateStr(windowAgo, tz);
   const { start: windowStart } = getLocalDayRangeUTC(windowAgoStr, tz);
 
@@ -34,14 +34,14 @@ export async function getDomainBaselines(userId: string) {
 
   const baselines: any = {};
   const data_sufficiency: any = {
-    hrv: { sufficient: false, points: 0, needed: MIN_BASELINE_POINTS },
-    resting_heart_rate: { sufficient: false, points: 0, needed: MIN_BASELINE_POINTS }
+    hrv: { sufficient: false, points: 0, needed: CONFIG.MIN_BASELINE_POINTS },
+    resting_heart_rate: { sufficient: false, points: 0, needed: CONFIG.MIN_BASELINE_POINTS }
   };
 
   // HRV median (unique days)
   const hrvDays = new Set(sleep.filter(s => s.hrv && s.hrv > 0).map(s => getLocalDate(s.date)));
   data_sufficiency.hrv.points = hrvDays.size;
-  if (hrvDays.size >= MIN_BASELINE_POINTS) {
+  if (hrvDays.size >= CONFIG.MIN_BASELINE_POINTS) {
     const sorted = Array.from(hrvDays).map(d => sleep.find(s => getLocalDate(s.date) === d)!.hrv).sort((a,b) => (a||0)-(b||0)) as number[];
     baselines.hrv = { median: sorted[Math.floor(sorted.length / 2)], points: hrvDays.size, unit: "ms" };
     data_sufficiency.hrv.sufficient = true;
@@ -50,7 +50,7 @@ export async function getDomainBaselines(userId: string) {
   // RHR median (unique days)
   const rhrDays = new Set(sleep.filter(s => s.resting_heart_rate && s.resting_heart_rate > 0).map(s => getLocalDate(s.date)));
   data_sufficiency.resting_heart_rate.points = rhrDays.size;
-  if (rhrDays.size >= MIN_BASELINE_POINTS) {
+  if (rhrDays.size >= CONFIG.MIN_BASELINE_POINTS) {
     const sorted = Array.from(rhrDays).map(d => sleep.find(s => getLocalDate(s.date) === d)!.resting_heart_rate).sort((a,b) => (a||0)-(b||0)) as number[];
     baselines.resting_heart_rate = { median: sorted[Math.floor(sorted.length / 2)], points: rhrDays.size, unit: "bpm" };
     data_sufficiency.resting_heart_rate.sufficient = true;
@@ -63,7 +63,7 @@ export async function getDomainBaselines(userId: string) {
     waterByDay[d] = (waterByDay[d] || 0) + (w.volume_ml || 0);
   });
   const waterAmounts = Object.values(waterByDay).filter(a => a > 0);
-  if (waterAmounts.length >= MIN_BASELINE_POINTS) {
+  if (waterAmounts.length >= CONFIG.MIN_BASELINE_POINTS) {
     baselines.water_ml = { median: median(waterAmounts), points: waterAmounts.length, unit: "ml" };
   }
 
@@ -74,14 +74,14 @@ export async function getDomainBaselines(userId: string) {
       update: {
         median: baselines[domain].median,
         points: baselines[domain].points,
-        window: BASELINE_WINDOW,
+        window: CONFIG.BASELINE_WINDOW,
       },
       create: {
         userId,
         domain,
         median: baselines[domain].median,
         points: baselines[domain].points,
-        window: BASELINE_WINDOW,
+        window: CONFIG.BASELINE_WINDOW,
       }
     });
   }
@@ -93,7 +93,7 @@ export async function getDomainBaselines(userId: string) {
 
 export function detectDeviations(todayData: any, baselines: any, targets: any) {
   const deviations = [];
-  const SPIKE_SD = 1.5; // Trigger threshold
+   // Trigger threshold
 
   // Sleep deviation (target-based: 7-8 hours)
   if (todayData.sleep_duration_hrs) {
@@ -140,7 +140,7 @@ export function detectDeviations(todayData: any, baselines: any, targets: any) {
   if (todayData.hrv && baselines.hrv) {
     const sd = baselines.hrv.median * 0.1; // Approx SD 10%
     const diff = todayData.hrv - baselines.hrv.median;
-    if (Math.abs(diff) > SPIKE_SD * sd) {
+    if (Math.abs(diff) > CONFIG.SPIKE_SD * sd) {
       deviations.push({
         domain: "hrv",
         type: "spike",
@@ -153,7 +153,7 @@ export function detectDeviations(todayData: any, baselines: any, targets: any) {
   if (todayData.resting_heart_rate && baselines.resting_heart_rate) {
     const sd = baselines.resting_heart_rate.median * 0.05; // Approx SD 5%
     const diff = todayData.resting_heart_rate - baselines.resting_heart_rate.median;
-    if (Math.abs(diff) > SPIKE_SD * sd) {
+    if (Math.abs(diff) > CONFIG.SPIKE_SD * sd) {
       deviations.push({
         domain: "resting_heart_rate",
         type: "spike",
