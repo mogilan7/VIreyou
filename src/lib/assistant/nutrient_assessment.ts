@@ -1,17 +1,12 @@
 import prisma from "../../lib/prisma";
-import { 
-  MIN_EI_BMR_RATIO, 
-  MIN_KCAL_FALLBACK, 
-  MIN_MEALS_PER_DAY, 
-  MAX_KCAL_PER_DAY,
-  GATING,
-  WEEKDAY_SKEW_THRESHOLD,
-  STALENESS_DAYS
-} from "./config";
+import { CONFIG } from "./config";
+
+const WEEKDAY_SKEW_THRESHOLD = 0.2;
+const STALENESS_DAYS = 3;
 
 // Function to calculate estimated BMR if not available
 function calculateBMR(weight: number, height: number, age: number, gender: string): number {
-  if (!weight || !height || !age || !gender) return MIN_KCAL_FALLBACK / 0.6; // Default to something reasonable
+  if (!weight || !height || !age || !gender) return CONFIG.MIN_KCAL_FALLBACK / 0.6; // Default to something reasonable
   // Mifflin-St Jeor Equation
   let bmr = (10 * weight) + (6.25 * height) - (5 * age);
   return gender.toLowerCase() === 'male' ? bmr + 5 : bmr - 161;
@@ -34,7 +29,7 @@ export async function getValidDays(userId: string, windowDays: number = 14) {
   const getLocalDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: tz });
 
   const bmr = calculateBMR(user.weight || 0, user.height || 0, user.age || 0, user.gender || 'unknown');
-  const minKcal = Math.max(bmr * MIN_EI_BMR_RATIO, MIN_KCAL_FALLBACK);
+  const minKcal = Math.max(bmr * CONFIG.MIN_EI_BMR_RATIO, CONFIG.MIN_KCAL_FALLBACK);
 
   const [nutritionLogs, hydrationLogs] = await Promise.all([
     prisma.nutritionLog.findMany({
@@ -68,10 +63,10 @@ export async function getValidDays(userId: string, windowDays: number = 14) {
 
   for (const dayStr of Object.keys(dailySums)) {
     const dayData = dailySums[dayStr];
-    const isAnomalous = dayData.kcal > MAX_KCAL_PER_DAY;
+    const isAnomalous = dayData.kcal > CONFIG.MAX_KCAL_PER_DAY;
     const isSufficientEnergy = dayData.kcal >= minKcal;
     
-    if (!isAnomalous && isSufficientEnergy && dayData.meals >= MIN_MEALS_PER_DAY) {
+    if (!isAnomalous && isSufficientEnergy && dayData.meals >= CONFIG.MIN_MEALS_PER_DAY) {
       validDays.push(dayData);
       if (isWeekend(dayData.date)) weekendDaysCount++;
     } else {
@@ -124,9 +119,9 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
   const validDaysCount = validDays.length;
   
   // Gating flags
-  const macrosSufficient = validDaysCount >= GATING.MACROS;
-  const fiberMineralsSufficient = validDaysCount >= GATING.FIBER_MINERALS;
-  const microsVitaminsSufficient = validDaysCount >= GATING.MICROS_VITAMINS && weekendDaysCount > 0;
+  const macrosSufficient = validDaysCount >= CONFIG.THRESHOLD_MACRO;
+  const fiberMineralsSufficient = validDaysCount >= CONFIG.THRESHOLD_MINERALS;
+  const microsVitaminsSufficient = validDaysCount >= CONFIG.THRESHOLD_MICRO && weekendDaysCount > 0;
   
   const flags = {
     weekday_skew: validDaysCount > 0 && weekendDaysCount / validDaysCount < WEEKDAY_SKEW_THRESHOLD,
@@ -172,26 +167,26 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
     nutrients: {
       macros: {
         sufficient: macrosSufficient,
-        days_required: GATING.MACROS,
+        days_required: CONFIG.THRESHOLD_MACRO,
         value: macrosValue,
         descriptive: forceShow ? "descriptive_data" : null
       },
       fiber_minerals: {
         sufficient: fiberMineralsSufficient,
-        days_required: GATING.FIBER_MINERALS,
+        days_required: CONFIG.THRESHOLD_MINERALS,
         value: fiberMineralsSufficient ? "calculated_median" : null,
         descriptive: forceShow ? "descriptive_data" : null
       },
       micros_vitamins: {
         sufficient: microsVitaminsSufficient,
-        days_required: GATING.MICROS_VITAMINS,
+        days_required: CONFIG.THRESHOLD_MICRO,
         value: microsVitaminsSufficient ? "calculated_median" : null,
         descriptive: forceShow ? "descriptive_data" : null
       },
       water: {
-        sufficient: validWaterDaysCount >= GATING.MACROS,
-        days_required: GATING.MACROS,
-        value: validWaterDaysCount >= GATING.MACROS ? { average_ml: averageWater, target_ml: 2000 } : null
+        sufficient: validWaterDaysCount >= CONFIG.THRESHOLD_MACRO,
+        days_required: CONFIG.THRESHOLD_MACRO,
+        value: validWaterDaysCount >= CONFIG.THRESHOLD_MACRO ? { average_ml: averageWater, target_ml: 2000 } : null
       }
     },
     disclosure: `Взято ${validDaysCount} дней из ${windowDays} · последняя запись ${flags.stale ? 'давно' : 'недавно'}.`
