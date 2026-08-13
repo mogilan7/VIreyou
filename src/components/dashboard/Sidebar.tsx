@@ -97,6 +97,14 @@ export default function Sidebar({ role, profileName }: { role: "client" | "speci
         links.splice(1, 0, { name: 'Панель Специалиста', href: "/specialist", icon: <LayoutDashboard size={18} /> });
     }
 
+    if (user?.email?.toLowerCase() === 'mogilev.andrey@gmail.com') {
+        // Add Admin Panel at the bottom of the specialist list or just after specialist panel
+        const existingAdmin = links.find(l => l.href === '/admin');
+        if (!existingAdmin) {
+            links.splice(2, 0, { name: 'Админ-панель', href: "/admin", icon: <Users size={18} /> });
+        }
+    }
+
 
 
     return (
