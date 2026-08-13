@@ -1544,8 +1544,11 @@ bot.on('photo', async (ctx: any) => {
         if (mediaGroupBuffer.has(mediaGroupId)) {
             const group = mediaGroupBuffer.get(mediaGroupId)!;
             mediaGroupBuffer.delete(mediaGroupId);
-            // Обработка группы фото (берем первое фото с самым высоким разрешением)
-            await processSinglePhoto(ctx, group.sort((a, b) => b.photo.length - a.photo.length)[0]);
+            // Обрабатываем все фото в альбоме по очереди
+            for (const msg of group) {
+                // Передаем правильный message, чтобы processSinglePhoto брал photo из нужного сообщения
+                await processSinglePhoto({ ...ctx, message: msg }, msg);
+            }
         }
     }, 3000);
   } else {
