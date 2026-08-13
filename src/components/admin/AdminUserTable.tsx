@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from 'react';
-import { Search, Edit, Calendar, User, X, Check, SearchIcon, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Edit, X, Check, SearchIcon } from 'lucide-react';
 import { updateUserRole, updateUserSubscription } from '@/actions/admin-actions';
 import { useRouter } from 'next/navigation';
 
@@ -10,12 +10,18 @@ export default function AdminUserTable({ initialUsers }: { initialUsers: any[] }
     const [searchTerm, setSearchTerm] = useState('');
     const [editingUser, setEditingUser] = useState<any>(null);
     const [isSaving, setIsSaving] = useState(false);
-    
+    const [mounted, setMounted] = useState(false);
+
     // Modal state
     const [editRole, setEditRole] = useState('');
     const [editExpiry, setEditExpiry] = useState('');
     
     const router = useRouter();
+
+    // Only compute date-dependent UI on the client to avoid hydration mismatch
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const filteredUsers = users.filter((u: any) => {
         const term = searchTerm.toLowerCase();
@@ -97,7 +103,7 @@ export default function AdminUserTable({ initialUsers }: { initialUsers: any[] }
                         </thead>
                         <tbody>
                             {filteredUsers.map((u: any) => {
-                                const isActive = u.subscription_expires_at && new Date(u.subscription_expires_at) > new Date();
+                                const isActive = mounted && u.subscription_expires_at && new Date(u.subscription_expires_at) > new Date();
                                 return (
                                     <tr key={u.id} className="border-b border-brand-sage/10 last:border-0 hover:bg-[#FAFAFA] transition-colors">
                                         <td className="p-4 pl-6">
