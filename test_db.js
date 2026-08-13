@@ -1,16 +1,12 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+
 async function main() {
-  const users = await prisma.user.findMany({
-    orderBy: { created_at: 'desc' },
-    take: 5,
-    select: { email: true, role: true, subscription_expires_at: true, telegram_id: true }
-  });
-  console.log('Recent Users:', users);
-  const tx = await prisma.transaction.findMany({
-    orderBy: { created_at: 'desc' },
-    take: 5
-  });
-  console.log('Recent Transactions:', tx);
+    const sleepLogs = await prisma.sleepLog.findMany({
+        take: 15,
+        orderBy: { date: 'desc' }
+    });
+    console.log(sleepLogs.map(l => ({ id: l.id, date: l.date, created_at: l.created_at, hrv: l.hrv, resting_heart_rate: l.resting_heart_rate })));
 }
-main().finally(() => prisma.$disconnect());
+
+main().catch(console.error).finally(() => prisma.$disconnect());

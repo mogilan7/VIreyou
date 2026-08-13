@@ -1517,7 +1517,10 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
 
     const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
     if (dateOffset !== 0) {
-        text += dateOffset < 0 ? t(lang, 'Misc.dateOffsetPrev') : t(lang, 'Misc.dateOffsetNext');
+        const dateObj = new Date(localToday.split(',')[0].trim());
+        dateObj.setDate(dateObj.getDate() + dateOffset);
+        const dateStr = dateObj.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU', { day: 'numeric', month: 'long' });
+        text += `\n\n📅 _Дата записи: ${dateStr}_`;
     }
 
     return ctx.reply(text, Markup.inlineKeyboard([
