@@ -1,3 +1,4 @@
+import { buildInsightsContract } from './daily_review_insights';
 import prisma from "../../lib/prisma";
 import { CONFIG } from "./config";
 import { getLocalDate as getLocalDateStr, getLocalDayRangeUTC } from "./ingest";
@@ -167,122 +168,7 @@ export function detectDeviations(todayData: any, baselines: any, targets: any) {
 
 // --- Card Generator ---
 export async function generateDailyReviewCard(userId: string) {
-  const { baselines, data_sufficiency } = await getDomainBaselines(userId);
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  const tz = user?.timezone || "Europe/Moscow";
-  const getLocalDate = (d: Date) => getLocalDateStr(d, tz);
-
-  const now = new Date();
-  // Use timezone-aware day boundaries for yesterday and today
-  const todayStr = getLocalDateStr(now, tz);
-  const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const yesterdayStr = getLocalDateStr(yesterdayDate, tz);
-  const { start: yesterday } = getLocalDayRangeUTC(yesterdayStr, tz);
-  const { end: todayEnd } = getLocalDayRangeUTC(todayStr, tz);
-
-  // Fetch recent data (yesterday and today)
-  const [sleep, activity, water, nutrition] = await Promise.all([
-    prisma.sleepLog.findMany({ where: { user_id: userId, date: { gte: yesterday, lt: todayEnd } } }),
-    prisma.activityLog.findMany({ where: { user_id: userId, date: { gte: yesterday, lt: todayEnd } } }),
-    prisma.hydrationLog.findMany({ where: { user_id: userId, date: { gte: yesterday, lt: todayEnd } } }),
-    prisma.nutritionLog.findMany({ where: { user_id: userId, date: { gte: yesterday, lt: todayEnd } } }),
-  ]);
-
-  const todayData: any = {};
-  
-  const allDates = [...sleep, ...activity].map(x => getLocalDate(x.date));
-  if (allDates.length > 0) {
-    allDates.sort();
-    const latestDateStr = allDates[allDates.length - 1];
-
-    const todaySleep = sleep.filter(s => getLocalDate(s.date) === latestDateStr);
-    const todayActivity = activity.filter(a => getLocalDate(a.date) === latestDateStr);
-
-    if (todaySleep.length && (todaySleep[0] as any).duration_hrs) {
-      todayData.sleep_duration_hrs = (todaySleep[0] as any).duration_hrs;
-      if (todaySleep[0].hrv) todayData.hrv = todaySleep[0].hrv;
-      if (todaySleep[0].resting_heart_rate) todayData.resting_heart_rate = todaySleep[0].resting_heart_rate;
-    }
-    if (todayActivity.length) {
-      if (todayActivity[0].steps) todayData.steps = todayActivity[0].steps;
-      if (todayActivity[0].active_minutes) todayData.active_minutes = todayActivity[0].active_minutes;
-    }
-  }
-
-  const targets = {
-    steps: user?.target_steps || 10000,
-    active_minutes: user?.target_active_minutes || 30,
-    sleep_duration_hrs: "7-8"
-  };
-
-  const deviations = detectDeviations(todayData, baselines, targets);
-  
-  // Degradation Ladder
-  let ladderState = "level_1_full";
-  let emptyStreak = 0;
-  
-  const hasTodayData = Object.keys(todayData).length > 0;
-  
-  const lastAdvice = await prisma.adviceLog.findFirst({
-    where: { userId },
-    orderBy: { date: 'desc' }
-  });
-
-  const state = await prisma.engagementState.findFirst({ where: { userId, domain: 'general' } });
-  if (state) {
-     emptyStreak = hasTodayData ? 0 : state.empty_streak + 1;
-     await prisma.engagementState.update({
-       where: { id: state.id },
-       data: { empty_streak: emptyStreak, status: emptyStreak > 3 ? 'decaying' : 'stable' }
-     });
-  } else {
-     await prisma.engagementState.create({
-       data: { userId, domain: 'general', empty_streak: hasTodayData ? 0 : 1, status: 'stable' }
-     });
-  }
-
-  if (hasTodayData) {
-     ladderState = "level_1_full";
-  } else if (lastAdvice && lastAdvice.date.getTime() >= yesterday.getTime()) {
-     ladderState = "level_2_check_yesterday";
-  } else if (baselines.sleep_duration && baselines.sleep_duration.points >= 7) {
-     ladderState = "level_3_retrospective";
-  } else if (emptyStreak > 1 && emptyStreak < 4) {
-     ladderState = "level_4_subjective";
-  } else if (emptyStreak >= 4 && emptyStreak < 7) {
-     ladderState = "level_5_context";
-  } else {
-     ladderState = "level_6_nudge";
-  }
-
-  // Pick praise and problem area
-  let praise = null;
-  let problem = null;
-  
-  if (deviations.length > 0) {
-      const up = deviations.find(d => d.direction === 'up');
-      const down = deviations.find(d => d.direction === 'down');
-      if (up) praise = up;
-      if (down) problem = down;
-  }
-
-  const contract = {
-    date: new Date().toISOString().split('T')[0],
-    ladder_state: ladderState,
-    data_sufficiency,
-    baselines,
-    today: todayData,
-    targets,
-    deviations,
-    yesterday_advice: lastAdvice ? lastAdvice.target_metric : null,
-    engagement: { empty_streak: emptyStreak },
-    card_blocks: {
-      block_1_check: ladderState === 'level_2_check_yesterday' ? true : false,
-      block_2_praise: praise,
-      block_3_problem: problem,
-      block_4_action: true
-    }
-  };
-
+  // Use the new deterministic insights builder
+  const contract = await buildInsightsContract(userId);
   return contract;
 }

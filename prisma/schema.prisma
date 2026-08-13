@@ -599,13 +599,13 @@ model FoodItem {
 }
 
 model HabitLog {
-  id         String     @id
+  id         String   @id
   user_id    String
-  date       DateTime   @default(now())
+  date       DateTime @default(now())
   habit_key  String
-  completed  Boolean    @default(false)
-  created_at DateTime   @default(now())
-  User       User       @relation(fields: [user_id], references: [id])
+  completed  Boolean  @default(false)
+  created_at DateTime @default(now())
+  User       User     @relation(fields: [user_id], references: [id])
 
   @@index([user_id, date])
   @@schema("public")
@@ -685,9 +685,9 @@ model MedicalDocument {
 }
 
 model NutritionLog {
-  id                String   @id
+  id                String    @id
   user_id           String
-  date              DateTime @default(now())
+  date              DateTime  @default(now())
   calories          Float?
   protein           Float?
   carbs             Float?
@@ -696,7 +696,8 @@ model NutritionLog {
   vitamins_minerals Json?
   image_url         String?
   description       String?
-  created_at        DateTime @default(now())
+  created_at        DateTime  @default(now())
+  eaten_at          DateTime?
   dish              String?
   grams             Float?
   sugar_fast        Float?
@@ -730,27 +731,28 @@ model NutritionLog {
   manganese         Float?
   selenium          Float?
   iodine            Float?
-  User              User     @relation(fields: [user_id], references: [id])
+  User              User      @relation(fields: [user_id], references: [id])
 
   @@index([user_id, date])
   @@schema("public")
 }
 
 model SleepLog {
-  id                 String   @id
+  id                 String    @id
   user_id            String
-  date               DateTime @default(now())
+  date               DateTime  @default(now())
+  start_time         DateTime?
   duration_hrs       Float?
   deep_hrs           Float?
   rem_hrs            Float?
   notes              String?
-  created_at         DateTime @default(now())
+  created_at         DateTime  @default(now())
   light_hrs          Float?
   hrv                Int?
   resting_heart_rate Int?
   subjective_quality String?
   end_time           DateTime?
-  User               User     @relation(fields: [user_id], references: [id])
+  User               User      @relation(fields: [user_id], references: [id])
 
   @@index([user_id, date])
   @@schema("public")
@@ -1142,32 +1144,32 @@ model AssistantMessage {
 }
 
 model TipContent {
-  id         String   @id @default(cuid())
+  id         String  @id @default(cuid())
   area       String
-  kind       String   @default("deficit")
-  lang       String   @default("ru")
-  genre      String   @default("daily")
+  kind       String  @default("deficit")
+  lang       String  @default("ru")
+  genre      String  @default("daily")
   domain     String?
   whyShort   String
   whyFull    String
   actionIdea String
-  active     Boolean  @default(true)
-  
+  active     Boolean @default(true)
+
   @@unique([area, kind, lang])
   @@schema("public")
 }
 
 model PatternContent {
-  id         String   @id @default(cuid())
+  id         String  @id @default(cuid())
   patternId  String
-  lang       String   @default("ru")
-  genre      String   @default("daily")
+  lang       String  @default("ru")
+  genre      String  @default("daily")
   domain     String?
   whyShort   String
   whyFull    String
   actionIdea String
-  active     Boolean  @default(true)
-  
+  active     Boolean @default(true)
+
   @@unique([patternId, lang])
   @@schema("public")
 }
@@ -1186,16 +1188,16 @@ model DailyActionLog {
 }
 
 model DomainBaseline {
-  id         String   @id @default(cuid())
-  userId     String
-  domain     String
-  median     Float
-  points     Int
-  window     Int
-  is_outdated Boolean @default(false)
-  updatedAt  DateTime @updatedAt
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id          String   @id @default(cuid())
+  userId      String
+  domain      String
+  median      Float
+  points      Int
+  window      Int
+  is_outdated Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, domain])
   @@schema("public")
 }
@@ -1207,7 +1209,7 @@ model NutrientCalc {
   updatedAt DateTime @updatedAt
   data      Json
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@schema("public")
 }
 
@@ -1218,7 +1220,7 @@ model AdviceLog {
   target_metric String
   verifiable    Boolean
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@index([userId, date])
   @@schema("public")
 }
@@ -1230,31 +1232,31 @@ model AssistantState {
   lastPingAt           DateTime?
   updatedAt            DateTime  @updatedAt
   user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@schema("public")
 }
 
 model EngagementState {
-  id                     String   @id @default(cuid())
-  userId                 String
-  domain                 String
-  status                 String   // "stable", "decaying", "never"
-  empty_streak           Int      @default(0)
-  days_since_last_nudge  Int      @default(0)
-  recovery_streak        Int      @default(0)
-  updatedAt              DateTime @updatedAt
-  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id                    String   @id @default(cuid())
+  userId                String
+  domain                String
+  status                String // "stable", "decaying", "never"
+  empty_streak          Int      @default(0)
+  days_since_last_nudge Int      @default(0)
+  recovery_streak       Int      @default(0)
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, domain])
   @@schema("public")
 }
 
 model DisclosureLog {
-  id        String   @id @default(cuid())
-  userId    String
-  date      DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String   @id @default(cuid())
+  userId String
+  date   DateTime @default(now())
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@schema("public")
 }
@@ -1271,7 +1273,18 @@ model ConsultantLog {
   flags            Json?
   explicit_consent Boolean  @default(false)
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@index([userId, date])
+  @@schema("public")
+}
+
+model TopicMention {
+  id           String   @id @default(uuid())
+  user_id      String
+  topic_key    String
+  mentioned_at DateTime @default(now())
+  role         String // praise, problem, insight, advice
+  advice_id    String?
+
   @@schema("public")
 }
