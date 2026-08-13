@@ -129,8 +129,8 @@ export default async function LifestylePage({
             prisma.activityLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
             prisma.habitLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
             prisma.sleepLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
-            prisma.sleepLog.findMany({ where: { user_id: userId, created_at: { gte: twoWeeksAgo } }, orderBy: { created_at: 'asc' } }),
             prisma.hydrationLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
+            prisma.sleepLog.findMany({ where: { user_id: userId, created_at: { gte: twoWeeksAgo } }, orderBy: { created_at: 'asc' } }),
             // Список за 30 дней для тепловой карты
             prisma.habitLog.findMany({ where: { user_id: userId, created_at: { gte: monthAgo } }, orderBy: { created_at: 'asc' } })
         ]);
