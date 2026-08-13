@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
-  Tooltip, Cell, PieChart, Pie, AreaChart, Area
+  Tooltip, Cell, PieChart, Pie, AreaChart, Area, ComposedChart, Line, CartesianGrid, Legend
 } from 'recharts';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import Sidebar from "@/components/dashboard/Sidebar";
@@ -48,6 +48,7 @@ const LifestyleDashboard = ({
   const locale = (params?.locale as string) || 'ru';
   const t = useTranslations('Lifestyle');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [activeChart, setActiveChart] = useState<'hrv' | 'rhr' | 'none'>('none');
 
   const { 
     nutritionToday, activityToday, sleepToday, hydrationToday, habitsToday,
@@ -447,12 +448,18 @@ const LifestyleDashboard = ({
             </div>
             
             <div className="flex justify-between items-center px-1 sm:px-2 py-2 sm:py-3 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl sm:rounded-2xl mt-auto">
-              <div className="text-center flex-1 min-w-0">
+              <div 
+                className={`text-center flex-1 min-w-0 cursor-pointer p-1 rounded-lg transition-colors ${activeChart === 'hrv' ? 'bg-indigo-100 dark:bg-indigo-800/50' : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30'}`}
+                onClick={() => setActiveChart(activeChart === 'hrv' ? 'none' : 'hrv')}
+              >
                 <p className="text-[8px] sm:text-[10px] text-indigo-400 uppercase tracking-tight font-bold truncate">{t('hrv')}</p>
                 <p className="text-sm sm:text-base md:text-lg font-bold">{lastSleep?.hrv || '—'}</p>
               </div>
               <div className="w-px h-6 sm:h-8 bg-indigo-200 dark:bg-indigo-800" />
-              <div className="text-center flex-1 min-w-0">
+              <div 
+                className={`text-center flex-1 min-w-0 cursor-pointer p-1 rounded-lg transition-colors ${activeChart === 'rhr' ? 'bg-indigo-100 dark:bg-indigo-800/50' : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30'}`}
+                onClick={() => setActiveChart(activeChart === 'rhr' ? 'none' : 'rhr')}
+              >
                 <p className="text-[8px] sm:text-[10px] text-indigo-400 uppercase tracking-tight font-bold truncate">{t('restingHr')}</p>
                 <p className="text-sm sm:text-base md:text-lg font-bold">{lastSleep?.resting_heart_rate || '—'}</p>
               </div>

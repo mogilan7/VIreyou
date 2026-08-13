@@ -1,3 +1,4 @@
+import { verifyNumbers } from './safety';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import prisma from "../../lib/prisma";
 import type { LifestyleContext } from "./context";
@@ -156,8 +157,8 @@ const DAILY_REVIEW_PROMPT = `Ты — аналитический модуль а
 3. На что посмотреть — одна проблемная зона, если она есть во входных данных
 4. Сегодня — одно действие с указанием, что посмотрим завтра
 
-Если во входных данных есть suppressed с reason: below_threshold — одной строкой
-в конце укажи, что разблокируется и через сколько дней.
+Если во входных данных есть suppressed с reason РОВНО "below_threshold" (и ТОЛЬКО в этом случае) — одной строкой
+в конце укажи, что разблокируется и через сколько дней. НИКОГДА не пиши это для reason: "cooldown".
 
 Верни только текст сообщения. Без заголовков блоков, без markdown-разметки,
 без преамбулы.
@@ -207,35 +208,63 @@ const NUTRIENT_PROMPT = `Твоя задача — проанализирова�
 - Обязательно выведи блок "disclosure" из контракта.
 - Объем: 1000-1500 знаков.`;
 
-export async function generateDailyReview(userId: string): Promise<string> {
-  if (!apiKey) return "Ой, я не могу подключиться к своим нейросетям.";
+export async function recordTopicMentions(userId: string, contract: any) {
+    if (contract.problem) {
+      const pKey = contract.problem.metric ? contract.problem.metric.split('_')[0] : 'unknown';
+      await prisma.topicMention.create({
+         data: { user_id: userId, topic_key: pKey, role: 'problem' }
+      });
+    }
+    if (contract.praise) {
+      const prKey = contract.praise.metric ? contract.praise.metric.split('_')[0] : 'unknown';
+      await prisma.topicMention.create({
+         data: { user_id: userId, topic_key: prKey, role: 'praise' }
+      });
+    }
+}
+
+export async function generateDailyReview(userId: string): Promise<{ text: string, contract: any }> {
+  if (!apiKey) return { text: "Ой, я не могу подключиться к своим нейросетям.", contract: null };
   
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { temperature: 0.7 } });
   
   const contract = await generateDailyReviewCard(userId);
   
   try {
-    const result = await model.generateContent([
-      { text: DAILY_REVIEW_PROMPT },
-      { text: `Входные данные (JSON контракта):\n${JSON.stringify(contract, null, 2)}` }
-    ]);
+    const jsonStr = JSON.stringify(contract, null, 2);
+    console.log("JSON CONTRACT:\n", jsonStr);
     
-    // Log topics
-    if (contract.problem) {
-      await prisma.topicMention.create({
-         data: { user_id: userId, topic_key: contract.problem.metric, role: 'problem' }
-      });
-    }
-    if (contract.praise) {
-      await prisma.topicMention.create({
-         data: { user_id: userId, topic_key: contract.praise.metric, role: 'praise' }
-      });
+    let attempts = 0;
+    let finalOutput = "";
+    let valid = false;
+
+    while (attempts < 2 && !valid) {
+        attempts++;
+        const result = await model.generateContent([
+          { text: DAILY_REVIEW_PROMPT },
+          { text: `Входные данные (JSON контракта):\n${jsonStr}` }
+        ]);
+        
+        const output = result.response.text();
+        const check = verifyNumbers(output, contract);
+        
+        if (check.valid) {
+            finalOutput = output;
+            valid = true;
+        } else {
+            console.warn(`[Safety Checker] Attempt ${attempts} failed due to hallucinated numbers: ${check.invalidNumbers.join(', ')}`);
+        }
     }
 
-    return result.response.text();
+    if (!valid) {
+        console.error("[Safety Checker] Failed 2 attempts. Using fallback template.");
+        finalOutput = "Сегодня обойдемся без деталей, но я записал ваши данные и продолжаю их анализировать. Помните про важность восстановления и активности!";
+    }
+
+    return { text: finalOutput, contract };
   } catch (error) {
     console.error("Failed to generate daily review:", error);
-    return "Произошла ошибка при формировании разбора.";
+    return { text: "Произошла ошибка при формировании разбора.", contract: null };
   }
 }
 

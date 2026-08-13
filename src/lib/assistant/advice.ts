@@ -8,36 +8,104 @@ export interface DailyAdvice {
 }
 
 // 8. Выбор совета
-// "Выбирается из вчерашних данных, выполним сегодня, проверяем завтрашними данными."
+// Приоритет выбора при пустых deviations: 
+// 1. домен с trend_7d: worsening
+// 2. домен заявленной цели
+// 3. метрика дальше всего от целевого значения (baseline)
 export async function getAdviceForToday(
   userId: string,
-  deviations: any[]
+  deviations: any[],
+  domain_states?: Record<string, any>,
+  targetData?: any,
+  baselines?: Record<string, any>
 ): Promise<DailyAdvice | null> {
-  // Simplistic selection of advice based on deviations
-  if (deviations.length === 0) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const metricNames: Record<string, string> = { sleep_duration: 'сна', steps: 'шагов', water: 'воды', hrv: 'вариабельности пульса', kcal: 'питания', rhr: 'пульса в покое' };
+  
+  // Map outcome metrics to behavioral targets
+  const behaviorMapping: Record<string, { target: string, text: string }> = {
+    hrv: { target: 'sleep_duration', text: 'Постарайтесь сегодня лечь спать немного раньше, чтобы поддержать восстановление.' },
+    rhr: { target: 'sleep_duration', text: 'Дополнительные полчаса сна сегодня помогут пульсу вернуться в норму.' },
+    sleep: { target: 'sleep_duration', text: 'Попробуйте сегодня лечь на 15 минут раньше.' },
+    sleep_duration: { target: 'sleep_duration', text: 'Попробуйте сегодня лечь на 15 минут раньше.' }
+  };
+
+  // 1. If we have a clear deviation, use it.
+  if (deviations && deviations.length > 0) {
+    const firstDev = deviations[0];
+    const mapping = behaviorMapping[firstDev.metric];
+    const mName = metricNames[firstDev.metric] || firstDev.metric;
+    
     return {
-      id: 'adv_hydration',
-      target_metric: 'water_ml',
+      id: mapping ? 'adv_behavioral' : 'adv_general',
+      target_metric: mapping ? mapping.target : firstDev.metric,
       verifiable: true,
-      content: 'Попробуйте выпить стакан воды перед обедом.'
+      content: mapping ? mapping.text : `Постарайтесь сегодня чуть улучшить показатель ${mName}.`
     };
   }
 
-  const firstDeviation = deviations[0];
-  if (firstDeviation.domain === 'sleep') {
-    return {
-      id: 'adv_sleep_early',
-      target_metric: 'sleep_duration',
-      verifiable: true,
-      content: 'Попробуйте сегодня лечь на 15 минут раньше.'
-    };
+  // 2. No deviations. Look for worsening domains
+  if (domain_states) {
+     const worsening = Object.keys(domain_states).filter(k => domain_states[k].trend_7d === 'worsening');
+     if (worsening.length > 0) {
+         const mName = metricNames[worsening[0]] || worsening[0];
+         const mapping = behaviorMapping[worsening[0]];
+         return {
+             id: mapping ? 'adv_behavioral' : 'adv_worsening',
+             target_metric: mapping ? mapping.target : worsening[0],
+             verifiable: true,
+             content: mapping ? mapping.text : `Ваш показатель ${mName} начал снижаться. Постарайтесь уделить ему внимание сегодня.`
+         };
+     }
+  }
+  
+  // 3. Stated goal (fallback to steps if goal string includes activity/steps, or water, etc.)
+  const goalStr = (user?.goal || "").toLowerCase();
+  let goalDomain = null;
+  if (goalStr.includes('сон') || goalStr.includes('sleep')) goalDomain = 'sleep_duration';
+  else if (goalStr.includes('шаг') || goalStr.includes('активн') || goalStr.includes('activity')) goalDomain = 'steps';
+  else if (goalStr.includes('вес') || goalStr.includes('weight')) goalDomain = 'kcal';
+  
+  if (goalDomain && baselines && baselines[goalDomain]) {
+      const mName = metricNames[goalDomain] || goalDomain;
+      return {
+          id: 'adv_goal',
+          target_metric: goalDomain,
+          verifiable: true,
+          content: `Держите фокус на вашей главной цели: ${mName}.`
+      };
+  }
+  
+  // 4. Furthest from target (percent from baseline)
+  if (targetData && baselines) {
+      let furthestMetric = 'water';
+      let maxDiffPercent = 0;
+      Object.keys(baselines).forEach(m => {
+          if (targetData[m] !== undefined && baselines[m].median > 0) {
+              const diffPercent = Math.abs(targetData[m] - baselines[m].median) / baselines[m].median;
+              if (diffPercent > maxDiffPercent) {
+                  maxDiffPercent = diffPercent;
+                  furthestMetric = m;
+              }
+          }
+      });
+      
+      const mName = metricNames[furthestMetric] || furthestMetric;
+      const mapping = behaviorMapping[furthestMetric];
+      return {
+          id: mapping ? 'adv_behavioral' : 'adv_furthest',
+          target_metric: mapping ? mapping.target : furthestMetric,
+          verifiable: true,
+          content: mapping ? mapping.text : `Постарайтесь сегодня подтянуть показатель ${mName}, он немного отстал от вашей нормы.`
+      };
   }
 
+  // Final fallback
   return {
-    id: 'adv_general',
-    target_metric: firstDeviation.domain,
+    id: 'adv_hydration',
+    target_metric: 'water',
     verifiable: true,
-    content: `Обратите внимание на ${firstDeviation.domain} сегодня.`
+    content: 'Попробуйте выпить стакан воды перед обедом.'
   };
 }
 
@@ -53,15 +121,12 @@ export async function checkYesterdayAdvice(
   if (!yesterdayAdvice) return null;
 
   if (yesterdayAdvice.verifiable) {
-    // Check if the data for this metric exists today
     const val = todayData[yesterdayAdvice.target_metric];
     if (val !== undefined && val !== null) {
-      // Check if it was better (simplistic threshold)
       return { success: true, qualitativeNeeded: false };
     }
   }
 
-  // Data not available or not verifiable -> qualitative fallback
   return { 
     success: false, 
     qualitativeNeeded: true, 

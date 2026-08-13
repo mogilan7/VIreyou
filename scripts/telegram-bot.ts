@@ -27,7 +27,7 @@ import { generatePeriodicReport } from "../src/lib/reportGenerator";
 import { aggregateUserContext } from "../src/lib/assistant/context";
 import { evaluateLifestyle } from "../src/lib/assistant/rules";
 import { validateLLMOutput } from "../src/lib/assistant/safety";
-import { generateDailyReview, generateNutrientReview } from "../src/lib/assistant/generate";
+import { generateDailyReview, generateNutrientReview, recordTopicMentions } from "../src/lib/assistant/generate";
 import { calculateAllUserBaselines } from "../src/lib/assistant/baselines";
 import { generateDailyAction } from "../src/lib/assistant/daily_action";
 
@@ -285,10 +285,11 @@ async function showLifestyleAnalysis(ctx: any) {
     const loadingMessage = await ctx.reply(analyzingMsg);
 
     // Generate both reviews concurrently
-    const [dailyText, nutrientText] = await Promise.all([
+    const [dailyResult, nutrientText] = await Promise.all([
       generateDailyReview(user.id),
       generateNutrientReview(user.id, false)
     ]);
+    const dailyText = typeof dailyResult === 'string' ? dailyResult : dailyResult.text;
 
     // Combine them
     const combinedText = `*Ежедневный свод (Сон, Активность, Гидратация)*\n\n${dailyText}\n\n---\n\n*Нутриентный профиль (Долгосрочные тренды)*\n\n${nutrientText}`;
@@ -296,6 +297,9 @@ async function showLifestyleAnalysis(ctx: any) {
     // Remove loading message
     await ctx.telegram.deleteMessage(ctx.chat.id, loadingMessage.message_id).catch(() => {});
 
+    if (dailyResult && typeof dailyResult === 'object' && dailyResult.contract) {
+        await recordTopicMentions(user.id, dailyResult.contract);
+    }
     console.log(`[ASSISTANT LOG] User: ${user.id}, Daily + Nutrient Review generated`);
 
     const btnUp = lang === 'en' ? "👍 Helpful" : "👍 Полезно";
@@ -814,21 +818,39 @@ bot.command('marathon_test', async (ctx: any) => {
     // ctx.reply(report, { parse_mode: 'Markdown' });
 });
 
+bot.command('clear_topics', async (ctx: any) => {
+    const user = ctx.state.user;
+    if (!user) return;
+    try {
+        const startOfDay = new Date();
+        startOfDay.setHours(0,0,0,0);
+        const res = await prisma.topicMention.deleteMany({
+            where: { user_id: user.id, mentioned_at: { gte: startOfDay } }
+        });
+        ctx.reply(`Очищено ${res.count} упоминаний за сегодня.`);
+    } catch(e) {
+        ctx.reply("Ошибка при очистке");
+    }
+});
+
 bot.command('review_test', async (ctx: any) => {
     const user = ctx.state.user;
     if (!user) return ctx.reply("Пользователь не найден.");
 
     try {
         const { getLocalDate } = await import('../src/lib/assistant/ingest');
-        const { generateDailyReview } = await import('../src/lib/assistant/generate');
+        const { generateDailyReview, recordTopicMentions } = await import('../src/lib/assistant/generate');
         const now = new Date();
         const userTz = user.timezone || 'Europe/Moscow';
         const todayStr = getLocalDate(now, userTz);
 
         ctx.reply(`Запрашиваю данные и оцениваю Scheduler...\n📅 Дата: ${todayStr} (${userTz})`);
 
-        const review = await generateDailyReview(user.id);
-        await ctx.reply(review, { parse_mode: "HTML" });
+        const reviewData = await generateDailyReview(user.id);
+        await ctx.reply(reviewData.text, { parse_mode: "HTML" });
+        if (reviewData.contract) {
+            await recordTopicMentions(user.id, reviewData.contract);
+        }
     } catch (e) {
         console.error("Test error:", e);
         ctx.reply(`Ошибка при выполнении теста: ${(e as any)?.message || e}`);
@@ -1437,7 +1459,7 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
     } else if (parsedData.type === "SLEEP") {
         const d = parsedData.data;
         const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
-        const date = new Date(localToday);
+        const date = new Date(localToday.split(',')[0].trim());
         date.setDate(date.getDate() + dateOffset);
         const startOfDay = new Date(date);
         startOfDay.setHours(0,0,0,0);
@@ -1467,7 +1489,7 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
     } else if (parsedData.type === "ACTIVITY") {
         const d = parsedData.data;
         const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
-        const date = new Date(localToday);
+        const date = new Date(localToday.split(',')[0].trim());
         date.setDate(date.getDate() + dateOffset);
         const startOfDay = new Date(date);
         startOfDay.setHours(0,0,0,0);
@@ -2763,8 +2785,12 @@ cron.schedule('* * * * *', async () => {
 
                     if (decision.shouldNudge) {
                         console.log(`[CRON] Sending Daily Review (Module A) to user ${u.id} in timezone ${userTz} (Reason: ${decision.reason})...`);
-                        const review = await generateDailyReview(u.id);
-                        await bot.telegram.sendMessage(u.telegram_id!.toString(), review, { parse_mode: "HTML" });
+                        const reviewData = await generateDailyReview(u.id);
+                        await bot.telegram.sendMessage(u.telegram_id!.toString(), reviewData.text, { parse_mode: "HTML" });
+                        if (reviewData.contract) {
+                            const { recordTopicMentions } = await import('../src/lib/assistant/generate');
+                            await recordTopicMentions(u.id, reviewData.contract);
+                        }
                         
                         await prisma.assistantState.upsert({
                             where: { userId: u.id },

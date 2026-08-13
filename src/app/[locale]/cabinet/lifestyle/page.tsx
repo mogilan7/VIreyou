@@ -109,12 +109,14 @@ export default async function LifestylePage({
         let fromDate = getTzMidnightUTC(fromStr || null, 0, false);
         let toDate = getTzMidnightUTC(toStr || null, 0, true);
         const weekAgo = getTzMidnightUTC(null, -7, false);
+        const twoWeeksAgo = getTzMidnightUTC(null, -14, false);
         const monthAgo = getTzMidnightUTC(null, -30, false);
 
         // Fetch Logs from Prisma
         const [
             nutritionToday, activityToday, sleepToday, hydrationToday, habitsToday, 
             nutritionWeek, activityWeek, habitsWeek, sleepWeek, hydrationWeek,
+            sleep14Days,
             habitsMonth
         ] = await Promise.all([
             prisma.nutritionLog.findMany({ where: { user_id: userId, created_at: { gte: fromDate, lte: toDate } }, orderBy: { created_at: 'desc' } }),
@@ -127,6 +129,7 @@ export default async function LifestylePage({
             prisma.activityLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
             prisma.habitLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
             prisma.sleepLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
+            prisma.sleepLog.findMany({ where: { user_id: userId, created_at: { gte: twoWeeksAgo } }, orderBy: { created_at: 'asc' } }),
             prisma.hydrationLog.findMany({ where: { user_id: userId, created_at: { gte: weekAgo } }, orderBy: { created_at: 'desc' } }),
             // Список за 30 дней для тепловой карты
             prisma.habitLog.findMany({ where: { user_id: userId, created_at: { gte: monthAgo } }, orderBy: { created_at: 'asc' } })
@@ -139,6 +142,71 @@ export default async function LifestylePage({
         const totalCalories = nutritionToday.reduce((sum: number, n: any) => sum + Number(n.calories || 0), 0);
         const totalSteps = activityToday.reduce((sum: number, a: any) => sum + (a.steps || 0), 0);
 
+
+        // SMA Calculation for HRV and RHR
+        const hrvTrend: any[] = [];
+        const rhrTrend: any[] = [];
+        if (sleep14Days && sleep14Days.length > 0) {
+            // Group by local date string (YYYY-MM-DD)
+            const groupedByDate: Record<string, any> = {};
+            sleep14Days.forEach((log: any) => {
+                const tzStr = new Date(log.created_at).toLocaleString('en-US', { timeZone: userTz, hour12: false });
+                const d = new Date(tzStr);
+                const ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                const shortDate = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0');
+                if (!groupedByDate[ds]) {
+                    groupedByDate[ds] = { date: ds, shortDate, hrvs: [], rhrs: [] };
+                }
+                if (log.hrv) groupedByDate[ds].hrvs.push(log.hrv);
+                if (log.resting_heart_rate) groupedByDate[ds].rhrs.push(log.resting_heart_rate);
+            });
+
+            // Get last 7 days keys
+            const sortedDates = Object.keys(groupedByDate).sort();
+            const last7Dates = sortedDates.slice(-7);
+
+            last7Dates.forEach((ds) => {
+                const idx = sortedDates.indexOf(ds);
+                // get up to 7 previous days including current
+                const windowDates = sortedDates.slice(Math.max(0, idx - 6), idx + 1);
+                
+                let sumHrv = 0, countHrv = 0;
+                let sumRhr = 0, countRhr = 0;
+                
+                windowDates.forEach(wd => {
+                    const group = groupedByDate[wd];
+                    if (group.hrvs.length) {
+                        sumHrv += group.hrvs.reduce((a:number,b:number)=>a+b,0) / group.hrvs.length;
+                        countHrv++;
+                    }
+                    if (group.rhrs.length) {
+                        sumRhr += group.rhrs.reduce((a:number,b:number)=>a+b,0) / group.rhrs.length;
+                        countRhr++;
+                    }
+                });
+
+                const group = groupedByDate[ds];
+                const avgHrv = group.hrvs.length ? Math.round(group.hrvs.reduce((a:number,b:number)=>a+b,0) / group.hrvs.length) : null;
+                const avgRhr = group.rhrs.length ? Math.round(group.rhrs.reduce((a:number,b:number)=>a+b,0) / group.rhrs.length) : null;
+                
+                if (avgHrv !== null) {
+                    hrvTrend.push({
+                        date: group.shortDate,
+                        value: avgHrv,
+                        sma: countHrv > 0 ? Math.round(sumHrv / countHrv) : avgHrv
+                    });
+                }
+                
+                if (avgRhr !== null) {
+                    rhrTrend.push({
+                        date: group.shortDate,
+                        value: avgRhr,
+                        sma: countRhr > 0 ? Math.round(sumRhr / countRhr) : avgRhr
+                    });
+                }
+            });
+        }
+
         const data = {
             nutritionToday, activityToday, sleepToday, hydrationToday, habitsToday,
             nutritionWeek, activityWeek, habitsWeek, sleepWeek, hydrationWeek,
@@ -147,6 +215,8 @@ export default async function LifestylePage({
             nutritionNorms: localizedNutritionNorms,
             nutrientNames: localizedNutrientNames,
             targetCalories: publicUser?.target_calories || 2200,
+            hrvTrend,
+            rhrTrend,
             targetSteps: 10000,
             targetWater: 2000
         }

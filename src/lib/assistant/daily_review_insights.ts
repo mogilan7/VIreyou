@@ -1,13 +1,23 @@
 import prisma from "../prisma";
 import { getLocalDate, getLocalDayRangeUTC } from "./ingest";
+import { getAdviceForToday } from "./advice";
 
 const CONFIG = {
   BASELINE_WINDOW: 14,
   SPIKE_SD: 1.5,
   MIN_BASELINE_POINTS: 4,
   TOPIC_COOLDOWN: 3,
-  LATE_MEAL_HOURS: 3
+  LATE_MEAL_HOURS: 3,
+  REPEAT_THRESHOLD: 3
 };
+
+
+function formatMinutes(mins: number): string {
+    const h = Math.floor(mins / 60);
+    const m = Math.round(mins % 60);
+    if (h > 0) return `${h} ч ${m} мин`;
+    return `${m} мин`;
+}
 
 function calculateMedian(arr: number[]): number {
   if (!arr || arr.length === 0) return 0;
@@ -92,7 +102,6 @@ export async function buildInsightsContract(userId: string) {
   const yesterdayStr = getLocalDate(new Date(now.getTime() - 24 * 60 * 60 * 1000), tz);
   const targetDay = todayData.sleep_duration ? todayStr : yesterdayStr; 
   
-  // Helper to extract array of values for a metric
   const getValues = (metric: string) => Object.values(daily).map(d => d[metric]).filter(v => v !== undefined && v !== null);
   
   // 3. Baselines & Targets
@@ -100,6 +109,7 @@ export async function buildInsightsContract(userId: string) {
   const baselines: Record<string, { median: number, sd: number }> = {};
   metrics.forEach(m => {
       const vals = getValues(m);
+      if (vals.length < CONFIG.MIN_BASELINE_POINTS) return;
       const median = calculateMedian(vals);
       const mean = vals.reduce((a,b)=>a+b, 0) / (vals.length || 1);
       const sd = calculateSD(vals, mean) || (median * 0.1);
@@ -116,25 +126,25 @@ export async function buildInsightsContract(userId: string) {
       const diff = val - b.median;
       const mag = Math.abs(diff) / b.sd;
       
-      if (mag > 1.0) {
-          let dir = diff > 0 ? 'up' : 'down';
-          
-          let streak = 0;
-          let sortedDays = Object.keys(daily).sort().reverse();
-          let idx = sortedDays.indexOf(targetDay);
-          if (idx !== -1) {
-              for (let i = idx; i < sortedDays.length; i++) {
-                  const dVal = daily[sortedDays[i]][metric];
-                  if (dVal !== undefined) {
-                      const dDiff = dVal - b.median;
-                      if ((dir === 'up' && dDiff > b.sd*0.5) || (dir === 'down' && dDiff < -b.sd*0.5)) {
-                          streak++;
-                      } else {
-                          break;
-                      }
+      // calculate streak first to check if it passes filter
+      let dir = diff > 0 ? 'up' : 'down';
+      let streak = 0;
+      let sortedDays = Object.keys(daily).sort().reverse();
+      let idx = sortedDays.indexOf(targetDay);
+      if (idx !== -1) {
+          for (let i = idx; i < sortedDays.length; i++) {
+              const dVal = daily[sortedDays[i]][metric];
+              if (dVal !== undefined) {
+                  const dDiff = dVal - b.median;
+                  if ((dir === 'up' && dDiff > b.sd*0.5) || (dir === 'down' && dDiff < -b.sd*0.5)) {
+                      streak++;
+                  } else {
+                      break;
                   }
               }
           }
+      }
+      if (mag > CONFIG.SPIKE_SD || streak >= CONFIG.REPEAT_THRESHOLD || (Math.abs(diff) / b.median) >= 0.1) {
           
           deviations.push({
               metric,
@@ -145,7 +155,8 @@ export async function buildInsightsContract(userId: string) {
               streak: streak,
               streak_direction: streak > 1 ? "worsening" : "stable",
               same_weekday_pattern: false,
-              rank_in_window: 1 // mock
+              rank_in_window: 1, // mock
+              ...(metric === 'sleep_duration' && { value_formatted: formatMinutes(val), baseline_formatted: formatMinutes(b.median) })
           });
       }
   };
@@ -163,19 +174,32 @@ export async function buildInsightsContract(userId: string) {
       
       let status = "normal";
       let trend = "stable";
-      if (recent.length && prev.length) {
+      if (recent.length && baselines[m]) {
           const recMed = calculateMedian(recent);
-          const prevMed = calculateMedian(prev);
-          if (Math.abs(recMed - prevMed) > baselines[m].sd * 0.5) {
-              trend = recMed > prevMed ? "improving" : "worsening";
-          }
+          const bMed = baselines[m].median;
+          if (recMed > bMed * 1.05) trend = "improving";
+          else if (recMed < bMed * 0.95) trend = "worsening";
       }
       
       if (deviations.some(d => d.metric.includes(m.split('_')[0]))) {
           status = "deviating";
       }
       
-      domain_states[m.split('_')[0]] = { status, trend_7d: trend };
+      let val = Math.round(targetData[m] || 0);
+      let bVal = baselines[m]?.median || 0;
+      let formattedVal = m === 'sleep_duration' ? formatMinutes(val) : undefined;
+      let formattedBaseline = m === 'sleep_duration' ? formatMinutes(bVal) : undefined;
+
+      const vals = getValues(m);
+      domain_states[m.split('_')[0]] = { 
+          status, 
+          trend_7d: trend,
+          value: val,
+          baseline: Math.round(bVal),
+          points: vals.length,
+          ...(formattedVal && { value_formatted: formattedVal }),
+          ...(formattedBaseline && { baseline_formatted: formattedBaseline })
+      };
   });
   
   // 6. Explanation Candidates (Late Meal)
@@ -206,7 +230,7 @@ export async function buildInsightsContract(userId: string) {
       }
   });
 
-  if (targetData.sleep_start_time) {
+  if (deviations.some(d => d.metric === 'sleep_duration' && d.direction === 'down')) {
       explanation_candidates.push({
           factor: "late_meal",
           occurred: lateMealOccurred,
@@ -221,8 +245,9 @@ export async function buildInsightsContract(userId: string) {
   // Group mentions by topic
   const mentionsByTopic: Record<string, any[]> = {};
   topicMentions.forEach(m => {
-      if (!mentionsByTopic[m.topic_key]) mentionsByTopic[m.topic_key] = [];
-      mentionsByTopic[m.topic_key].push(m);
+      const baseTopic = m.topic_key.split('_')[0];
+      if (!mentionsByTopic[baseTopic]) mentionsByTopic[baseTopic] = [];
+      mentionsByTopic[baseTopic].push(m);
   });
 
   Object.keys(mentionsByTopic).forEach(topic => {
@@ -251,9 +276,12 @@ export async function buildInsightsContract(userId: string) {
   const suppressed: any[] = [];
   // Suppress topics that were mentioned within cooldown, unless streak is worsening
   const finalDeviations = deviations.filter(d => {
-      const th = topic_history[d.metric];
+      const baseTopic = d.metric.split('_')[0];
+      const th = topic_history[baseTopic];
       if (th && th.mentioned_days_ago < CONFIG.TOPIC_COOLDOWN) {
-          if (d.streak_direction !== 'worsening') {
+          const relDiff = Math.abs(d.value - d.baseline) / (d.baseline || 1);
+          const isSpike = d.magnitude_sd >= CONFIG.SPIKE_SD || relDiff >= 0.15;
+          if (d.streak_direction !== 'worsening' && !isSpike) {
               suppressed.push({ reason: "cooldown", topic: d.metric });
               return false;
           }
@@ -263,13 +291,54 @@ export async function buildInsightsContract(userId: string) {
   
   let praise = null;
   let problem = null;
-  const up = finalDeviations.find(d => d.direction === 'up');
   const down = finalDeviations.find(d => d.direction === 'down');
-  if (up) praise = up;
+  const PRAISE_MIN_SD = 1.0;
+  const up = finalDeviations.find(d => d.direction === 'up' && (d.magnitude_sd >= PRAISE_MIN_SD || d.streak >= 3));
+  
+  if (up) {
+      praise = up;
+  } else {
+      // Find normal domain if no explicit upward deviation
+      const candidateDomains = Object.keys(domain_states).filter(k => {
+          if (domain_states[k].status !== 'normal') return false;
+          const metricKey = metrics.find(m => m.startsWith(k)) || k;
+          const val = targetData[metricKey] || 0;
+          const bVal = baselines[metricKey]?.median || 0;
+          return val >= bVal * 0.95;
+      });
+      
+      candidateDomains.sort((a, b) => {
+          if (domain_states[a].trend_7d === 'improving' && domain_states[b].trend_7d !== 'improving') return -1;
+          if (domain_states[b].trend_7d === 'improving' && domain_states[a].trend_7d !== 'improving') return 1;
+          return 0;
+      });
+
+      if (candidateDomains.length > 0) {
+          const dom = candidateDomains[0];
+          const metricKey = metrics.find(m => m.startsWith(dom)) || dom;
+          let val = Math.round(targetData[metricKey] || 0);
+          let bVal = baselines[metricKey]?.median || 0;
+          let formattedVal = metricKey === 'sleep_duration' ? formatMinutes(val) : undefined;
+          let formattedBaseline = metricKey === 'sleep_duration' ? formatMinutes(bVal) : undefined;
+          
+          praise = { 
+              metric: dom, 
+              value: Math.round(val), 
+              baseline: Math.round(bVal),
+              reason: 'maintenance',
+              ...(formattedVal && { value_formatted: formattedVal }),
+              ...(formattedBaseline && { baseline_formatted: formattedBaseline })
+          };
+      }
+  }
   if (down) problem = down;
 
-  return {
+  const adviceObj = await getAdviceForToday(userId, finalDeviations, domain_states, targetData, baselines);
+  const advice = adviceObj ? { text_seed: adviceObj.content, target_metric: adviceObj.target_metric } : null;
+
+  const contract = {
       deviations: finalDeviations,
+      advice,
       domain_states,
       explanation_candidates,
       topic_history,
@@ -278,4 +347,8 @@ export async function buildInsightsContract(userId: string) {
       problem,
       yesterday_advice: adviceLogs.length > 0 ? { target_metric: adviceLogs[0].target_metric, result: "met" } : null
   };
+
+  contract.explanation_candidates = contract.explanation_candidates.filter((c: any) => c.pairs_observed > 0);
+
+  return contract;
 }
