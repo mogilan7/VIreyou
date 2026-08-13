@@ -131,7 +131,7 @@ export default function AdminUserTable({ initialUsers }: { initialUsers: any[] }
                                                 <div className="flex items-center gap-2">
                                                     <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-400'}`}></div>
                                                     <span className={`text-xs font-semibold ${isActive ? 'text-brand-text' : 'text-brand-gray line-through'}`}>
-                                                        {new Date(u.subscription_expires_at).toLocaleDateString()}
+                                                        {u.subscription_expires_at.split('T')[0]}
                                                     </span>
                                                 </div>
                                             ) : (
