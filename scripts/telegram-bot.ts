@@ -2921,10 +2921,17 @@ cron.schedule('* * * * *', async () => {
                     if (decision.shouldNudge) {
                         console.log(`[CRON] Sending Daily Review (Module A) to user ${u.id} in timezone ${userTz} (Reason: ${decision.reason})...`);
                         const reviewData = await generateDailyReview(u.id);
-                        await bot.telegram.sendMessage(u.telegram_id!.toString(), reviewData.text, { parse_mode: "HTML" });
-                        if (reviewData.contract) {
-                            const { recordTopicMentions } = await import('../src/lib/assistant/generate');
-                            await recordTopicMentions(u.id, reviewData.contract);
+                        
+                        try {
+                            await bot.telegram.sendMessage(u.telegram_id!.toString(), reviewData.text, { parse_mode: "HTML" });
+                            if (reviewData.contract) {
+                                const { recordTopicMentions } = await import('../src/lib/assistant/generate');
+                                await recordTopicMentions(u.id, reviewData.contract);
+                            }
+                        } catch (sendError: any) {
+                            console.error(`[CRON] Failed to send message to ${u.id} (maybe blocked):`, sendError.message);
+                            // Even if sending fails (e.g., bot blocked), we MUST proceed to update the state
+                            // otherwise we will get stuck in an infinite loop calling the AI every minute!
                         }
                         
                         await prisma.assistantState.upsert({
