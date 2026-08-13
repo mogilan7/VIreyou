@@ -131,19 +131,23 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
 
   // Calculate means if sufficient
   let macrosValue = null;
+  let fiberMineralsValue = null;
+  let microsVitaminsValue = null;
   if (macrosSufficient) {
     const sum = validDays.reduce((acc, d) => ({
       kcal: acc.kcal + d.kcal,
+      fiber: acc.fiber + (d.fiber || 0),
       protein: acc.protein + d.protein,
       carbs: acc.carbs + d.carbs,
       fat: acc.fat + d.fat
-    }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+    }), { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
     
     const user = await prisma.user.findUnique({ where: { id: userId } });
     
     // Fallback to BMR if target_calories is missing
     const targetKcal = user?.target_calories || Math.round(bmr * 1.2); 
     
+    fiberMineralsValue = fiberMineralsSufficient ? { fiber: Math.round(sum.fiber / validDaysCount) } : null;
     macrosValue = {
       kcal: Math.round(sum.kcal / validDaysCount),
       protein: Math.round(sum.protein / validDaysCount),
@@ -174,13 +178,13 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
       fiber_minerals: {
         sufficient: fiberMineralsSufficient,
         days_required: CONFIG.THRESHOLD_MINERALS,
-        value: fiberMineralsSufficient ? "calculated_median" : null,
+        value: fiberMineralsValue,
         descriptive: forceShow ? "descriptive_data" : null
       },
       micros_vitamins: {
         sufficient: microsVitaminsSufficient,
         days_required: CONFIG.THRESHOLD_MICRO,
-        value: microsVitaminsSufficient ? "calculated_median" : null,
+        value: microsVitaminsValue,
         descriptive: forceShow ? "descriptive_data" : null
       },
       water: {
