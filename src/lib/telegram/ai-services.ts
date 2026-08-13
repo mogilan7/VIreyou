@@ -318,9 +318,15 @@ Respond STRICTLY in JSON:
    - "resting_heart_rate": number (bpm) if visible.
 
 **DATE DETECTION:**
-- Look for a date on the screenshot. If it says "yesterday" or the date is before today (${todayStr}), set date_offset_days to -1.
-- If the user caption says "вчера" or "yesterday", set date_offset_days to -1.
+- CRITICAL: Try to find the exact date on the screenshot (e.g., "Monday, August 12", "Вчера", "Today").
+- If the date is clearly today (${todayStr}), return "date_offset_days": 0.
+- If the date is clearly yesterday (or the caption says "вчера"), return "date_offset_days": -1.
+- If you can calculate the exact offset from today, return it as a negative integer.
+- CRITICAL: If you CANNOT see any date on the screenshot and the caption doesn't specify one, you MUST return "date_missing": true. Do NOT guess "today" or "yesterday".
 - If the image is clearly a food photo (plate, bowl, prepared food, raw ingredients) — return type "UNKNOWN" immediately.
+
+**DESCRIPTION RULES:**
+- Keep it extremely brief. DO NOT mention unsupported metrics like "Stand time" (время стояния), "Flights of stairs", or "Blood oxygen". Only mention the core metrics you extracted.
 
 If no health data found, return type "UNKNOWN".`;
 

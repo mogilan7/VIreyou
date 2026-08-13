@@ -1546,8 +1546,8 @@ bot.on('photo', async (ctx: any) => {
             mediaGroupBuffer.delete(mediaGroupId);
             // Обрабатываем все фото в альбоме по очереди
             for (const msg of group) {
-                // Передаем правильный message, чтобы processSinglePhoto брал photo из нужного сообщения
-                await processSinglePhoto({ ...ctx, message: msg }, msg);
+                // Передаем оригинальный ctx, так как processSinglePhoto сам читает нужный message
+                await processSinglePhoto(ctx, msg);
             }
         }
     }, 3000);
@@ -1625,6 +1625,16 @@ async function processSinglePhoto(ctx: any, message: any) {
 
     if (screenshotData.status === "SUCCESS" && screenshotData.type !== "UNKNOWN") {
         // Это скриншот показателей здоровья (сон, активность, ВСР и т.д.)
+        if (screenshotData.date_missing) {
+            userStates[user.id] = 'WAITING_FOR_SCREENSHOT_DATE';
+            tempLog[user.id] = { base64, screenshotData };
+            await ctx.reply(lang === 'en' ? 
+                "📅 I couldn't clearly see the date on this screenshot. Is this for today, yesterday, or another day? (e.g., 'yesterday', 'august 10')" : 
+                "📅 Я не смог точно определить дату на этом скриншоте. За какой день эти данные? (напишите 'сегодня', 'вчера' или дату)"
+            );
+            return;
+        }
+
         await sendConfirmationMessage(ctx, {
             type: screenshotData.type,
             data: screenshotData.metrics,
@@ -1956,6 +1966,44 @@ bot.on('text', async (ctx: any) => {
           userStates[user.id] = '';
           await ctx.reply(t(lang, 'Processing.textError'));
       }
+      return;
+  }
+  // Уточнение даты скриншота, если ИИ её не нашел
+  if (userStates[user.id] === 'WAITING_FOR_SCREENSHOT_DATE' && tempLog[user.id]) {
+      userStates[user.id] = ''; // сброс состояния
+      const logData = tempLog[user.id];
+      const lowerText = text.toLowerCase();
+      
+      let newOffset = 0;
+      if (lowerText.includes('вчера') || lowerText.includes('yesterday')) {
+          newOffset = -1;
+      } else if (lowerText.includes('позавчера') || lowerText.includes('day before yesterday')) {
+          newOffset = -2;
+      } else if (lowerText.includes('сегодня') || lowerText.includes('today')) {
+          newOffset = 0;
+      } else {
+          // Пытаемся вытащить offset через ИИ (если пользователь написал "10 августа" и т.п.)
+          try {
+              const aiParsed = await analyzeTextWithAI(text, getUserLocalDate(ctx.state.user?.timezone), lang);
+              if (aiParsed.date_offset_days !== undefined) {
+                  newOffset = Number(aiParsed.date_offset_days);
+              }
+          } catch (e) {
+              console.error("[Date Parse Error]", e);
+          }
+      }
+
+      logData.screenshotData.date_offset_days = newOffset;
+      
+      await sendConfirmationMessage(ctx, {
+          type: logData.screenshotData.type,
+          data: logData.screenshotData.metrics,
+          description: logData.screenshotData.description,
+          date_offset_days: logData.screenshotData.date_offset_days,
+          base64: logData.base64
+      });
+      userStates[user.id] = 'WAITING_FOR_CORRECTION';
+      tempLog[user.id] = { ...tempLog[user.id], base64: logData.base64, lastType: logData.screenshotData.type };
       return;
   }
 
