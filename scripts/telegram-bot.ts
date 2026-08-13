@@ -1530,33 +1530,48 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
 // ----------------------------------------------------
 // Обработка ФОТО (Еда или Скриншоты или Товары)
 // ----------------------------------------------------
+const mediaGroupBuffer = new Map<string, any[]>();
 bot.on('photo', async (ctx: any) => {
   const user = ctx.state.user;
-  const photo = ctx.message.photo[ctx.message.photo.length - 1]; // Самое большое
+  const lang = ctx.state.lang || 'ru';
+  if (!(await checkSubscription(ctx, user))) return;
+
+  const mediaGroupId = ctx.message.media_group_id;
+  if (mediaGroupId) {
+    if (!mediaGroupBuffer.has(mediaGroupId)) mediaGroupBuffer.set(mediaGroupId, []);
+    mediaGroupBuffer.get(mediaGroupId)!.push(ctx.message);
+    setTimeout(async () => {
+        if (mediaGroupBuffer.has(mediaGroupId)) {
+            const group = mediaGroupBuffer.get(mediaGroupId)!;
+            mediaGroupBuffer.delete(mediaGroupId);
+            // Обработка группы фото (берем первое фото с самым высоким разрешением)
+            await processSinglePhoto(ctx, group.sort((a, b) => b.photo.length - a.photo.length)[0]);
+        }
+    }, 3000);
+  } else {
+    await processSinglePhoto(ctx, ctx.message);
+  }
+});
+
+async function processSinglePhoto(ctx: any, message: any) {
+  const user = ctx.state.user;
+  const photo = message.photo[message.photo.length - 1];
   const tempPath = path.join('/tmp', `photo_${photo.file_id}.jpg`);
   const lang = ctx.state.lang || 'ru';
 
-  // Проверяем подписку перед вызовом платного AI
-  if (!(await checkSubscription(ctx, user))) return;
-
   await ctx.reply(t(lang, 'Processing.photoWait'));
-
   try {
     await downloadTelegramFile(photo.file_id, tempPath);
     const base64 = await fileToBase64(tempPath);
+    const caption = message.caption || "";
 
     if (user && userStates[user.id] === 'WAITING_FOR_PRODUCT_PHOTO') {
-        userStates[user.id] = ''; // Сброс состояния
-        
-        // Получаем съеденное за сегодня
+        userStates[user.id] = '';
         const localTodayStr = getUserLocalDate(user.timezone);
         const datePart = localTodayStr.split(',')[0].trim();
-        const startOfDay = new Date(`${datePart}T00:00:00Z`); // Упрощенно
+        const startOfDay = new Date(`${datePart}T00:00:00Z`);
         const endOfDay = new Date(`${datePart}T23:59:59Z`);
-        
-        const logs = await prisma.nutritionLog.findMany({
-            where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
-        });
+        const logs = await prisma.nutritionLog.findMany({ where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } } });
         const currentNutrients = logs.reduce((acc: any, log: any) => {
             acc.calories += Number(log.calories || 0);
             acc.protein += Number(log.protein || 0);
@@ -1584,24 +1599,47 @@ bot.on('photo', async (ctx: any) => {
         console.log(`[PhotoDispatch] Label analysis failed for user ${user.id}, falling back to general analysis.`);
     }
 
-    // Сначала пробуем распознать как скриншот
-    const screenshotData = await analyzeScreenshotWithAI(base64, getUserLocalDate(ctx.state.user?.timezone), lang);
+    // --- SMART DISPATCH: если caption явно про еду — сразу в food-анализ ---
+    const foodKeywords = /еда|блюдо|съел|съела|обед|завтрак|ужин|food|ate|lunch|breakfast|dinner|meal/i;
+    const isObviouslyFood = foodKeywords.test(caption);
+
+    let screenshotData: any = { status: 'SUCCESS', type: 'UNKNOWN' };
+
+    if (!isObviouslyFood) {
+        // Пробуем распознать как скриншот здоровья (с защитой от краша)
+        try {
+            screenshotData = await analyzeScreenshotWithAI(
+                base64,
+                getUserLocalDate(ctx.state.user?.timezone),
+                lang,
+                caption
+            );
+        } catch (screenshotErr) {
+            console.warn(`[PhotoDispatch] Screenshot analysis failed, treating as food:`, screenshotErr);
+            screenshotData = { status: 'SUCCESS', type: 'UNKNOWN' };
+        }
+    }
 
     if (screenshotData.status === "SUCCESS" && screenshotData.type !== "UNKNOWN") {
+        // Это скриншот показателей здоровья (сон, активность, ВСР и т.д.)
         await sendConfirmationMessage(ctx, {
             type: screenshotData.type,
             data: screenshotData.metrics,
             description: screenshotData.description,
+            date_offset_days: screenshotData.date_offset_days,
             base64: base64
         });
+        // После сохранения — ставим состояние для возможных текстовых правок
+        userStates[user.id] = 'WAITING_FOR_CORRECTION';
+        tempLog[user.id] = { ...tempLog[user.id], base64, lastType: screenshotData.type };
     } else {
         // Пробуем распознать как еду
-        const foodData = await analyzeFoodWithAI(base64, ctx.message.caption, getUserLocalDate(ctx.state.user?.timezone), lang);
+        const foodData = await analyzeFoodWithAI(base64, caption || undefined, getUserLocalDate(ctx.state.user?.timezone), lang);
         console.log("[STEP1] Recognition result:", JSON.stringify(foodData, null, 2));
 
         if (foodData.status === "NEEDS_CLARIFICATION") {
             userStates[user.id] = 'WAITING_FOR_FOOD_CLARIFICATION';
-            tempLog[user.id] = { base64, caption: ctx.message.caption };
+            tempLog[user.id] = { base64, caption };
             await ctx.reply(foodData.clarification_question || (lang === 'en' ? "Please clarify." : "Уточните, пожалуйста."));
         } else if (foodData.status === "SUCCESS") {
             await ctx.reply(lang === 'en' ? "🔍 Calculating exact nutrients..." : "🔍 Ищу точные данные в базе...");
@@ -1628,6 +1666,9 @@ bot.on('photo', async (ctx: any) => {
                 habit_key: foodData.habit_key,
                 base64: base64
             });
+            // После сохранения — ставим состояние для возможных текстовых правок
+            userStates[user.id] = 'WAITING_FOR_CORRECTION';
+            tempLog[user.id] = { ...tempLog[user.id], base64, lastType: 'NUTRITION' };
         } else {
             await ctx.reply(t(lang, 'Processing.photoUnknown'));
         }
@@ -1638,7 +1679,8 @@ bot.on('photo', async (ctx: any) => {
   } finally {
     if (fs.existsSync(tempPath)) await fs.promises.unlink(tempPath);
   }
-});
+}
+
 
 // ----------------------------------------------------
 // Обработка ГОЛОСА
@@ -1912,6 +1954,99 @@ bot.on('text', async (ctx: any) => {
           await ctx.reply(t(lang, 'Processing.textError'));
       }
       return;
+  }
+
+  // Коррекция даты или категории после фото (WAITING_FOR_CORRECTION)
+  if (userStates[user.id] === 'WAITING_FOR_CORRECTION' && tempLog[user.id]) {
+      userStates[user.id] = ''; // сразу сбрасываем чтобы не зависло
+      const logData = tempLog[user.id];
+      const lowerText = text.toLowerCase();
+
+      // --- Коррекция ДАТЫ (вчера, позавчера, сегодня, конкретная дата) ---
+      const dateMap: Record<string, number> = {
+          'вчера': -1, 'yesterday': -1,
+          'позавчера': -2, 'two days ago': -2,
+          'сегодня': 0, 'today': 0,
+      };
+      let dateOffset: number | null = null;
+      for (const [keyword, offset] of Object.entries(dateMap)) {
+          if (lowerText.includes(keyword)) { dateOffset = offset; break; }
+      }
+      // Поиск конкретной даты в формате DD.MM или DD.MM.YYYY
+      const dateMatch = lowerText.match(/(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?/);
+      if (dateMatch && dateOffset === null) {
+          const now = new Date();
+          const day = parseInt(dateMatch[1]);
+          const month = parseInt(dateMatch[2]) - 1;
+          const year = dateMatch[3] ? parseInt(dateMatch[3]) : now.getFullYear();
+          const targetDate = new Date(year, month, day);
+          dateOffset = Math.round((targetDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
+      }
+
+      if (dateOffset !== null) {
+          // Пересохраняем с новой датой
+          if (tempLog[user.id]) {
+              tempLog[user.id].date_offset_days = dateOffset;
+              tempLog[user.id].data = { ...tempLog[user.id].data, date_offset_days: dateOffset };
+          }
+          const confirmMsg = lang === 'en'
+              ? `✅ Got it! Date corrected. Please confirm the save again.`
+              : `✅ Понял! Дата исправлена. Пожалуйста, подтвердите сохранение ещё раз.`;
+          return ctx.reply(confirmMsg, Markup.inlineKeyboard([
+              [Markup.button.callback(t(lang, 'Confirmation.btnSave'), 'save_log_confirm')],
+              [Markup.button.callback(t(lang, 'Confirmation.btnEdit'), 'edit_log_prompt')]
+          ]));
+      }
+
+      // --- Коррекция КАТЕГОРИИ (это ВСР, это сон, это шаги, это еда) ---
+      const categoryKeywords: Record<string, string> = {
+          'врс': 'HRV', 'всрр': 'HRV', 'вср': 'HRV', 'hrv': 'HRV', 'пульс': 'HRV',
+          'сон': 'SLEEP', 'sleep': 'SLEEP',
+          'шаги': 'ACTIVITY', 'активность': 'ACTIVITY', 'steps': 'ACTIVITY', 'activity': 'ACTIVITY',
+          'еда': 'NUTRITION', 'блюдо': 'NUTRITION', 'съел': 'NUTRITION', 'food': 'NUTRITION', 'meal': 'NUTRITION',
+      };
+      let newType: string | null = null;
+      for (const [keyword, type] of Object.entries(categoryKeywords)) {
+          if (lowerText.includes(keyword)) { newType = type; break; }
+      }
+
+      if (newType && logData.base64) {
+          // Перераспознаём фото с указанием нужной категории
+          await ctx.reply(lang === 'en' ? '🔄 Re-analyzing...' : '🔄 Перераспознаю...');
+          try {
+              const hintCaption = `User says this is: ${newType}. ${text}`;
+              if (newType === 'NUTRITION') {
+                  const foodData = await analyzeFoodWithAI(logData.base64, hintCaption, getUserLocalDate(user.timezone), lang);
+                  if (foodData.status === 'SUCCESS') {
+                      await ctx.reply(lang === 'en' ? "🔍 Calculating exact nutrients..." : "🔍 Ищу точные данные в базе...");
+                      const ingredientsData = await Promise.all((foodData.ingredients || []).map(async (item: any) => {
+                          const dbData = await getIngredientNutrientsWithAI(item.name);
+                          return { grams: item.grams, nutrientsPer100g: dbData };
+                      }));
+                      const totalNutrients = calculateTotalNutrients(ingredientsData);
+                      totalNutrients.dish = foodData.dish;
+                      totalNutrients.description = foodData.description;
+                      await sendConfirmationMessage(ctx, { type: 'NUTRITION', data: totalNutrients, description: foodData.description, base64: logData.base64 });
+                  } else {
+                      await ctx.reply(lang === 'en' ? "Couldn't recognize food. Try a clearer photo." : "Не удалось распознать блюдо. Попробуйте более чёткое фото.");
+                  }
+              } else {
+                  const screenshotData = await analyzeScreenshotWithAI(logData.base64, getUserLocalDate(user.timezone), lang, hintCaption);
+                  if (screenshotData.type !== 'UNKNOWN') {
+                      await sendConfirmationMessage(ctx, { type: screenshotData.type, data: screenshotData.metrics, description: screenshotData.description, date_offset_days: screenshotData.date_offset_days, base64: logData.base64 });
+                  } else {
+                      await ctx.reply(lang === 'en' ? "Couldn't re-classify. Please describe manually." : "Не смог переклассифицировать. Опишите вручную.");
+                  }
+              }
+          } catch (e) {
+              console.error('[CORRECTION] Error re-analyzing photo:', e);
+              await ctx.reply(lang === 'en' ? "Error. Please try again." : "Ошибка. Попробуйте ещё раз.");
+          }
+          return;
+      }
+
+      // Если ничего не распознали как коррекцию — обрабатываем как обычный текст
+      userStates[user.id] = ''; // дать обработчику текста ниже обработать
   }
 
   // Обработка правок (LOG_EDIT)

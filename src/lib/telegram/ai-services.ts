@@ -282,15 +282,17 @@ export function calculateTotalNutrients(ingredientsData: Array<{grams: number, n
 /**
  * Читает скриншоты показателей здоровья.
  */
-export async function analyzeScreenshotWithAI(imageBase64: string, referenceDate?: string, lang: string = 'ru') {
+export async function analyzeScreenshotWithAI(imageBase64: string, referenceDate?: string, lang: string = 'ru', caption?: string) {
   if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
   const todayStr = referenceDate || new Date().toISOString().split('T')[0];
+  const captionHint = caption ? `\n\n**USER CAPTION (use for date/context hints):** "${caption}"` : '';
   const prompt = `You are a health and fitness screenshot recognition system. Your task is to extract health metrics and return them in a STRICT JSON format.
+  ${captionHint}
   
 Respond STRICTLY in JSON:
 {
   "status": "SUCCESS",
-  "type": "SLEEP" | "ACTIVITY" | "UNKNOWN",
+  "type": "SLEEP" | "ACTIVITY" | "HRV" | "UNKNOWN",
   "description": "Short description in ${lang === 'en' ? 'English' : 'Russian'} (e.g., 'Sleep 7h 20m' or 'Activity: 5000 steps').",
   "metrics": {},
   "date_offset_days": 0
@@ -311,7 +313,16 @@ Respond STRICTLY in JSON:
    - "active_minutes": integer,
    - "calories_burned": number.
 
-If no data found, return type "UNKNOWN".`;
+3. If type is "HRV" (standalone HRV or resting heart rate screen, NOT part of sleep):
+   - "hrv": number (ms) if visible,
+   - "resting_heart_rate": number (bpm) if visible.
+
+**DATE DETECTION:**
+- Look for a date on the screenshot. If it says "yesterday" or the date is before today (${todayStr}), set date_offset_days to -1.
+- If the user caption says "вчера" or "yesterday", set date_offset_days to -1.
+- If the image is clearly a food photo (plate, bowl, prepared food, raw ingredients) — return type "UNKNOWN" immediately.
+
+If no health data found, return type "UNKNOWN".`;
 
   const model = getModel("gemini-2.5-flash", 0.1);
   const result = await model.generateContent([
