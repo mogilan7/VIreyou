@@ -505,7 +505,7 @@ const LifestyleDashboard = ({
                     itemStyle={{ color: isDarkMode ? '#f1f5f9' : '#0f172a' }}
                   />
                   <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                  <Bar dataKey="value" name={activeChart === 'hrv' ? 'ВСР за день' : 'Пульс за день'} radius={[4, 4, 0, 0]} barSize={20}>
+                  <Bar dataKey="value" name={activeChart === 'hrv' ? 'ВСР (во время сна)' : 'Пульс (во время сна)'} radius={[4, 4, 0, 0]} barSize={20}>
                     {
                       (activeChart === 'hrv' ? data.hrvTrend : data.rhrTrend)?.map((entry: any, index: number) => {
                         let color = '#3b82f6';

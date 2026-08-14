@@ -2977,7 +2977,15 @@ cron.schedule('* * * * *', async () => {
                         const reviewData = await generateDailyReview(u.id);
                         
                         try {
-                            await bot.telegram.sendMessage(u.telegram_id!.toString(), reviewData.text, { parse_mode: "HTML" });
+                            const sendOptions: any = { parse_mode: "HTML" };
+                            if (!dailyData.hasAny) {
+                                sendOptions.reply_markup = {
+                                    inline_keyboard: [
+                                        [{ text: "📖 Как прикреплять скрины", url: "https://telegra.ph/Instrukciya-2-Zagruzka-dannyh-skrinshotami-08-13" }]
+                                    ]
+                                };
+                            }
+                            await bot.telegram.sendMessage(u.telegram_id!.toString(), reviewData.text, sendOptions);
                             if (reviewData.contract) {
                                 const { recordTopicMentions } = await import('../src/lib/assistant/generate');
                                 await recordTopicMentions(u.id, reviewData.contract);
