@@ -11,7 +11,10 @@
   "Common": {
     "loadingData": "Loading data...",
     "publicOfferText1": "By paying for services, you agree to the terms of the ",
-    "publicOfferText2": "Public Offer"
+    "publicOfferText2": "Public Offer",
+    "saveModalTitle": "Save Results",
+    "loginToCabinet": "Log in to your account",
+    "cancel": "Cancel"
   },
   "Landing": {
     "heroTag": "Energy, youth, balance",
@@ -203,7 +206,8 @@
     "saveBtn": "Save to Medical Vault",
     "errorSaving": "Failed to save result",
     "saved": "Saved",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "saveModalDesc": "To save your personalized nutrition plan to your health cabinet, please log in or sign up."
   },
   "ScoreCalculator": {
     "title": "SCORE Calculator",
@@ -1734,6 +1738,7 @@
     "saving": "Saving...",
     "saved": "Saved!",
     "saveError": "Error saving",
-    "back": "Back to Diagnostics"
+    "back": "Back to Diagnostics",
+    "saveModalDesc": "To save your personalized water intake plan to your health cabinet, please log in or sign up."
   }
 }

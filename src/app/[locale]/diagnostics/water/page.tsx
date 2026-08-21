@@ -419,23 +419,23 @@ export default function WaterCalculatorPage() {
                             <Save size={32} />
                         </div>
                         <h3 className="font-serif text-2xl text-brand-text mb-3 text-center">
-                            Сохранение результатов
+                            {tCommon('saveModalTitle')}
                         </h3>
                         <p className="text-brand-gray text-sm mb-8 text-center leading-relaxed">
-                            Чтобы сохранить ваш индивидуальный план потребления воды в личный кабинет, пожалуйста, войдите или зарегистрируйтесь.
+                            {t('saveModalDesc')}
                         </p>
                         <div className="flex flex-col gap-3">
                             <Link 
                                 href="/login" 
                                 className="w-full bg-brand-leaf hover:bg-brand-forest text-white py-3.5 px-6 rounded-xl font-bold transition-all text-center shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                             >
-                                Войти в личный кабинет
+                                {tCommon('loginToCabinet')}
                             </Link>
                             <button 
                                 onClick={() => setIsAuthModalOpen(false)}
                                 className="w-full bg-brand-bg hover:bg-[#E8F1EB] text-brand-text py-3.5 px-6 rounded-xl font-bold transition-colors text-center border border-brand-sage/30"
                             >
-                                Отмена
+                                {tCommon('cancel')}
                             </button>
                         </div>
                     </div>
