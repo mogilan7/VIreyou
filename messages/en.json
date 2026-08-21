@@ -1694,7 +1694,7 @@
   },
   "WaterCalculator": {
     "title": "How much water do you need per day",
-    "subtitle": "Honest assessment based on weight, age, sex, and activity — adjusted for the water you get from food.",
+    "subtitle": "Assessment based on weight, age, sex, and activity — adjusted for the water you get from food.",
     "eyebrow": "Personal Calculation",
     "weight": "Your weight",
     "weightUnit": "kg",
@@ -1733,6 +1733,7 @@
     "saveBtn": "Save Result",
     "saving": "Saving...",
     "saved": "Saved!",
-    "saveError": "Error saving"
+    "saveError": "Error saving",
+    "back": "Back to Diagnostics"
   }
 }

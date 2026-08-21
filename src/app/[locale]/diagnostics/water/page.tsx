@@ -125,7 +125,7 @@ export default function WaterCalculatorPage() {
                     className="inline-flex items-center gap-2 text-brand-leaf hover:text-brand-forest transition-colors mb-8 text-sm font-bold uppercase tracking-widest"
                 >
                     <ArrowLeft size={16} />
-                    {tCommon('back')}
+                    {t('back')}
                 </Link>
 
                 {/* Header */}
