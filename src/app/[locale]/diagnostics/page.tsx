@@ -13,7 +13,8 @@ import {
     Cigarette,
     BrainCircuit,
     ClipboardList,
-    Crown
+    Crown,
+    Droplets
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/routing";
@@ -72,7 +73,7 @@ export default async function DiagnosticsPage({ params }: { params: Promise<{ lo
                         {t('freeTitle')}
                     </h2>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <Link href="/diagnostics/energy" className="block outline-none">
                             <div className="bg-white rounded-3xl p-8 border border-brand-sage/40 hover:shadow-md transition-shadow relative overflow-hidden group h-full flex flex-col">
                                 <div className="absolute -right-8 -top-8 text-brand-sage/20 group-hover:text-brand-sage transition-colors">
@@ -105,6 +106,24 @@ export default async function DiagnosticsPage({ params }: { params: Promise<{ lo
                                 </p>
                                 <div className="text-brand-leaf text-sm font-bold w-fit flex items-center gap-2 group-hover:text-brand-forest transition-colors mt-auto">
                                     {t('btnT2')} <span className="text-lg leading-none">&rarr;</span>
+                                </div>
+                            </div>
+                        </Link>
+
+                        <Link href="/diagnostics/water" className="block outline-none">
+                            <div className="bg-white rounded-3xl p-8 border border-brand-sage/40 hover:shadow-md transition-shadow relative overflow-hidden group h-full flex flex-col">
+                                <div className="absolute -right-8 -top-8 text-brand-sage/20 group-hover:text-brand-sage transition-colors">
+                                    <Droplets size={120} strokeWidth={1} />
+                                </div>
+                                <div className="w-10 h-10 bg-[#E8F1EB] rounded-full flex items-center justify-center mb-6">
+                                    <Droplets size={18} className="text-brand-leaf" />
+                                </div>
+                                <h3 className="font-bold text-xl text-brand-text mb-3">{t('t3Title')}</h3>
+                                <p className="text-brand-gray text-sm mb-8 leading-relaxed pr-8">
+                                    {t('t3Desc')}
+                                </p>
+                                <div className="text-brand-leaf text-sm font-bold w-fit flex items-center gap-2 group-hover:text-brand-forest transition-colors mt-auto">
+                                    {t('btnT3')} <span className="text-lg leading-none">&rarr;</span>
                                 </div>
                             </div>
                         </Link>

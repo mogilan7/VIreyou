@@ -70,7 +70,7 @@ If you see a prepared dish, meal, or raw ingredients:
 4. CHAIN OF THOUGHT: You MUST start your JSON with a "reasoning" field. Explain what you see, compare sizes to reference objects (fork, hand, edge of plate, etc.), and estimate the volume before calculating the grams. This step-by-step thinking is crucial for accuracy.
 
 **CONTEXT:**
-Current date: ${todayStr}. Use it as a reference for date_offset_days.
+Current date: ${todayStr}. Use it as a reference for date_offset_days. For example, "today" means 0, "yesterday" means -1, "day before yesterday" means -2.
 
 Respond STRICTLY in JSON format:
 {
