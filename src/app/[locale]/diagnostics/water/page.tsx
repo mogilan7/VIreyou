@@ -13,6 +13,7 @@ export default function WaterCalculatorPage() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
     const [weight, setWeight] = useState(70);
     const [sex, setSex] = useState<'male' | 'female'>('male');
@@ -68,8 +69,7 @@ export default function WaterCalculatorPage() {
 
     const handleSave = async () => {
         if (!isAuthenticated) {
-            setSaveStatus('error');
-            setTimeout(() => setSaveStatus('idle'), 4000);
+            setIsAuthModalOpen(true);
             return;
         }
 
@@ -394,12 +394,6 @@ export default function WaterCalculatorPage() {
                                     <><Save size={18} /> {t('saveBtn')}</>
                                 )}
                             </button>
-                            
-                            {!isAuthenticated && saveStatus === 'error' && (
-                                <p className="text-center text-xs text-red-500 mt-3">
-                                    Пожалуйста, <Link href="/login" className="underline font-bold">войдите</Link> для сохранения результатов.
-                                </p>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -409,6 +403,44 @@ export default function WaterCalculatorPage() {
                     {t('note')}
                 </div>
             </div>
+
+            {/* Auth Modal */}
+            {isAuthModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-brand-ink/40 backdrop-blur-sm" onClick={() => setIsAuthModalOpen(false)}></div>
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative z-10 border border-brand-sage/40">
+                        <button 
+                            onClick={() => setIsAuthModalOpen(false)}
+                            className="absolute top-4 right-4 p-2 text-brand-gray hover:text-brand-text bg-brand-bg rounded-full transition-colors"
+                        >
+                            ✕
+                        </button>
+                        <div className="w-16 h-16 bg-[#E8F1EB] rounded-2xl flex items-center justify-center mb-6 text-brand-leaf shadow-sm mx-auto">
+                            <Save size={32} />
+                        </div>
+                        <h3 className="font-serif text-2xl text-brand-text mb-3 text-center">
+                            Сохранение результатов
+                        </h3>
+                        <p className="text-brand-gray text-sm mb-8 text-center leading-relaxed">
+                            Чтобы сохранить ваш индивидуальный план потребления воды в личный кабинет, пожалуйста, войдите или зарегистрируйтесь.
+                        </p>
+                        <div className="flex flex-col gap-3">
+                            <Link 
+                                href="/login" 
+                                className="w-full bg-brand-leaf hover:bg-brand-forest text-white py-3.5 px-6 rounded-xl font-bold transition-all text-center shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                            >
+                                Войти в личный кабинет
+                            </Link>
+                            <button 
+                                onClick={() => setIsAuthModalOpen(false)}
+                                className="w-full bg-brand-bg hover:bg-[#E8F1EB] text-brand-text py-3.5 px-6 rounded-xl font-bold transition-colors text-center border border-brand-sage/30"
+                            >
+                                Отмена
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style dangerouslySetInnerHTML={{__html: `
                 @keyframes rise {
