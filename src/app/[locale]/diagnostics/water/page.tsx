@@ -243,20 +243,19 @@ export default function WaterCalculatorPage() {
                             <label className="block font-bold text-brand-text text-sm tracking-wide mb-3">
                                 {t('specialPeriod')}
                             </label>
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-3 gap-2 sm:gap-3">
                                 {[
-                                    { val: 0, ic: '—', t: t('no'), d: t('normal') },
-                                    { val: 300, ic: '🤰', t: t('pregnancy'), d: '+300 ml' },
-                                    { val: 700, ic: '🍼', t: t('lactation'), d: '+700 ml' }
+                                    { val: 0, t: t('no'), d: t('normal') },
+                                    { val: 300, t: t('pregnancy'), d: '+300 ml' },
+                                    { val: 700, t: t('lactation'), d: '+700 ml' }
                                 ].map((item) => (
                                     <button
                                         key={item.val}
                                         onClick={() => setPreg(item.val)}
-                                        className={`p-3 rounded-2xl border-[1.5px] text-center transition-all ${preg === item.val ? 'border-brand-leaf bg-[#E8F1EB]' : 'border-brand-sage/40 bg-white hover:border-brand-leaf/50'}`}
+                                        className={`py-3 px-1 sm:px-3 rounded-2xl border-[1.5px] text-center transition-all flex flex-col justify-center min-h-[4.5rem] ${preg === item.val ? 'border-brand-leaf bg-[#E8F1EB]' : 'border-brand-sage/40 bg-white hover:border-brand-leaf/50'}`}
                                     >
-                                        <span className="block text-xl leading-none mb-2">{item.ic}</span>
-                                        <span className="block font-bold text-brand-text text-xs">{item.t}</span>
-                                        <span className="block text-[10px] text-brand-gray mt-1">{item.d}</span>
+                                        <span className="block font-bold text-brand-text text-[11px] sm:text-xs leading-tight mb-1 break-words w-full">{item.t}</span>
+                                        <span className="block text-[10px] text-brand-gray">{item.d}</span>
                                     </button>
                                 ))}
                             </div>
@@ -267,20 +266,19 @@ export default function WaterCalculatorPage() {
                             <label className="block font-bold text-brand-text text-sm tracking-wide mb-3">
                                 {t('activity')} <span className="text-brand-gray/60 ml-1 font-medium text-xs">{t('sportPerDay')}</span>
                             </label>
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-3 gap-2 sm:gap-3">
                                 {[
-                                    { val: 0, ic: '🛋️', t: t('low'), d: t('almostNone') },
-                                    { val: 500, ic: '🚶', t: t('medium'), d: t('min3060') },
-                                    { val: 1000, ic: '🏃', t: t('high'), d: t('over60') }
+                                    { val: 0, t: t('low'), d: t('almostNone') },
+                                    { val: 500, t: t('medium'), d: t('min3060') },
+                                    { val: 1000, t: t('high'), d: t('over60') }
                                 ].map((item) => (
                                     <button
                                         key={item.val}
                                         onClick={() => setAct(item.val)}
-                                        className={`p-3 rounded-2xl border-[1.5px] text-center transition-all ${act === item.val ? 'border-brand-leaf bg-[#E8F1EB]' : 'border-brand-sage/40 bg-white hover:border-brand-leaf/50'}`}
+                                        className={`py-3 px-1 sm:px-3 rounded-2xl border-[1.5px] text-center transition-all flex flex-col justify-center min-h-[4.5rem] ${act === item.val ? 'border-brand-leaf bg-[#E8F1EB]' : 'border-brand-sage/40 bg-white hover:border-brand-leaf/50'}`}
                                     >
-                                        <span className="block text-xl leading-none mb-2">{item.ic}</span>
-                                        <span className="block font-bold text-brand-text text-xs">{item.t}</span>
-                                        <span className="block text-[10px] text-brand-gray mt-1">{item.d}</span>
+                                        <span className="block font-bold text-brand-text text-[11px] sm:text-xs leading-tight mb-1 break-words w-full">{item.t}</span>
+                                        <span className="block text-[10px] text-brand-gray">{item.d}</span>
                                     </button>
                                 ))}
                             </div>
