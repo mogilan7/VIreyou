@@ -218,7 +218,7 @@ export default async function LifestylePage({
             hrvTrend,
             rhrTrend,
             targetSteps: 10000,
-            targetWater: 2000
+            targetWater: publicUser?.target_water || 2000,
         }
 
         return (

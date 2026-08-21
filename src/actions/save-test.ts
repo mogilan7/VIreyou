@@ -76,7 +76,21 @@ export async function saveTestResult({
         }
     }
 
-    // 4. Revalidate the cabinet page so the new result shows up
+    // 4. Update water target
+    if (testType === 'water' && score) {
+        try {
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    target_water: score
+                }
+            })
+        } catch (updateError) {
+            console.error('Failed to update user profile with water results:', updateError);
+        }
+    }
+
+    // 5. Revalidate the cabinet page so the new result shows up
     revalidatePath('/[locale]/cabinet', 'page')
     revalidatePath('/[locale]/cabinet/results', 'page')
 

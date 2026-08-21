@@ -843,6 +843,7 @@ model User {
   target_protein                                Float?
   target_fat                                    Float?
   target_carbs                                  Float?
+  target_water                                  Float?
   target_steps                                  Int?
   target_active_minutes                         Int?
   telegram_username                             String?
