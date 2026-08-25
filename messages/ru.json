@@ -126,7 +126,9 @@
     "aF3": "ИИ анализ образа жизни",
     "aF4": "ИИ анализ результатов анализов крови",
     "btnAssistantStandard": "Выбрать Standard",
-    "btnAssistantPro": "Выбрать PRO"
+    "btnAssistantPro": "Выбрать PRO",
+    "telegramBot": "Телеграм бот",
+    "botFeaturesLabel": "Функционал бота:"
   },
   "Diagnostics": {
     "tag": "Оценки на основе доказательств",

@@ -43,6 +43,7 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
 
             console.log('[Checkout] Response status:', response.status);
 
+            if (response.status === 401) { window.location.href = "/login"; setLoading(false); return; }
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('[Checkout] API error:', response.status, errorText);

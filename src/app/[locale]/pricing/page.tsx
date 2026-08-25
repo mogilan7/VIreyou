@@ -6,6 +6,7 @@ import { Check, X, Diamond, ChevronDown } from "lucide-react";
 import { Link } from "@/i18n/routing";
 import { useTranslations, useLocale } from "next-intl";
 import { useState } from "react";
+import CheckoutButton from "@/components/dashboard/CheckoutButton";
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
     const [open, setOpen] = useState(false);
@@ -25,6 +26,45 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
                 <p className="mt-3 text-sm text-brand-gray leading-relaxed border-t border-brand-sage/30 pt-3">
                     {answer}
                 </p>
+            )}
+        </div>
+    );
+}
+
+
+function BotDropdown({ tWallet, isPro, tPricing }: { tWallet: any, isPro: boolean, tPricing: any }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <div className="mt-4 mb-6">
+            <button 
+                onClick={() => setOpen(!open)}
+                className="flex items-center gap-2 text-sm text-brand-text font-semibold hover:text-brand-leaf transition-colors w-full justify-between bg-[#E8F1EB]/50 p-3 rounded-xl border border-brand-sage/30"
+            >
+                <div className="flex items-center gap-2">
+                    <span className="bg-brand-leaf text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">🤖</span>
+                    {tPricing('botFeaturesLabel')}
+                </div>
+                <ChevronDown size={16} className={`transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && (
+                <ul className="text-xs space-y-2 mt-3 text-brand-gray-dark px-2 animate-in fade-in slide-in-from-top-2">
+                    <li className="flex items-center gap-2">✔️ {tWallet('featurePhotoVoice')}</li>
+                    <li className="flex items-center gap-2">✔️ {tWallet('featureDashboard')}</li>
+                    <li className="flex items-center gap-2">✔️ {tWallet('featureMarathons')}</li>
+                    <li className="flex items-center gap-2">✔️ {tWallet('featureVitamins')}</li>
+                    <li className={`flex items-center gap-2 ${!isPro ? 'opacity-50' : ''}`}>
+                        {isPro ? '✔️' : '❌'} <span className={isPro ? "font-bold" : ""}>{tWallet('featureOrganization')}</span>
+                    </li>
+                    <li className={`flex items-center gap-2 ${!isPro ? 'opacity-50' : ''}`}>
+                        {isPro ? '✔️' : '❌'} <span className={isPro ? "font-bold" : ""}>{tWallet('featureAdvice')}</span>
+                    </li>
+                    <li className={`flex items-center gap-2 ${!isPro ? 'opacity-50' : ''}`}>
+                        {isPro ? '✔️' : '❌'} <span className={isPro ? "font-bold" : ""}>{tWallet('featureAnalysis')}</span>
+                    </li>
+                    <li className={`flex items-center gap-2 ${!isPro ? 'opacity-50' : ''}`}>
+                        {isPro ? '✔️' : '❌'} <span className={isPro ? "text-brand-leaf font-bold" : ""}>{tWallet('featureAI')}</span>
+                    </li>
+                </ul>
             )}
         </div>
     );
@@ -90,14 +130,11 @@ export default function PricingPage() {
                                 <Check size={18} className="text-brand-leaf flex-shrink-0" />
                                 {t("aF4")}
                             </li>
+                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark"><Check size={18} className="text-brand-leaf flex-shrink-0" />{t("telegramBot")}</li>
                         </ul>
+                        <BotDropdown tWallet={tWallet} isPro={false} tPricing={t} />
 
-                        <Link
-                            href="/cabinet"
-                            className="w-full py-3.5 rounded-full border border-brand-sage text-brand-text font-medium text-sm hover:border-brand-leaf hover:text-brand-leaf transition-colors text-center shadow-sm block"
-                        >
-                            {t("btnAssistantStandard")}
-                        </Link>
+                        <CheckoutButton plan="Standard" amount={locale === "en" ? 7 : 495} className="w-full py-3.5 rounded-full border border-brand-sage text-brand-text font-medium text-sm hover:border-brand-leaf hover:text-brand-leaf transition-colors text-center shadow-sm block">{t("btnAssistantStandard")}</CheckoutButton>
                     </div>
 
                     {/* Assistant PRO */}
@@ -132,14 +169,10 @@ export default function PricingPage() {
                                 <Check size={18} className="text-brand-leaf flex-shrink-0" />
                                 {t("aF4")}
                             </li>
+                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark"><Check size={18} className="text-brand-leaf flex-shrink-0" />{t("telegramBot")}</li>
                         </ul>
-
-                        <Link
-                            href="/cabinet"
-                            className="w-full py-3.5 rounded-full border border-blue-500 text-blue-600 font-medium text-sm hover:bg-blue-50 transition-colors text-center shadow-sm block"
-                        >
-                            {t("btnAssistantPro")}
-                        </Link>
+                        <BotDropdown tWallet={tWallet} isPro={true} tPricing={t} />
+                        <CheckoutButton plan="PRO" amount={locale === "en" ? 15 : 745} className="w-full py-3.5 rounded-full border border-blue-500 text-blue-600 font-medium text-sm hover:bg-blue-50 transition-colors text-center shadow-sm block">{t("btnAssistantPro")}</CheckoutButton>
                     </div>
 
                     {/* Essential */}
@@ -179,7 +212,9 @@ export default function PricingPage() {
                                 <X size={18} className="text-brand-gray/40 flex-shrink-0" />
                                 {t("eF5")}
                             </li>
+                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark"><Check size={18} className="text-brand-leaf flex-shrink-0" />{t("telegramBot")}</li>
                         </ul>
+                        <BotDropdown tWallet={tWallet} isPro={false} tPricing={t} />
 
                         <a
                             href={contactHref}
@@ -232,7 +267,9 @@ export default function PricingPage() {
                                 <div className="bg-brand-leaf/20 p-0.5 rounded-full"><Check size={14} className="text-brand-leaf" strokeWidth={3} /></div>
                                 {t("pF5")}
                             </li>
+                            <li className="flex items-center gap-3 text-sm text-brand-text font-medium"><div className="bg-brand-leaf/20 p-0.5 rounded-full"><Check size={14} className="text-brand-leaf" strokeWidth={3} /></div>{t("telegramBot")}</li>
                         </ul>
+                        <BotDropdown tWallet={tWallet} isPro={true} tPricing={t} />
 
                         <a
                             href={contactHref}
