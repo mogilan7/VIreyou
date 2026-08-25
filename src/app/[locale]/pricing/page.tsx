@@ -73,6 +73,7 @@ function BotDropdown({ tWallet, isPro, tPricing }: { tWallet: any, isPro: boolea
 export default function PricingPage() {
     const t = useTranslations("Pricing");
     const tCommon = useTranslations("Common");
+    const tWallet = useTranslations("Wallet");
     const locale = useLocale();
     const isRu = locale === "ru";
 
