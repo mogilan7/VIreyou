@@ -114,7 +114,19 @@
     "q2": "Are lab tests included in the price?",
     "a2": "Lab tests are not included in the consultation fee — you get them done independently at any clinic. Valentina will provide a detailed list of recommended tests at your first session and help you interpret the results.",
     "q3": "Is it covered by health insurance?",
-    "a3": "Anti-aging and preventive medicine programs are generally not covered by standard insurance. However, we provide all necessary documentation for potential partial reimbursement."
+    "a3": "Anti-aging and preventive medicine programs are generally not covered by standard insurance. However, we provide all necessary documentation for potential partial reimbursement.",
+    "assistantStandardTitle": "AI Assistant Standard",
+    "assistantStandardDesc": "Basic access to AI features for your health care.",
+    "assistantStandardPrice": "495 ₽",
+    "assistantProTitle": "AI Assistant PRO",
+    "assistantProDesc": "Advanced AI capabilities for maximum control over your longevity.",
+    "assistantProPrice": "745 ₽",
+    "aF1": "All calculators",
+    "aF2": "AI assistant",
+    "aF3": "AI lifestyle analysis",
+    "aF4": "AI blood test results analysis",
+    "btnAssistantStandard": "Get Standard",
+    "btnAssistantPro": "Get PRO"
   },
   "Diagnostics": {
     "tag": "Evidence-Based Assessments",

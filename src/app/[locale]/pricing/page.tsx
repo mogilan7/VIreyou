@@ -58,7 +58,89 @@ export default function PricingPage() {
                 </div>
 
                 {/* Pricing Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 max-w-4xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 max-w-7xl mx-auto">
+
+                    
+                    {/* Assistant Standard */}
+                    <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-brand-sage/30 flex flex-col">
+                        <h3 className="font-serif text-2xl font-bold text-brand-text mb-2">{t("assistantStandardTitle")}</h3>
+                        <p className="text-brand-gray text-xs leading-relaxed mb-6">
+                            {t("assistantStandardDesc")}
+                        </p>
+
+                        <div className="mb-8">
+                            <span className="text-4xl font-bold text-brand-text">{t("assistantStandardPrice")}</span>
+                            <span className="text-brand-gray text-xs font-semibold ml-2">{t("month")}</span>
+                        </div>
+
+                        <ul className="space-y-4 mb-10 flex-grow">
+                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
+                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
+                                {t("aF1")}
+                            </li>
+                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
+                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
+                                {t("aF2")}
+                            </li>
+                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
+                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
+                                {t("aF3")}
+                            </li>
+                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
+                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
+                                {t("aF4")}
+                            </li>
+                        </ul>
+
+                        <Link
+                            href="/cabinet"
+                            className="w-full py-3.5 rounded-full border border-brand-sage text-brand-text font-medium text-sm hover:border-brand-leaf hover:text-brand-leaf transition-colors text-center shadow-sm block"
+                        >
+                            {t("btnAssistantStandard")}
+                        </Link>
+                    </div>
+
+                    {/* Assistant PRO */}
+                    <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-brand-sage/30 flex flex-col relative">
+                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] uppercase font-bold tracking-widest px-4 py-1.5 rounded-full whitespace-nowrap">
+                            PRO
+                        </div>
+                        <h3 className="font-serif text-2xl font-bold text-brand-text mb-2">{t("assistantProTitle")}</h3>
+                        <p className="text-brand-gray text-xs leading-relaxed mb-6">
+                            {t("assistantProDesc")}
+                        </p>
+
+                        <div className="mb-8">
+                            <span className="text-4xl font-bold text-brand-text">{t("assistantProPrice")}</span>
+                            <span className="text-brand-gray text-xs font-semibold ml-2">{t("month")}</span>
+                        </div>
+
+                        <ul className="space-y-4 mb-10 flex-grow">
+                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
+                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
+                                {t("aF1")}
+                            </li>
+                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
+                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
+                                {t("aF2")}
+                            </li>
+                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
+                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
+                                {t("aF3")}
+                            </li>
+                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
+                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
+                                {t("aF4")}
+                            </li>
+                        </ul>
+
+                        <Link
+                            href="/cabinet"
+                            className="w-full py-3.5 rounded-full border border-blue-500 text-blue-600 font-medium text-sm hover:bg-blue-50 transition-colors text-center shadow-sm block"
+                        >
+                            {t("btnAssistantPro")}
+                        </Link>
+                    </div>
 
                     {/* Essential */}
                     <div className="bg-white rounded-[2rem] p-10 shadow-sm border border-brand-sage/30 flex flex-col">
