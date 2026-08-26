@@ -76,7 +76,7 @@ export default function PricingPage() {
                     
                     {/* Assistant Standard */}
                     <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-brand-sage/30 flex flex-col h-full">
-                        <div className="min-h-[80px]">
+                        <div className="min-h-[180px]">
                             <h3 className="font-serif text-2xl font-bold text-brand-text mb-2">{t("assistantStandardTitle")}</h3>
                             <p className="text-brand-gray text-xs leading-relaxed">
                                 {t("assistantStandardDesc")}
@@ -106,7 +106,7 @@ export default function PricingPage() {
                         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] uppercase font-bold tracking-widest px-4 py-1.5 rounded-full whitespace-nowrap">
                             PRO
                         </div>
-                        <div className="min-h-[80px]">
+                        <div className="min-h-[180px]">
                             <h3 className="font-serif text-2xl font-bold text-brand-text mb-2">{t("assistantProTitle")}</h3>
                             <p className="text-brand-gray text-xs leading-relaxed">
                                 {t("assistantProDesc")}
@@ -133,7 +133,7 @@ export default function PricingPage() {
 
                     {/* Essential */}
                     <div className="bg-white rounded-[2rem] p-8 lg:p-10 shadow-sm border border-brand-sage/30 flex flex-col h-full">
-                        <div className="min-h-[80px]">
+                        <div className="min-h-[180px]">
                             <h3 className="font-serif text-2xl font-bold text-brand-text mb-2">{t("essentialTitle")}</h3>
                             <p className="text-brand-gray text-xs leading-relaxed">
                                 {t("essentialDesc")}
@@ -171,7 +171,7 @@ export default function PricingPage() {
                             {t("recBadge")}
                         </div>
 
-                        <div className="min-h-[80px]">
+                        <div className="min-h-[180px]">
                             <h3 className="font-serif text-2xl font-bold text-brand-leaf mb-2">{t("premiumTitle")}</h3>
                             <p className="text-brand-gray text-xs leading-relaxed">
                                 {t("premiumDesc")}
