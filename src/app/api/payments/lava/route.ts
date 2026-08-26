@@ -78,7 +78,6 @@ export async function POST(req: NextRequest) {
                 email: buyerEmail, 
                 offerId: offerId,
                 currency: 'USD', // API v3 might require currency, we will use USD since it's for foreigners
-                amount: amount,
                 // successUrl and failUrl are configured inside the product in Lava.top for v3 API
                 customData: JSON.stringify({ userId: user.id, plan: plan, orderId: orderId })
             })
