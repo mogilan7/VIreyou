@@ -52,8 +52,7 @@ export default function PricingPage() {
     const isRu = locale === "ru";
 
     // Contact link — Telegram channel or contact section
-    const contactHref = isRu ? "https://t.me/VI_Beautylife" : "/#contact";
-
+    
     return (
         <div className="bg-brand-bg min-h-screen pt-32 pb-0 flex flex-col">
             <PublicNavbar />
@@ -175,14 +174,12 @@ export default function PricingPage() {
                             <Feature included={false} text={t("f7")} />
                         </ul>
 
-                        <a
-                            href={contactHref}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                        <Link
+                            href="/#contact"
                             className="w-full py-3.5 mt-auto rounded-full border border-brand-sage text-brand-text font-medium text-sm hover:border-brand-leaf hover:text-brand-leaf transition-colors text-center shadow-sm block"
                         >
                             {t("btnEssential")}
-                        </a>
+                        </Link>
                     </div>
 
                     {/* Premium */}
@@ -213,14 +210,12 @@ export default function PricingPage() {
                             <Feature included={true} text={t("f7")} />
                         </ul>
 
-                        <a
-                            href={contactHref}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                        <Link
+                            href="/#contact"
                             className="w-full py-3.5 mt-auto rounded-full bg-brand-leaf hover:bg-brand-leaf-light text-white font-medium text-sm transition-colors text-center shadow-md shadow-brand-leaf/20 block"
                         >
                             {t("btnPremium")}
-                        </a>
+                        </Link>
                     </div>
 
                 </div>
