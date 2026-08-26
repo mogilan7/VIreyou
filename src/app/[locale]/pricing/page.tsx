@@ -31,7 +31,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
     );
 }
 
-function Feature({ included, text }: { included: boolean, text: string }) {
+function Feature({ included, text }: { included: boolean, text: React.ReactNode }) {
     return (
         <li className={`flex items-start gap-3 text-sm ${included ? 'text-brand-gray-dark' : 'text-brand-gray/40'}`}>
             {included ? (
@@ -46,6 +46,7 @@ function Feature({ included, text }: { included: boolean, text: string }) {
 
 export default function PricingPage() {
     const t = useTranslations("Pricing");
+    const tWallet = useTranslations("Wallet");
     const tCommon = useTranslations("Common");
     const locale = useLocale();
     const isRu = locale === "ru";
@@ -119,7 +120,26 @@ export default function PricingPage() {
                         </div>
 
                         <ul className="space-y-4 mb-10 flex-grow">
-                            <Feature included={true} text={t("f1") + " " + t("f1_adv")} />
+                            <Feature included={true} text={
+                                <span className="flex flex-wrap items-center gap-1 relative">
+                                    <span>{t("f1")}</span>
+                                    <div className="relative group flex items-center">
+                                        <span className="text-blue-500 border-b border-dashed border-blue-500/50 cursor-help hover:text-blue-600 transition-colors">
+                                            {t("f1_adv")}
+                                        </span>
+                                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-56 p-3 bg-white text-brand-gray-dark text-xs rounded-xl shadow-[0_4px_20px_rgb(0,0,0,0.08)] border border-brand-sage/30 z-[100] pointer-events-none">
+                                            <div className="font-bold text-brand-text mb-2 text-center">{t("botFeaturesLabel") || "PRO Features"}</div>
+                                            <ul className="space-y-1.5 font-normal text-left">
+                                                <li className="flex gap-2"><span>✔️</span> <span>{tWallet('featureOrganization')}</span></li>
+                                                <li className="flex gap-2"><span>✔️</span> <span>{tWallet('featureAdvice')}</span></li>
+                                                <li className="flex gap-2"><span>✔️</span> <span>{tWallet('featureAnalysis')}</span></li>
+                                                <li className="flex gap-2"><span>✔️</span> <span className="text-brand-leaf font-bold">{tWallet('featureAI')}</span></li>
+                                            </ul>
+                                            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-b border-r border-brand-sage/30 rotate-45"></div>
+                                        </div>
+                                    </div>
+                                </span>
+                            } />
                             <Feature included={true} text={t("f2")} />
                             <Feature included={true} text={t("f3")} />
                             <Feature included={false} text={t("f4")} />
