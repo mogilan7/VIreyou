@@ -31,49 +31,22 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
     );
 }
 
-
-function BotDropdown({ tWallet, isPro, tPricing }: { tWallet: any, isPro: boolean, tPricing: any }) {
-    const [open, setOpen] = useState(false);
+function Feature({ included, text }: { included: boolean, text: string }) {
     return (
-        <div className="mt-4 mb-6">
-            <button 
-                onClick={() => setOpen(!open)}
-                className="flex items-center gap-2 text-sm text-brand-text font-semibold hover:text-brand-leaf transition-colors w-full justify-between bg-[#E8F1EB]/50 p-3 rounded-xl border border-brand-sage/30"
-            >
-                <div className="flex items-center gap-2">
-                    <span className="bg-brand-leaf text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">🤖</span>
-                    {tPricing('botFeaturesLabel')}
-                </div>
-                <ChevronDown size={16} className={`transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
-            </button>
-            {open && (
-                <ul className="text-xs space-y-2 mt-3 text-brand-gray-dark px-2 animate-in fade-in slide-in-from-top-2">
-                    <li className="flex items-center gap-2">✔️ {tWallet('featurePhotoVoice')}</li>
-                    <li className="flex items-center gap-2">✔️ {tWallet('featureDashboard')}</li>
-                    <li className="flex items-center gap-2">✔️ {tWallet('featureMarathons')}</li>
-                    <li className="flex items-center gap-2">✔️ {tWallet('featureVitamins')}</li>
-                    <li className={`flex items-center gap-2 ${!isPro ? 'opacity-50' : ''}`}>
-                        {isPro ? '✔️' : '❌'} <span className={isPro ? "font-bold" : ""}>{tWallet('featureOrganization')}</span>
-                    </li>
-                    <li className={`flex items-center gap-2 ${!isPro ? 'opacity-50' : ''}`}>
-                        {isPro ? '✔️' : '❌'} <span className={isPro ? "font-bold" : ""}>{tWallet('featureAdvice')}</span>
-                    </li>
-                    <li className={`flex items-center gap-2 ${!isPro ? 'opacity-50' : ''}`}>
-                        {isPro ? '✔️' : '❌'} <span className={isPro ? "font-bold" : ""}>{tWallet('featureAnalysis')}</span>
-                    </li>
-                    <li className={`flex items-center gap-2 ${!isPro ? 'opacity-50' : ''}`}>
-                        {isPro ? '✔️' : '❌'} <span className={isPro ? "text-brand-leaf font-bold" : ""}>{tWallet('featureAI')}</span>
-                    </li>
-                </ul>
+        <li className={`flex items-start gap-3 text-sm ${included ? 'text-brand-gray-dark' : 'text-brand-gray/40'}`}>
+            {included ? (
+                <div className="bg-brand-leaf/10 p-0.5 rounded-full mt-0.5"><Check size={14} className="text-brand-leaf" strokeWidth={3} /></div>
+            ) : (
+                <X size={18} className="text-brand-gray/40 flex-shrink-0 mt-0.5" />
             )}
-        </div>
+            <span className={`${included ? 'font-medium' : 'line-through'}`}>{text}</span>
+        </li>
     );
 }
 
 export default function PricingPage() {
     const t = useTranslations("Pricing");
     const tCommon = useTranslations("Common");
-    const tWallet = useTranslations("Wallet");
     const locale = useLocale();
     const isRu = locale === "ru";
 
@@ -84,7 +57,7 @@ export default function PricingPage() {
         <div className="bg-brand-bg min-h-screen pt-32 pb-0 flex flex-col">
             <PublicNavbar />
 
-            <main className="flex-grow max-w-5xl mx-auto px-6 w-full mb-32">
+            <main className="flex-grow max-w-[90rem] mx-auto px-6 w-full mb-32">
                 <div className="text-center mb-16">
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E8F1EB] text-brand-leaf text-[10px] uppercase font-bold tracking-widest rounded-full mb-6">
                         <Diamond size={12} fill="currentColor" />
@@ -100,183 +73,131 @@ export default function PricingPage() {
 
                 {/* Pricing Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 max-w-7xl mx-auto">
-
                     
                     {/* Assistant Standard */}
-                    <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-brand-sage/30 flex flex-col">
-                        <h3 className="font-serif text-2xl font-bold text-brand-text mb-2">{t("assistantStandardTitle")}</h3>
-                        <p className="text-brand-gray text-xs leading-relaxed mb-6">
-                            {t("assistantStandardDesc")}
-                        </p>
+                    <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-brand-sage/30 flex flex-col h-full">
+                        <div className="min-h-[80px]">
+                            <h3 className="font-serif text-2xl font-bold text-brand-text mb-2">{t("assistantStandardTitle")}</h3>
+                            <p className="text-brand-gray text-xs leading-relaxed">
+                                {t("assistantStandardDesc")}
+                            </p>
+                        </div>
 
-                        <div className="mb-8">
+                        <div className="my-6">
                             <span className="text-4xl font-bold text-brand-text">{t("assistantStandardPrice")}</span>
                             <span className="text-brand-gray text-xs font-semibold ml-2">{t("month")}</span>
                         </div>
 
                         <ul className="space-y-4 mb-10 flex-grow">
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
-                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
-                                {t("aF1")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
-                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
-                                {t("aF2")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
-                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
-                                {t("aF3")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
-                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
-                                {t("aF4")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark"><Check size={18} className="text-brand-leaf flex-shrink-0" />{t("telegramBot")}</li>
+                            <Feature included={true} text={t("f1")} />
+                            <Feature included={true} text={t("f2")} />
+                            <Feature included={true} text={t("f3")} />
+                            <Feature included={false} text={t("f4")} />
+                            <Feature included={false} text={t("f5")} />
+                            <Feature included={false} text={t("f6")} />
+                            <Feature included={false} text={t("f7")} />
                         </ul>
-                        <BotDropdown tWallet={tWallet} isPro={false} tPricing={t} />
 
-                        <CheckoutButton plan="Standard" amount={locale === "en" ? 7 : 495} className="w-full py-3.5 rounded-full border border-brand-sage text-brand-text font-medium text-sm hover:border-brand-leaf hover:text-brand-leaf transition-colors text-center shadow-sm block">{t("btnAssistantStandard")}</CheckoutButton>
+                        <CheckoutButton plan="Standard" amount={locale === "en" ? 7 : 495} className="w-full py-3.5 mt-auto rounded-full border border-brand-sage text-brand-text font-medium text-sm hover:border-brand-leaf hover:text-brand-leaf transition-colors text-center shadow-sm block">{t("btnAssistantStandard")}</CheckoutButton>
                     </div>
 
                     {/* Assistant PRO */}
-                    <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-brand-sage/30 flex flex-col relative">
+                    <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-brand-sage/30 flex flex-col h-full relative">
                         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] uppercase font-bold tracking-widest px-4 py-1.5 rounded-full whitespace-nowrap">
                             PRO
                         </div>
-                        <h3 className="font-serif text-2xl font-bold text-brand-text mb-2">{t("assistantProTitle")}</h3>
-                        <p className="text-brand-gray text-xs leading-relaxed mb-6">
-                            {t("assistantProDesc")}
-                        </p>
+                        <div className="min-h-[80px]">
+                            <h3 className="font-serif text-2xl font-bold text-brand-text mb-2">{t("assistantProTitle")}</h3>
+                            <p className="text-brand-gray text-xs leading-relaxed">
+                                {t("assistantProDesc")}
+                            </p>
+                        </div>
 
-                        <div className="mb-8">
+                        <div className="my-6">
                             <span className="text-4xl font-bold text-brand-text">{t("assistantProPrice")}</span>
                             <span className="text-brand-gray text-xs font-semibold ml-2">{t("month")}</span>
                         </div>
 
                         <ul className="space-y-4 mb-10 flex-grow">
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
-                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
-                                {t("aF1")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
-                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
-                                {t("aF2")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
-                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
-                                {t("aF3")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
-                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
-                                {t("aF4")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark"><Check size={18} className="text-brand-leaf flex-shrink-0" />{t("telegramBot")}</li>
+                            <Feature included={true} text={t("f1") + " " + t("f1_adv")} />
+                            <Feature included={true} text={t("f2")} />
+                            <Feature included={true} text={t("f3")} />
+                            <Feature included={false} text={t("f4")} />
+                            <Feature included={false} text={t("f5")} />
+                            <Feature included={false} text={t("f6")} />
+                            <Feature included={false} text={t("f7")} />
                         </ul>
-                        <BotDropdown tWallet={tWallet} isPro={true} tPricing={t} />
-                        <CheckoutButton plan="PRO" amount={locale === "en" ? 15 : 745} className="w-full py-3.5 rounded-full border border-blue-500 text-blue-600 font-medium text-sm hover:bg-blue-50 transition-colors text-center shadow-sm block">{t("btnAssistantPro")}</CheckoutButton>
+                        
+                        <CheckoutButton plan="PRO" amount={locale === "en" ? 15 : 745} className="w-full py-3.5 mt-auto rounded-full border border-blue-500 text-blue-600 font-medium text-sm hover:bg-blue-50 transition-colors text-center shadow-sm block">{t("btnAssistantPro")}</CheckoutButton>
                     </div>
 
                     {/* Essential */}
-                    <div className="bg-white rounded-[2rem] p-10 shadow-sm border border-brand-sage/30 flex flex-col">
-                        <h3 className="font-serif text-2xl font-bold text-brand-text mb-2">{t("essentialTitle")}</h3>
-                        <p className="text-brand-gray text-xs leading-relaxed mb-6">
-                            {t("essentialDesc")}
-                        </p>
+                    <div className="bg-white rounded-[2rem] p-8 lg:p-10 shadow-sm border border-brand-sage/30 flex flex-col h-full">
+                        <div className="min-h-[80px]">
+                            <h3 className="font-serif text-2xl font-bold text-brand-text mb-2">{t("essentialTitle")}</h3>
+                            <p className="text-brand-gray text-xs leading-relaxed">
+                                {t("essentialDesc")}
+                            </p>
+                        </div>
 
-                        <div className="mb-8">
+                        <div className="my-6">
                             <span className="text-4xl font-bold text-brand-text">{t("essentialPrice")}</span>
                             <span className="text-brand-gray text-xs font-semibold ml-2">{t("session")}</span>
                         </div>
 
                         <ul className="space-y-4 mb-10 flex-grow">
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
-                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
-                                {t("eF1")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
-                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
-                                {t("eF2")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
-                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
-                                {t("eF2new")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark">
-                                <Check size={18} className="text-brand-leaf flex-shrink-0" />
-                                {t("eF3")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray/40">
-                                <X size={18} className="text-brand-gray/40 flex-shrink-0" />
-                                {t("eF4")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray/40">
-                                <X size={18} className="text-brand-gray/40 flex-shrink-0" />
-                                {t("eF5")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-gray-dark"><Check size={18} className="text-brand-leaf flex-shrink-0" />{t("telegramBot")}</li>
+                            <Feature included={true} text={t("f1")} />
+                            <Feature included={true} text={t("f2")} />
+                            <Feature included={true} text={t("f3")} />
+                            <Feature included={true} text={t("f4") + " " + t("f4_45")} />
+                            <Feature included={false} text={t("f5")} />
+                            <Feature included={false} text={t("f6")} />
+                            <Feature included={false} text={t("f7")} />
                         </ul>
-                        <BotDropdown tWallet={tWallet} isPro={false} tPricing={t} />
 
                         <a
                             href={contactHref}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full py-3.5 rounded-full border border-brand-sage text-brand-text font-medium text-sm hover:border-brand-leaf hover:text-brand-leaf transition-colors text-center shadow-sm block"
+                            className="w-full py-3.5 mt-auto rounded-full border border-brand-sage text-brand-text font-medium text-sm hover:border-brand-leaf hover:text-brand-leaf transition-colors text-center shadow-sm block"
                         >
                             {t("btnEssential")}
                         </a>
                     </div>
 
                     {/* Premium */}
-                    <div className="bg-white rounded-[2rem] p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-2 border-brand-leaf relative flex flex-col">
+                    <div className="bg-white rounded-[2rem] p-8 lg:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-2 border-brand-leaf relative flex flex-col h-full">
                         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-brand-leaf text-white text-[10px] uppercase font-bold tracking-widest px-4 py-1.5 rounded-full whitespace-nowrap">
                             {t("recBadge")}
                         </div>
 
-                        <div className="w-10 h-10 bg-[#E8F1EB] rounded-full flex items-center justify-center mb-6">
-                            <Diamond size={16} className="text-brand-leaf" fill="currentColor" />
+                        <div className="min-h-[80px]">
+                            <h3 className="font-serif text-2xl font-bold text-brand-leaf mb-2">{t("premiumTitle")}</h3>
+                            <p className="text-brand-gray text-xs leading-relaxed">
+                                {t("premiumDesc")}
+                            </p>
                         </div>
 
-                        <h3 className="font-serif text-2xl font-bold text-brand-leaf mb-2">{t("premiumTitle")}</h3>
-                        <p className="text-brand-gray text-xs leading-relaxed mb-6">
-                            {t("premiumDesc")}
-                        </p>
-
-                        <div className="mb-8">
+                        <div className="my-6">
                             <span className="text-4xl font-bold text-brand-text">{t("premiumPrice")}</span>
                             <span className="text-brand-gray text-xs font-semibold ml-2">{t("month")}</span>
                         </div>
 
                         <ul className="space-y-4 mb-10 flex-grow">
-                            <li className="flex items-center gap-3 text-sm text-brand-text font-medium">
-                                <div className="bg-brand-leaf/20 p-0.5 rounded-full"><Check size={14} className="text-brand-leaf" strokeWidth={3} /></div>
-                                {t("pF1")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-text font-medium">
-                                <div className="bg-brand-leaf/20 p-0.5 rounded-full"><Check size={14} className="text-brand-leaf" strokeWidth={3} /></div>
-                                {t("pF2")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-text font-medium">
-                                <div className="bg-brand-leaf/20 p-0.5 rounded-full"><Check size={14} className="text-brand-leaf" strokeWidth={3} /></div>
-                                {t("pF3")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-text font-medium">
-                                <div className="bg-brand-leaf/20 p-0.5 rounded-full"><Check size={14} className="text-brand-leaf" strokeWidth={3} /></div>
-                                {t("pF4")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-text font-medium">
-                                <div className="bg-brand-leaf/20 p-0.5 rounded-full"><Check size={14} className="text-brand-leaf" strokeWidth={3} /></div>
-                                {t("pF5")}
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-brand-text font-medium"><div className="bg-brand-leaf/20 p-0.5 rounded-full"><Check size={14} className="text-brand-leaf" strokeWidth={3} /></div>{t("telegramBot")}</li>
+                            <Feature included={true} text={t("f1")} />
+                            <Feature included={true} text={t("f2")} />
+                            <Feature included={true} text={t("f3")} />
+                            <Feature included={true} text={t("f4") + " " + t("f4_90")} />
+                            <Feature included={true} text={t("f5")} />
+                            <Feature included={true} text={t("f6")} />
+                            <Feature included={true} text={t("f7")} />
                         </ul>
-                        <BotDropdown tWallet={tWallet} isPro={true} tPricing={t} />
 
                         <a
                             href={contactHref}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full py-3.5 rounded-full bg-brand-leaf hover:bg-brand-leaf-light text-white font-medium text-sm transition-colors text-center shadow-md shadow-brand-leaf/20 block"
+                            className="w-full py-3.5 mt-auto rounded-full bg-brand-leaf hover:bg-brand-leaf-light text-white font-medium text-sm transition-colors text-center shadow-md shadow-brand-leaf/20 block"
                         >
                             {t("btnPremium")}
                         </a>
