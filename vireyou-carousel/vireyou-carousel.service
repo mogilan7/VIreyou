@@ -1,0 +1,13 @@
+[Unit]
+Description=VIReYou Carousel Generator FastAPI
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/vireyou-carousel
+ExecStart=/usr/bin/python3 -m uvicorn main:app --host 127.0.0.1 --port 8002
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
