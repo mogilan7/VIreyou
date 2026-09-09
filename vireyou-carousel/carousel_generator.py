@@ -1,262 +1,317 @@
+"""
+VIReyou Carousel Generator — оригинальный дизайн из VIReyou_Carousel_Generator.py
+Адаптирован для приёма простого JSON формата.
+"""
 from PIL import Image, ImageDraw, ImageFont
-import os, math
+import os, math, random
 
 W, H = 1080, 1350
-PAD = 80
 
-# VIReYou brand palette
-BG_CREAM   = "#F5F1EB"
-BG_YELLOW  = "#EEECD7"
-BG_GREEN   = "#E8EDE3"
-BG_WHITE   = "#FAFAF8"
-TEXT_DARK  = "#3D4A3E"
-ACCENT     = "#B8956A"
-LEAF_DARK  = "#5C7A5E"
-LEAF_MID   = "#7A9E7E"
-LEAF_LIGHT = "#A8C5AA"
+COLOR_CREAM      = "#F5EFE6"
+COLOR_BEIGE      = "#E8DCC8"
+COLOR_SAGE       = "#A8B89C"
+COLOR_FOREST     = "#3D4A36"
+COLOR_BODY       = "#2C3329"
+COLOR_TERRACOTTA = "#C49A6C"
+COLOR_SOFT_GREEN = "#7F9075"
 
-PALETTES = {
-    "cream":  BG_CREAM,
-    "yellow": BG_YELLOW,
-    "green":  BG_GREEN,
-    "white":  BG_WHITE,
-}
+FONT_DIR = "/usr/share/fonts/truetype"
+LORA        = os.path.join(FONT_DIR, "google-fonts/Lora-Variable.ttf")
+LORA_ITALIC = os.path.join(FONT_DIR, "google-fonts/Lora-Italic-Variable.ttf")
+LATO_REG    = os.path.join(FONT_DIR, "lato/Lato-Regular.ttf")
+LATO_MED    = os.path.join(FONT_DIR, "lato/Lato-Medium.ttf")
+LATO_BOLD   = os.path.join(FONT_DIR, "lato/Lato-Bold.ttf")
+LATO_LIGHT  = os.path.join(FONT_DIR, "lato/Lato-Light.ttf")
 
-FONT_DIR = os.environ.get("VIREYOU_FONT_DIR", "/usr/share/fonts/truetype/")
+_font_cache = {}
+def f(path, size):
+    key = (path, size)
+    if key not in _font_cache:
+        try:
+            _font_cache[key] = ImageFont.truetype(path, size)
+        except OSError:
+            # Fallback: find any ttf on the system
+            for root, dirs, files in os.walk(FONT_DIR):
+                for fname in files:
+                    if fname.endswith('.ttf') and 'dejavu' in fname.lower():
+                        try:
+                            _font_cache[key] = ImageFont.truetype(os.path.join(root, fname), size)
+                            return _font_cache[key]
+                        except: pass
+            _font_cache[key] = ImageFont.load_default()
+    return _font_cache[key]
 
-def _font(style, size):
-    candidates = {
-        "serif":        ["PlayfairDisplay-Regular.ttf", "Georgia.ttf", "DejaVuSerif.ttf"],
-        "serif_bold":   ["PlayfairDisplay-Bold.ttf", "Georgia Bold.ttf", "DejaVuSerif-Bold.ttf"],
-        "serif_italic": ["PlayfairDisplay-Italic.ttf", "Georgia Italic.ttf", "DejaVuSerif-Italic.ttf"],
-        "sans":         ["Inter-Regular.ttf", "Arial.ttf", "DejaVuSans.ttf"],
-        "sans_bold":    ["Inter-Bold.ttf", "Arial Bold.ttf", "DejaVuSans-Bold.ttf"],
-    }
-    for fname in candidates.get(style, candidates["sans"]):
-        for root, dirs, files in os.walk(FONT_DIR):
-            if fname in files:
-                try:
-                    return ImageFont.truetype(os.path.join(root, fname), size)
-                except:
-                    pass
-    return ImageFont.load_default()
+def draw_leaf(draw, cx, cy, size, color, rotation=0):
+    pts = []
+    for t in range(0, 360, 5):
+        rad = math.radians(t)
+        x = math.cos(rad) * size
+        y = math.sin(rad) * (size * 0.35)
+        rr = math.radians(rotation)
+        xr = x * math.cos(rr) - y * math.sin(rr)
+        yr = x * math.sin(rr) + y * math.cos(rr)
+        pts.append((cx + xr, cy + yr))
+    draw.polygon(pts, fill=color)
 
-def _draw_leaves(img, position="top_right"):
-    draw = ImageDraw.Draw(img)
-    if position == "top_right":
-        cx, cy = W - 110, 110
-    else:
-        cx, cy = W - 130, H - 130
+def draw_circle(draw, cx, cy, r, color):
+    draw.ellipse([cx-r, cy-r, cx+r, cy+r], fill=color)
 
-    leaves = [
-        (cx - 20, cy - 30, 70, 30, -35, LEAF_DARK),
-        (cx + 10, cy + 10,  50, 22, -55, LEAF_MID),
-        (cx + 35, cy + 50, 38, 16, -70, LEAF_LIGHT),
-    ]
-    for lx, ly, lw, lh, angle, color in leaves:
-        leaf = Image.new("RGBA", (lw*2, lh*2), (0,0,0,0))
-        ld = ImageDraw.Draw(leaf)
-        ld.ellipse([0, lh//2, lw*2, lh*3//2], fill=color)
-        rotated = leaf.rotate(angle, expand=True)
-        img.paste(rotated, (lx - rotated.width//2, ly - rotated.height//2), rotated)
+def draw_brand_mark(draw, x, y, color, size=28):
+    draw.text((x, y), "VIReyou", font=f(LORA, size), fill=color)
 
-def _header(draw, subtitle="СИЛА МАЛЕНЬКИХ ДЕЙСТВИЙ"):
-    draw.text((PAD, 60), "VIReyou", font=_font("sans_bold", 36), fill=TEXT_DARK)
-    draw.text((PAD, 100), subtitle, font=_font("sans", 22), fill=ACCENT,
-              spacing=4)
+def draw_page_indicator(draw, page, total, color):
+    text = f"{page} / {total}"
+    font = f(LATO_REG, 22)
+    try:
+        bbox = draw.textbbox((0,0), text, font=font)
+        w = bbox[2] - bbox[0]
+    except:
+        w = len(text) * 12
+    draw.text((W//2 - w//2, H-60), text, font=font, fill=color)
 
-def _wrap(text, font, max_w):
+def add_grain(img, intensity=4):
+    px = img.load()
+    random.seed(42)
+    for x in range(0, W, 3):
+        for y in range(0, H, 3):
+            r, g, b = px[x, y][:3]
+            noise = random.randint(-intensity, intensity)
+            px[x, y] = (
+                max(0, min(255, r+noise)),
+                max(0, min(255, g+noise)),
+                max(0, min(255, b+noise)),
+            )
+    return img
+
+def wrap_text(text, font, max_width, draw):
     words = text.split()
     lines, line = [], ""
     for w in words:
         test = (line + " " + w).strip()
         try:
-            tw = font.getlength(test)
+            bb = draw.textbbox((0,0), test, font=font)
+            tw = bb[2] - bb[0]
         except:
-            tw = len(test) * 12
-        if tw <= max_w:
+            tw = len(test) * 14
+        if tw <= max_width:
             line = test
         else:
-            if line:
-                lines.append(line)
+            if line: lines.append(line)
             line = w
-    if line:
-        lines.append(line)
+    if line: lines.append(line)
     return lines
 
-def _accent_line(draw, x, y, width=80):
-    draw.line([(x, y), (x + width, y)], fill=ACCENT, width=3)
+# ── SLIDE RENDERERS ──────────────────────────────────────────────────────────
 
-def render_cover(slide, bg):
-    img = Image.new("RGBA", (W, H), bg)
-    _draw_leaves(img, "top_right")
-    draw = ImageDraw.Draw(img)
-    _header(draw)
+def render_cover(slide, page, total):
+    img = Image.new("RGB", (W, H), COLOR_CREAM)
+    d = ImageDraw.Draw(img)
+    draw_leaf(d, 950, 130, 90, COLOR_SAGE, rotation=-30)
+    draw_leaf(d, 880, 200, 70, COLOR_SOFT_GREEN, rotation=20)
+    draw_leaf(d, 1000, 250, 60, COLOR_SAGE, rotation=-50)
+    draw_brand_mark(d, 80, 80, COLOR_FOREST, size=32)
 
-    # Big headline centered vertically
     headline = slide.get("headline", "")
-    fn = _font("serif", 82)
-    lines = _wrap(headline, fn, W - 2*PAD - 80)
-    total_h = len(lines) * 95
-    y = (H - total_h) // 2 - 50
+    headline_font = f(LORA, 72)
+    lines = wrap_text(headline, headline_font, W - 160, d)
+    y = 420
     for line in lines:
-        draw.text((PAD, y), line, font=fn, fill=TEXT_DARK)
-        y += 95
+        d.text((80, y), line, font=headline_font, fill=COLOR_FOREST)
+        y += 92
 
-    _accent_line(draw, PAD, y + 20)
+    d.line([(80, y + 30), (250, y + 30)], fill=COLOR_TERRACOTTA, width=3)
+    y += 70
 
-    # Bottom bar
-    draw.text((PAD, H - 120), "СВАЙП  →", font=_font("sans", 28), fill=TEXT_DARK)
-    tag = slide.get("hashtag", "#VIReyou_bot")
+    subheadline = slide.get("subheadline", "")
+    if subheadline:
+        sub_font = f(LATO_LIGHT, 36)
+        sub_lines = wrap_text(subheadline, sub_font, W - 160, d)
+        for line in sub_lines:
+            d.text((80, y), line, font=sub_font, fill=COLOR_BODY)
+            y += 48
+
+    d.text((80, 1230), "СВАЙП  →", font=f(LATO_MED, 28), fill=COLOR_FOREST)
+    hashtag = slide.get("hashtag", "#VIReyou_bot")
     try:
-        tw = _font("sans", 28).getlength(tag)
-    except:
-        tw = len(tag) * 14
-    draw.text((W - PAD - tw, H - 120), tag, font=_font("sans", 28), fill=ACCENT)
-    return img.convert("RGB")
+        hw = d.textlength(hashtag, font=f(LATO_LIGHT, 22))
+    except: hw = len(hashtag) * 11
+    d.text((W - 80 - hw, 1240), hashtag, font=f(LATO_LIGHT, 22), fill=COLOR_FOREST)
+    add_grain(img)
+    return img
 
-def render_thesis(slide, bg, slide_num, total):
-    img = Image.new("RGBA", (W, H), bg)
-    _draw_leaves(img, "top_right")
-    draw = ImageDraw.Draw(img)
-    _header(draw)
+def render_thesis(slide, page, total):
+    img = Image.new("RGB", (W, H), COLOR_BEIGE)
+    d = ImageDraw.Draw(img)
+    draw_brand_mark(d, 80, 80, COLOR_FOREST)
+    d.line([(W//2-40, 280), (W//2+40, 280)], fill=COLOR_TERRACOTTA, width=3)
 
     quote = slide.get("quote", "")
-    body = slide.get("body", "")
+    body  = slide.get("body", "")
 
+    q_font = f(LORA, 60)
+    y = 360
     if quote:
-        fq = _font("serif_italic", 62)
-        lines = _wrap(f"«{quote}»", fq, W - 2*PAD - 60)
-        y = 280
-        for line in lines:
-            draw.text((PAD + 30, y), line, font=fq, fill=ACCENT)
-            y += 78
-        _accent_line(draw, W//2 - 40, y + 20, 80)
-        y += 60
+        q_lines = wrap_text(f"«{quote}»", q_font, W - 160, d)
+        for line in q_lines:
+            try:
+                bb = d.textbbox((0,0), line, font=q_font)
+                lw = bb[2] - bb[0]
+            except: lw = len(line)*30
+            d.text((W//2 - lw//2, y), line, font=q_font, fill=COLOR_FOREST)
+            y += 82
 
     if body:
-        fb = _font("serif", 58)
-        lines = _wrap(body, fb, W - 2*PAD)
-        y = y + 40 if quote else 340
-        for line in lines:
-            draw.text((PAD, y), line, font=fb, fill=TEXT_DARK)
-            y += 72
+        y += 30
+        sub_font = f(LORA_ITALIC, 36)
+        b_lines = wrap_text(body, sub_font, W - 160, d)
+        for line in b_lines:
+            try:
+                bb = d.textbbox((0,0), line, font=sub_font)
+                lw = bb[2] - bb[0]
+            except: lw = len(line)*18
+            d.text((W//2 - lw//2, y), line, font=sub_font, fill=COLOR_BODY)
+            y += 52
 
-    draw.text((W//2 - 20, H - 110), f"{slide_num} / {total}", font=_font("sans", 28), fill=TEXT_DARK)
-    return img.convert("RGB")
+    draw_page_indicator(d, page, total, COLOR_FOREST)
+    add_grain(img)
+    return img
 
-def render_list(slide, bg, slide_num, total):
-    img = Image.new("RGBA", (W, H), bg)
-    _draw_leaves(img, "top_right")
-    draw = ImageDraw.Draw(img)
-    _header(draw)
+def render_list(slide, page, total):
+    img = Image.new("RGB", (W, H), COLOR_CREAM)
+    d = ImageDraw.Draw(img)
+    draw_brand_mark(d, 80, 80, COLOR_FOREST)
 
     heading = slide.get("heading", "")
-    items = slide.get("items", [])
-
-    fh = _font("serif", 66)
-    lines = _wrap(heading, fh, W - 2*PAD - 80)
+    h_font = f(LORA, 58)
+    h_lines = wrap_text(heading, h_font, W - 160, d)
     y = 200
-    for line in lines:
-        draw.text((PAD, y), line, font=fh, fill=TEXT_DARK)
-        y += 78
-    _accent_line(draw, PAD, y + 10)
-    y += 50
+    for line in h_lines:
+        d.text((80, y), line, font=h_font, fill=COLOR_FOREST)
+        y += 70
+    d.line([(80, y+20), (220, y+20)], fill=COLOR_TERRACOTTA, width=3)
+    y += 60
 
-    fi_title = _font("serif", 46)
-    fi_desc  = _font("sans", 34)
-    for item in items:
-        # Leaf bullet
-        leaf_x, leaf_y = PAD, y + 8
-        limg = Image.new("RGBA", (40, 20), (0,0,0,0))
-        ld = ImageDraw.Draw(limg)
-        ld.ellipse([0, 2, 38, 18], fill=LEAF_MID)
-        rotated = limg.rotate(-40, expand=True)
-        img.paste(rotated, (leaf_x, leaf_y), rotated)
-
-        name = item.get("name", "")
-        desc = item.get("desc", "")
-        draw.text((PAD + 52, y), name, font=fi_title, fill=TEXT_DARK)
-        y += 52
+    items = slide.get("items", [])
+    n = len(items)
+    item_h = 130 if n <= 5 else int(600 / n)
+    for it in items:
+        draw_circle(d, 100, y+22, 8, COLOR_SOFT_GREEN)
+        d.text((140, y), it.get("name",""), font=f(LORA, 40), fill=COLOR_FOREST)
+        desc = it.get("desc","")
         if desc:
-            desc_lines = _wrap(desc, fi_desc, W - PAD - 60)
-            for dl in desc_lines:
-                draw.text((PAD + 52, y), dl, font=fi_desc, fill="#6B7B6C")
-                y += 42
-        y += 18
+            d.text((140, y+48), desc, font=f(LATO_LIGHT, 26), fill=COLOR_BODY)
+        y += item_h
 
-    draw.text((W//2 - 20, H - 110), f"{slide_num} / {total}", font=_font("sans", 28), fill=TEXT_DARK)
-    return img.convert("RGB")
+    # Highlight box at bottom
+    callout = slide.get("callout", "")
+    highlight_y = H - 220
+    d.rectangle([(80, highlight_y), (W-80, highlight_y+120)], fill=COLOR_SAGE)
+    if callout:
+        hl_lines = wrap_text(callout, f(LATO_BOLD, 32), W - 220, d)
+        yh = highlight_y + 20
+        for line in hl_lines:
+            d.text((110, yh), line, font=f(LATO_BOLD, 32), fill="#FFFFFF")
+            yh += 46
+    draw_page_indicator(d, page, total, COLOR_FOREST)
+    add_grain(img)
+    return img
 
-def render_antithesis(slide, bg, slide_num, total):
-    img = Image.new("RGBA", (W, H), bg)
-    _draw_leaves(img, "top_right")
-    draw = ImageDraw.Draw(img)
-    _header(draw)
+def render_antithesis(slide, page, total):
+    img = Image.new("RGB", (W, H), COLOR_SAGE)
+    d = ImageDraw.Draw(img)
+    draw_brand_mark(d, 80, 80, "#FFFFFF")
 
     myth = slide.get("myth", "")
     fact = slide.get("fact", "")
 
-    fm = _font("serif_italic", 60)
-    y = 240
-    myth_lines = _wrap(f"«{myth}»", fm, W - 2*PAD)
-    for line in myth_lines:
-        draw.text((PAD, y), line, font=fm, fill="#9B8B7A")
-        try:
-            tw = fm.getlength(line)
-        except:
-            tw = len(line) * 30
-        mid_y = y + 38
-        draw.line([(PAD - 5, mid_y), (PAD + tw + 5, mid_y)], fill="#9B8B7A", width=3)
-        y += 75
+    not_font = f(LORA_ITALIC, 46)
+    y = 260
+    not_lines = wrap_text(myth, not_font, W - 160, d)
+    for line in not_lines:
+        d.text((80, y), line, font=not_font, fill=COLOR_CREAM)
+        y += 62
 
-    _accent_line(draw, W//2 - 40, y + 20, 80)
-    y += 70
+    divider_y = y + 30
+    d.line([(80, divider_y), (200, divider_y)], fill="#FFFFFF", width=4)
 
-    ff = _font("serif", 66)
-    fact_lines = _wrap(fact, ff, W - 2*PAD)
-    for line in fact_lines:
-        draw.text((PAD, y), line, font=ff, fill=TEXT_DARK)
-        y += 80
+    yes_font = f(LORA, 58)
+    y = divider_y + 60
+    yes_lines = wrap_text(fact, yes_font, W - 160, d)
+    for line in yes_lines:
+        d.text((80, y), line, font=yes_font, fill="#FFFFFF")
+        y += 76
 
-    draw.text((W//2 - 20, H - 110), f"{slide_num} / {total}", font=_font("sans", 28), fill=TEXT_DARK)
-    return img.convert("RGB")
+    draw_leaf(d, 950, 1150, 80, COLOR_CREAM, rotation=45)
+    draw_leaf(d, 880, 1200, 60, COLOR_SOFT_GREEN, rotation=-20)
+    draw_page_indicator(d, page, total, COLOR_CREAM)
+    add_grain(img, intensity=3)
+    return img
 
-def render_final(slide, bg):
-    img = Image.new("RGBA", (W, H), bg)
-    _draw_leaves(img, "top_right")
-    _draw_leaves(img, "bottom_right")
-    draw = ImageDraw.Draw(img)
-    _header(draw)
+def render_final(slide, page, total):
+    img = Image.new("RGB", (W, H), COLOR_CREAM)
+    d = ImageDraw.Draw(img)
+    draw_leaf(d, 120, 200, 70, COLOR_SAGE, rotation=30)
+    draw_leaf(d, 200, 250, 50, COLOR_SOFT_GREEN, rotation=-30)
+
+    big_brand = f(LORA, 90)
+    try:
+        bb = d.textbbox((0,0), "VIReyou", font=big_brand)
+        bw = bb[2]-bb[0]
+    except: bw = 400
+    d.text((W//2 - bw//2, 460), "VIReyou", font=big_brand, fill=COLOR_FOREST)
+
+    tagline = slide.get("tagline", "диалог с организмом")
+    tl_font = f(LATO_LIGHT, 32)
+    try:
+        bb = d.textbbox((0,0), tagline, font=tl_font)
+        tw = bb[2]-bb[0]
+    except: tw = len(tagline)*16
+    d.text((W//2 - tw//2, 590), tagline, font=tl_font, fill=COLOR_BODY)
+    d.line([(W//2-40, 670), (W//2+40, 670)], fill=COLOR_TERRACOTTA, width=3)
 
     cta = slide.get("cta", "")
-    tagline = slide.get("tagline", "Организм замечает всё")
-
-    fc = _font("serif", 74)
-    cta_lines = _wrap(cta, fc, W - 2*PAD)
-    total_h = len(cta_lines) * 90
-    y = (H - total_h) // 2 - 80
+    cta_font = f(LORA, 46)
+    cta_lines = wrap_text(cta, cta_font, W - 220, d)
+    y = 720
     for line in cta_lines:
-        draw.text((PAD, y), line, font=fc, fill=TEXT_DARK)
-        y += 90
+        try:
+            bb = d.textbbox((0,0), line, font=cta_font)
+            lw = bb[2]-bb[0]
+        except: lw = len(line)*23
+        d.text((W//2 - lw//2, y), line, font=cta_font, fill=COLOR_FOREST)
+        y += 66
 
-    _accent_line(draw, W//2 - 40, y + 20, 80)
-    y += 60
+    handle = "@VIReyou_bot"
+    h_font = f(LATO_MED, 26)
+    try:
+        bb = d.textbbox((0,0), handle, font=h_font)
+        hw = bb[2]-bb[0]
+    except: hw = len(handle)*13
+    d.text((W//2 - hw//2, 1040), handle, font=h_font, fill=COLOR_TERRACOTTA)
+    draw_circle(d, W//2, 1140, 12, COLOR_TERRACOTTA)
 
-    draw.text((PAD, y + 10), tagline, font=_font("serif_italic", 44), fill=ACCENT)
-    return img.convert("RGB")
+    footer = "vireyou.com"
+    ft_font = f(LATO_LIGHT, 22)
+    try:
+        bb = d.textbbox((0,0), footer, font=ft_font)
+        fw = bb[2]-bb[0]
+    except: fw = len(footer)*11
+    d.text((W//2 - fw//2, 1220), footer, font=ft_font, fill=COLOR_BODY)
 
+    draw_leaf(d, 950, 1100, 60, COLOR_SAGE, rotation=-30)
+    draw_leaf(d, 880, 1170, 45, COLOR_SOFT_GREEN, rotation=40)
+    add_grain(img)
+    return img
 
 RENDERERS = {
-    "cover":      lambda s, bg, n, t: render_cover(s, bg),
+    "cover":      render_cover,
     "thesis":     render_thesis,
     "list":       render_list,
     "antithesis": render_antithesis,
-    "final":      lambda s, bg, n, t: render_final(s, bg),
+    "final":      render_final,
 }
 
 def generate_carousel(slides, output_dir, palette="cream"):
-    bg = PALETTES.get(palette, BG_CREAM)
     os.makedirs(output_dir, exist_ok=True)
     paths = []
     total = len(slides)
@@ -265,7 +320,7 @@ def generate_carousel(slides, output_dir, palette="cream"):
         renderer = RENDERERS.get(stype)
         if not renderer:
             continue
-        img = renderer(slide, bg, i, total)
+        img = renderer(slide, i, total)
         path = os.path.join(output_dir, f"slide_{i:02d}_{stype}.png")
         img.save(path, "PNG", quality=95)
         paths.append(path)
