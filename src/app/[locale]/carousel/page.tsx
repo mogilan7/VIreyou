@@ -1,6 +1,25 @@
 'use client';
 import React, { useState, useCallback } from 'react';
-import { Upload, Download, Loader2, RefreshCw, ChevronLeft, ChevronRight, Palette, Sparkles } from 'lucide-react';
+import { Upload, Download, Loader2, ChevronLeft, ChevronRight, Palette, Sparkles, FileJson } from 'lucide-react';
+
+const TEMPLATE_JSON = [
+  { type: 'cover', headline: 'Заголовок карусели', hashtag: '#VIReyou_bot' },
+  { type: 'thesis', quote: 'Вдохновляющая цитата или идея', body: 'Основная мысль этого слайда' },
+  { type: 'list', heading: 'Список ключевых пунктов', items: [
+    { name: 'Пункт 1', desc: 'Описание первого пункта' },
+    { name: 'Пункт 2', desc: 'Описание второго пункта' },
+    { name: 'Пункт 3', desc: 'Описание третьего пункта' },
+  ]},
+  { type: 'antithesis', myth: 'Распространённый миф или заблуждение', fact: 'Реальный факт, который его опровергает' },
+  { type: 'final', cta: 'Призыв к действию для читателя', tagline: 'Короткий слоган бренда' },
+];
+
+function downloadTemplate() {
+  const blob = new Blob([JSON.stringify(TEMPLATE_JSON, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'carousel_template.json'; a.click();
+  URL.revokeObjectURL(url);
+}
 
 const PALETTES = [
   { id: 'cream',  label: 'Кремовый', bg: '#F5F1EB', text: '#3D4A3E' },
@@ -26,7 +45,20 @@ export default function CarouselPage() {
   const [dragging, setDragging]     = useState(false);
 
   const handleFile = useCallback(async (file: File) => {
-    setParsing(true); setError(''); setSlides([]); setGenerated([]);
+    setError(''); setSlides([]); setGenerated([]);
+    // JSON: parse instantly client-side, no server call needed
+    if (file.name.endsWith('.json')) {
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        const arr = Array.isArray(parsed) ? parsed : parsed.slides;
+        if (!Array.isArray(arr)) throw new Error('JSON должен содержать массив слайдов');
+        setSlides(arr);
+      } catch(e:any) { setError(e.message); }
+      return;
+    }
+    // PDF / TXT: send to server for AI parsing
+    setParsing(true);
     try {
       const fd = new FormData(); fd.append('file', file);
       const res = await fetch('/api/carousel/parse', { method: 'POST', body: fd });
@@ -81,7 +113,16 @@ export default function CarouselPage() {
 
           {/* Upload */}
           <div>
-            <h2 style={{fontSize:18,fontWeight:600,marginBottom:16,color:'#e0e0e0'}}>1. Загрузите бриф</h2>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+              <h2 style={{fontSize:18,fontWeight:600,color:'#e0e0e0',margin:0}}>1. Загрузите бриф</h2>
+              <button onClick={downloadTemplate} style={{
+                display:'flex',alignItems:'center',gap:6,background:'rgba(255,255,255,.05)',
+                border:'1px solid #3a3a5a',borderRadius:8,padding:'6px 14px',color:'#B8956A',
+                cursor:'pointer',fontSize:13,fontWeight:600,
+              }}>
+                <FileJson size={15}/> Скачать шаблон JSON
+              </button>
+            </div>
             <div
               onDrop={onDrop}
               onDragOver={e=>{e.preventDefault();setDragging(true)}}
@@ -95,15 +136,17 @@ export default function CarouselPage() {
               }}
             >
               <Upload size={36} color='#B8956A' style={{margin:'0 auto 12px'}}/>
-              <p style={{color:'#ccc',margin:0}}>Перетащите PDF или TXT сюда</p>
-              <p style={{color:'#666',fontSize:13,marginTop:6}}>или нажмите для выбора</p>
-              <input id='file-input' type='file' accept='.pdf,.txt,.md' style={{display:'none'}}
+              <p style={{color:'#ccc',margin:0}}>
+                <span style={{color:'#B8956A',fontWeight:700}}>JSON</span> — загружается мгновенно без AI
+              </p>
+              <p style={{color:'#666',fontSize:13,marginTop:4}}>или PDF / TXT (Gemini разберёт текст)</p>
+              <input id='file-input' type='file' accept='.json,.pdf,.txt,.md' style={{display:'none'}}
                 onChange={e=>{ if(e.target.files?.[0]) handleFile(e.target.files[0]); }}/>
             </div>
             {parsing && (
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:16,color:'#B8956A'}}>
-                <Loader2 size={18} className='animate-spin'/>
-                <span>Gemini анализирует бриф...</span>
+                <Loader2 size={18} style={{animation:'spin 1s linear infinite'}}/>
+                <span>Gemini анализирует текст брифа...</span>
               </div>
             )}
           </div>

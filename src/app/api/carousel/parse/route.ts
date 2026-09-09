@@ -1,8 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import * as fs from 'fs';
-import * as path from 'path';
-import { execSync } from 'child_process';
-import { randomUUID } from 'crypto';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export const maxDuration = 60;
@@ -14,50 +10,68 @@ export async function POST(req: NextRequest) {
     if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    let rawText = '';
+    const name = file.name.toLowerCase();
 
-    if (file.name.endsWith('.pdf')) {
-      const tmpDir = path.join(process.cwd(), 'tmp');
-      if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-      const tmpPath = path.join(tmpDir, `carousel_${randomUUID()}.pdf`);
-      fs.writeFileSync(tmpPath, buffer);
+    // ── JSON: parse directly, no AI needed ──────────────────────────────────
+    if (name.endsWith('.json')) {
+      const text = buffer.toString('utf8');
+      let slides: any;
       try {
-        const scriptPath = path.join(process.cwd(), 'scripts', 'parse-pdf.js');
-        rawText = execSync(`node "${scriptPath}" "${tmpPath}"`, {
-          maxBuffer: 1024 * 1024 * 20, encoding: 'utf8',
-        });
-      } finally {
-        if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+        slides = JSON.parse(text);
+      } catch {
+        return NextResponse.json({ error: 'Invalid JSON file' }, { status: 400 });
       }
+      // Accept both bare array and { slides: [...] }
+      if (Array.isArray(slides)) {
+        return NextResponse.json({ slides, source: 'json' });
+      }
+      if (Array.isArray(slides.slides)) {
+        return NextResponse.json({ slides: slides.slides, source: 'json' });
+      }
+      return NextResponse.json({ error: 'JSON must be an array of slides or { slides: [...] }' }, { status: 400 });
+    }
+
+    // ── PDF: extract text ────────────────────────────────────────────────────
+    let rawText = '';
+    if (name.endsWith('.pdf')) {
+      const pdfParse = require('pdf-parse');
+      const data = await pdfParse(buffer);
+      rawText = data.text;
     } else {
+      // .txt / .md — read as plain text
       rawText = buffer.toString('utf8');
     }
 
     if (!rawText.trim()) {
-      return NextResponse.json({ error: 'Could not extract text' }, { status: 400 });
+      return NextResponse.json({ error: 'Could not extract text from file' }, { status: 400 });
     }
 
-    // Use Gemini to parse into slide structure
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    // ── AI: parse text into slide structure ──────────────────────────────────
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '';
+    if (!apiKey) {
+      return NextResponse.json({ error: 'No Gemini API key configured. Use JSON upload instead.' }, { status: 500 });
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-    const prompt = `You are a carousel slide parser for Instagram. 
+    const prompt = `You are a carousel slide parser for Instagram.
 Parse the following text brief into a JSON array of slides.
 Each slide must have a "type" field: "cover", "thesis", "list", "antithesis", or "final".
 
 Slide schemas:
-- cover: { type, headline, hashtag }
-- thesis: { type, quote (optional), body }
-- list: { type, heading, items: [{name, desc}] }
+- cover:      { type, headline, hashtag }
+- thesis:     { type, quote (optional), body }
+- list:       { type, heading, items: [{name, desc}] }
 - antithesis: { type, myth, fact }
-- final: { type, cta, tagline }
+- final:      { type, cta, tagline }
 
 Rules:
-- Always start with a "cover" slide and end with a "final" slide
+- Always start with "cover" and end with "final"
 - Create 5-8 slides total
 - Keep text concise and impactful
 - Preserve the original language (Russian or English)
-- Return ONLY valid JSON array, no markdown, no explanation
+- Return ONLY a valid JSON array, no markdown, no explanation
 
 Text brief:
 ${rawText.substring(0, 6000)}`;
@@ -67,7 +81,7 @@ ${rawText.substring(0, 6000)}`;
     jsonText = jsonText.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
 
     const slides = JSON.parse(jsonText);
-    return NextResponse.json({ slides, raw_length: rawText.length });
+    return NextResponse.json({ slides, source: 'ai' });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
