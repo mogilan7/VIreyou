@@ -196,11 +196,23 @@ def render_list(slide, page, total):
     item_h = 130 if n <= 5 else int(600 / n)
     for it in items:
         draw_circle(d, 100, y+22, 8, COLOR_SOFT_GREEN)
-        d.text((140, y), it.get("name",""), font=f(LORA, 40), fill=COLOR_FOREST)
+        
+        name = it.get("name","")
+        n_font = f(LORA, 40)
+        n_lines = wrap_text(name, n_font, W - 180, d)
+        for nl in n_lines:
+            d.text((140, y), nl, font=n_font, fill=COLOR_FOREST)
+            y += 48
+            
         desc = it.get("desc","")
         if desc:
-            d.text((140, y+48), desc, font=f(LATO_LIGHT, 26), fill=COLOR_BODY)
-        y += item_h
+            d_font = f(LATO_LIGHT, 26)
+            d_lines = wrap_text(desc, d_font, W - 180, d)
+            for dl in d_lines:
+                d.text((140, y), dl, font=d_font, fill=COLOR_BODY)
+                y += 34
+                
+        y += 40
 
     # Highlight box at bottom
     callout = slide.get("callout", "")
