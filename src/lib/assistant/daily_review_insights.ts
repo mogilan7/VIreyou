@@ -3,7 +3,7 @@ import { getLocalDate, getLocalDayRangeUTC } from "./ingest";
 import { getAdviceForToday } from "./advice";
 
 const CONFIG = {
-  BASELINE_WINDOW: 14,
+  BASELINE_WINDOW: 30,
   SPIKE_SD: 1.5,
   MIN_BASELINE_POINTS: 4,
   TOPIC_COOLDOWN: 3,
@@ -40,7 +40,7 @@ export async function buildInsightsContract(userId: string) {
   // Calculate window
   const todayStr = getLocalDate(now, tz);
   const windowEnd = getLocalDayRangeUTC(todayStr, tz).end;
-  const windowStart = new Date(windowEnd.getTime() - 15 * 24 * 60 * 60 * 1000); // 15 days just to be safe
+  const windowStart = new Date(windowEnd.getTime() - 31 * 24 * 60 * 60 * 1000); // 31 days just to be safe
   
   // 1. Fetch all data
   const [sleepLogs, activityLogs, waterLogs, nutritionLogs, habitLogs, adviceLogs, topicMentions] = await Promise.all([
