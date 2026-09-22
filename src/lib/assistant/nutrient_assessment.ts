@@ -42,18 +42,42 @@ export async function getValidDays(userId: string, windowDays: number = 14) {
   ]);
 
   // Aggregate nutrition logs by day (YYYY-MM-DD)
-  const dailySums: Record<string, { kcal: number, protein: number, carbs: number, fat: number, fiber: number, meals: number, date: Date }> = {};
+  const dailySums: Record<string, { kcal: number, protein: number, carbs: number, fat: number, fiber: number, iron: number, magnesium: number, sodium: number, iodine: number, meals: number, date: Date }> = {};
   
   for (const log of nutritionLogs) {
     const dayStr = getLocalDate(log.date);
     if (!dailySums[dayStr]) {
-       dailySums[dayStr] = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, meals: 0, date: log.date };
+       dailySums[dayStr] = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, meals: 0, date: log.date, vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0, vitamin_B1: 0, vitamin_B2: 0, vitamin_B3: 0, vitamin_B5: 0, vitamin_B6: 0, vitamin_B7: 0, vitamin_B9: 0, vitamin_B12: 0, vitamin_C: 0, calcium: 0, iron: 0, magnesium: 0, phosphorus: 0, potassium: 0, sodium: 0, zinc: 0, copper: 0, manganese: 0, selenium: 0, iodine: 0 };
     }
     dailySums[dayStr].kcal += log.calories || 0;
     dailySums[dayStr].protein += log.protein || 0;
     dailySums[dayStr].carbs += log.carbs || 0;
     dailySums[dayStr].fat += log.fat || 0;
     dailySums[dayStr].fiber += log.fiber || 0;
+    dailySums[dayStr].vitamin_A += log.vitamin_A || 0;
+    dailySums[dayStr].vitamin_D += log.vitamin_D || 0;
+    dailySums[dayStr].vitamin_E += log.vitamin_E || 0;
+    dailySums[dayStr].vitamin_K += log.vitamin_K || 0;
+    dailySums[dayStr].vitamin_B1 += log.vitamin_B1 || 0;
+    dailySums[dayStr].vitamin_B2 += log.vitamin_B2 || 0;
+    dailySums[dayStr].vitamin_B3 += log.vitamin_B3 || 0;
+    dailySums[dayStr].vitamin_B5 += log.vitamin_B5 || 0;
+    dailySums[dayStr].vitamin_B6 += log.vitamin_B6 || 0;
+    dailySums[dayStr].vitamin_B7 += log.vitamin_B7 || 0;
+    dailySums[dayStr].vitamin_B9 += log.vitamin_B9 || 0;
+    dailySums[dayStr].vitamin_B12 += log.vitamin_B12 || 0;
+    dailySums[dayStr].vitamin_C += log.vitamin_C || 0;
+    dailySums[dayStr].calcium += log.calcium || 0;
+    dailySums[dayStr].iron += log.iron || 0;
+    dailySums[dayStr].magnesium += log.magnesium || 0;
+    dailySums[dayStr].phosphorus += log.phosphorus || 0;
+    dailySums[dayStr].potassium += log.potassium || 0;
+    dailySums[dayStr].sodium += log.sodium || 0;
+    dailySums[dayStr].zinc += log.zinc || 0;
+    dailySums[dayStr].copper += log.copper || 0;
+    dailySums[dayStr].manganese += log.manganese || 0;
+    dailySums[dayStr].selenium += log.selenium || 0;
+    dailySums[dayStr].iodine += log.iodine || 0;
     dailySums[dayStr].meals += 1;
   }
 
@@ -114,6 +138,7 @@ export async function getValidDays(userId: string, windowDays: number = 14) {
 }
 
 export async function generateNutrientAssessment(userId: string, windowDays: number = 14, forceShow: boolean = false) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
   const { bmr, validDays, excludedDays, weekendDaysCount, habitsCount, coverage, lastEntryDate, validWaterDaysCount, averageWater } = await getValidDays(userId, windowDays);
   
   const validDaysCount = validDays.length;
@@ -139,15 +164,66 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
       fiber: acc.fiber + (d.fiber || 0),
       protein: acc.protein + d.protein,
       carbs: acc.carbs + d.carbs,
-      fat: acc.fat + d.fat
-    }), { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
-    
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+      fat: acc.fat + d.fat,
+      vitamin_A: acc.vitamin_A + (d.vitamin_A || 0),
+      vitamin_D: acc.vitamin_D + (d.vitamin_D || 0),
+      vitamin_E: acc.vitamin_E + (d.vitamin_E || 0),
+      vitamin_K: acc.vitamin_K + (d.vitamin_K || 0),
+      vitamin_B1: acc.vitamin_B1 + (d.vitamin_B1 || 0),
+      vitamin_B2: acc.vitamin_B2 + (d.vitamin_B2 || 0),
+      vitamin_B3: acc.vitamin_B3 + (d.vitamin_B3 || 0),
+      vitamin_B5: acc.vitamin_B5 + (d.vitamin_B5 || 0),
+      vitamin_B6: acc.vitamin_B6 + (d.vitamin_B6 || 0),
+      vitamin_B7: acc.vitamin_B7 + (d.vitamin_B7 || 0),
+      vitamin_B9: acc.vitamin_B9 + (d.vitamin_B9 || 0),
+      vitamin_B12: acc.vitamin_B12 + (d.vitamin_B12 || 0),
+      vitamin_C: acc.vitamin_C + (d.vitamin_C || 0),
+      calcium: acc.calcium + (d.calcium || 0),
+      iron: acc.iron + (d.iron || 0),
+      magnesium: acc.magnesium + (d.magnesium || 0),
+      phosphorus: acc.phosphorus + (d.phosphorus || 0),
+      potassium: acc.potassium + (d.potassium || 0),
+      sodium: acc.sodium + (d.sodium || 0),
+      zinc: acc.zinc + (d.zinc || 0),
+      copper: acc.copper + (d.copper || 0),
+      manganese: acc.manganese + (d.manganese || 0),
+      selenium: acc.selenium + (d.selenium || 0),
+      iodine: acc.iodine + (d.iodine || 0)
+    }), { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0, vitamin_B1: 0, vitamin_B2: 0, vitamin_B3: 0, vitamin_B5: 0, vitamin_B6: 0, vitamin_B7: 0, vitamin_B9: 0, vitamin_B12: 0, vitamin_C: 0, calcium: 0, iron: 0, magnesium: 0, phosphorus: 0, potassium: 0, sodium: 0, zinc: 0, copper: 0, manganese: 0, selenium: 0, iodine: 0 });
     
     // Fallback to BMR if target_calories is missing
     const targetKcal = user?.target_calories || Math.round(bmr * 1.2); 
     
     fiberMineralsValue = fiberMineralsSufficient ? { fiber: Math.round(sum.fiber / validDaysCount) } : null;
+    if (microsVitaminsSufficient) {
+      microsVitaminsValue = {
+        vitamin_A: Math.round(sum.vitamin_A / validDaysCount),
+        vitamin_D: Math.round(sum.vitamin_D / validDaysCount),
+        vitamin_E: Math.round(sum.vitamin_E / validDaysCount),
+        vitamin_K: Math.round(sum.vitamin_K / validDaysCount),
+        vitamin_B1: Math.round(sum.vitamin_B1 / validDaysCount),
+        vitamin_B2: Math.round(sum.vitamin_B2 / validDaysCount),
+        vitamin_B3: Math.round(sum.vitamin_B3 / validDaysCount),
+        vitamin_B5: Math.round(sum.vitamin_B5 / validDaysCount),
+        vitamin_B6: Math.round(sum.vitamin_B6 / validDaysCount),
+        vitamin_B7: Math.round(sum.vitamin_B7 / validDaysCount),
+        vitamin_B9: Math.round(sum.vitamin_B9 / validDaysCount),
+        vitamin_B12: Math.round(sum.vitamin_B12 / validDaysCount),
+        vitamin_C: Math.round(sum.vitamin_C / validDaysCount),
+        calcium: Math.round(sum.calcium / validDaysCount),
+        iron: Math.round(sum.iron / validDaysCount),
+        magnesium: Math.round(sum.magnesium / validDaysCount),
+        phosphorus: Math.round(sum.phosphorus / validDaysCount),
+        potassium: Math.round(sum.potassium / validDaysCount),
+        sodium: Math.round(sum.sodium / validDaysCount),
+        zinc: Math.round(sum.zinc / validDaysCount),
+        copper: Math.round(sum.copper / validDaysCount),
+        manganese: Math.round(sum.manganese / validDaysCount),
+        selenium: Math.round(sum.selenium / validDaysCount),
+        iodine: Math.round(sum.iodine / validDaysCount)
+      };
+    }
+
     macrosValue = {
       kcal: Math.round(sum.kcal / validDaysCount),
       protein: Math.round(sum.protein / validDaysCount),
@@ -160,14 +236,30 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
     };
   }
 
+  const habitTranslations: Record<string, string> = {
+    'Alcohol': 'Алкоголь',
+    'Smoking': 'Курение',
+    'Sugar': 'Избыток сахара/Сладкое'
+  };
+
+  const translatedHabits: Record<string, number> = {};
+  for (const [key, count] of Object.entries(habitsCount)) {
+    const translatedKey = habitTranslations[key] || (key === 'Привычка' ? 'Неизвестная привычка' : key);
+    translatedHabits[translatedKey] = (translatedHabits[translatedKey] || 0) + (count as number);
+  }
+
   // Compile contract
   const contract = {
+    user_info: {
+      name: user?.full_name || 'Пользователь',
+      gender: user?.gender || 'unknown'
+    },
     window: windowDays,
     valid_days: validDaysCount,
     valid_weekend_days: weekendDaysCount,
     coverage,
     flags,
-    habits: habitsCount,
+    habits: translatedHabits,
     nutrients: {
       macros: {
         sufficient: macrosSufficient,
@@ -190,7 +282,7 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
       water: {
         sufficient: validWaterDaysCount >= CONFIG.THRESHOLD_MACRO,
         days_required: CONFIG.THRESHOLD_MACRO,
-        value: validWaterDaysCount >= CONFIG.THRESHOLD_MACRO ? { average_ml: averageWater, target_ml: 2000 } : null
+        value: validWaterDaysCount >= CONFIG.THRESHOLD_MACRO ? { average_ml: averageWater, target_ml: Math.round(user?.target_water || 2600) } : null
       }
     },
     disclosure: `Взято ${validDaysCount} дней из ${windowDays} · последняя запись ${flags.stale ? 'давно' : 'недавно'}.`

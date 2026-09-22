@@ -70,6 +70,7 @@ export async function buildInsightsContract(userId: string) {
   
   activityLogs.forEach(l => {
       if (l.steps) addDaily(l.date, 'steps', l.steps);
+      if (l.active_minutes) addDaily(l.date, 'active_minutes', l.active_minutes);
   });
   
   // Aggregate water
@@ -105,7 +106,7 @@ export async function buildInsightsContract(userId: string) {
   const getValues = (metric: string) => Object.values(daily).map(d => d[metric]).filter(v => v !== undefined && v !== null);
   
   // 3. Baselines & Targets
-  const metrics = ['sleep_duration', 'hrv', 'steps', 'water'];
+  const metrics = ['sleep_duration', 'hrv', 'steps', 'water', 'active_minutes'];
   const baselines: Record<string, { median: number, sd: number }> = {};
   metrics.forEach(m => {
       const vals = getValues(m);
@@ -153,7 +154,7 @@ export async function buildInsightsContract(userId: string) {
               magnitude_sd: Number(mag.toFixed(1)),
               direction: dir,
               streak: streak,
-              streak_direction: streak > 1 ? "worsening" : "stable",
+              streak_direction: streak > 1 ? ( isGoodUp ? (dir === 'up' ? 'improving' : 'worsening') : (dir === 'up' ? 'worsening' : 'improving') ) : "stable",
               same_weekday_pattern: false,
               rank_in_window: 1, // mock
               ...(metric === 'sleep_duration' && { value_formatted: formatMinutes(val), baseline_formatted: formatMinutes(b.median) })
@@ -164,6 +165,7 @@ export async function buildInsightsContract(userId: string) {
   if (targetData.sleep_duration) checkDev('sleep_duration', targetData.sleep_duration, true);
   if (targetData.hrv) checkDev('hrv', targetData.hrv, true);
   if (targetData.steps) checkDev('steps', targetData.steps, true);
+  if (targetData.active_minutes) checkDev('active_minutes', targetData.active_minutes, true);
   
   // 5. Domain States
   const domain_states: Record<string, any> = {};
@@ -177,8 +179,9 @@ export async function buildInsightsContract(userId: string) {
       if (recent.length && baselines[m]) {
           const recMed = calculateMedian(recent);
           const bMed = baselines[m].median;
-          if (recMed > bMed * 1.05) trend = "improving";
-          else if (recMed < bMed * 0.95) trend = "worsening";
+          const isHigherBetter = ['hrv', 'sleep_duration', 'steps', 'water', 'active_minutes'].includes(m);
+          if (recMed > bMed * 1.05) trend = isHigherBetter ? "improving" : "worsening";
+          else if (recMed < bMed * 0.95) trend = isHigherBetter ? "worsening" : "improving";
       }
       
       if (deviations.some(d => d.metric.includes(m.split('_')[0]))) {
@@ -334,9 +337,13 @@ export async function buildInsightsContract(userId: string) {
   if (down) problem = down;
 
   const adviceObj = await getAdviceForToday(userId, finalDeviations, domain_states, targetData, baselines);
-  const advice = adviceObj ? { text_seed: adviceObj.content, target_metric: adviceObj.target_metric } : null;
+  const advice = adviceObj ? { target_metric: adviceObj.target_metric } : null;
 
   const contract = {
+      user_info: {
+          name: user?.full_name || 'Пользователь',
+          gender: user?.gender || 'unknown'
+      },
       deviations: finalDeviations,
       advice,
       domain_states,

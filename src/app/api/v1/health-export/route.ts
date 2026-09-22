@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 import { Telegraf } from 'telegraf';
 import crypto from 'crypto';
 
-const bot = new Telegraf((process.env.TELEGRAM_BOT_TOKEN || '8648031032:AAFsHotkxGXhwNnUPNMED6Tqvbzwm--PXuY') as string);
+const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN as string);
 
 export async function POST(req: NextRequest) {
   try {
@@ -225,8 +225,7 @@ export async function POST(req: NextRequest) {
       if (activeMinutes !== null) message += `⚡️ Активность: ${Math.round(activeMinutes)} мин\n`;
 
       try {
-        const localBot = new Telegraf('8648031032:AAFsHotkxGXhwNnUPNMED6Tqvbzwm--PXuY');
-        const msgRes = await localBot.telegram.sendMessage(user.telegram_id, message);
+        const msgRes = await bot.telegram.sendMessage(user.telegram_id, message);
         return NextResponse.json({ success: true, telegram_response: msgRes });
       } catch (err: any) {
         console.error('Failed to notify telegram user:', err);

@@ -1408,15 +1408,18 @@ async function saveFoodLog(userId: string, foodData: any, localTodayStr?: string
 
   // Если есть вредная привычка
   if (foodData.habit_key) {
-      const logDate = data.created_at || new Date();
-      await prisma.habitLog.create({ data: { id: crypto.randomUUID(),
-              user_id: userId,
-              habit_key: foodData.habit_key,
-              completed: true,
-              created_at: logDate,
-              date: logDate
-          }
-      });
+      const allowedHabits = ['Alcohol', 'Smoking', 'Алкоголь', 'Курение', 'alcohol', 'smoking'];
+      if (allowedHabits.includes(foodData.habit_key)) {
+          const logDate = data.created_at || new Date();
+          await prisma.habitLog.create({ data: { id: crypto.randomUUID(),
+                  user_id: userId,
+                  habit_key: foodData.habit_key,
+                  completed: true,
+                  created_at: logDate,
+                  date: logDate
+              }
+          });
+      }
   }
 
   // Убрано логирование воды из пищи по просьбе пользователя. Вода логируется только вручную.
@@ -2375,14 +2378,22 @@ bot.action('save_log_confirm', async (ctx: any) => {
                 activityData.id = crypto.randomUUID(); await prisma.activityLog.create({ data: activityData });
             }
         } else if (cached.type === "HABIT") {
-            await prisma.habitLog.create({ data: { id: crypto.randomUUID(),
-                    user_id: user.id,
-                    habit_key: cached.data.habit_key || 'Привычка',
-                    completed: true,
-                    created_at: date,
-                    date: date
+            const habitKey = cached.data.habit_key || 'Привычка';
+            const allowedHabits = ['Alcohol', 'Smoking', 'Алкоголь', 'Курение', 'alcohol', 'smoking'];
+            if (allowedHabits.includes(habitKey)) {
+                await prisma.habitLog.create({ data: { id: crypto.randomUUID(),
+                        user_id: user.id,
+                        habit_key: habitKey,
+                        completed: true,
+                        created_at: date,
+                        date: date
+                    }
+                });
+                // Также сохраняем нутриенты, если ИИ вернул калории (напр. калории алкоголя)
+                if (cached.data.calories !== undefined && Number(cached.data.calories) > 0) {
+                    await saveFoodLog(user.id, { ...cached.data }, cached.localToday);
                 }
-            });
+            }
         } else if (cached.type === "HYDRATION") {
             await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(),
                     user_id: user.id,

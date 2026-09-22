@@ -4,11 +4,10 @@ dotenv.config({ path: ".env.local", override: true });
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs";
 import path from "path";
-import { PrismaClient } from '@prisma/client';
+import prisma from '../prisma';
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.BOT_OPENAI_API_KEY || process.env.OPENAI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
-const prisma = new PrismaClient();
 
 function getModel(modelName: string = "gemini-2.5-flash", temperature: number = 0.2) {
     return genAI.getGenerativeModel({
@@ -405,7 +404,11 @@ Return STRICT JSON:
 
 - SLEEP: { "duration_hrs": 8, "deep_hrs": 1.5, "rem_hrs": 2, "light_hrs": 4.5, "hrv": 60, "resting_heart_rate": 55 }
 - ACTIVITY: { "steps": 5000, "active_minutes": 30, "calories_burned": 250 }
-- HABIT: { "habit_key": "Alcohol" | "Smoking" | "Sugar" }
+- HABIT: { "habit_key": "Smoking" | "Sugar" } — use ONLY for non-food habits like smoking, sugar abuse (no nutritional data). 
+  IMPORTANT: If user reports ALCOHOL consumption, do NOT use HABIT type. Use NUTRITION type instead (alcohol has calories!), and set "habit_key": "Alcohol" at the top level.
+  For alcohol: return type "NUTRITION" with "dish" = drink name, and "ingredients" with the alcohol items and their volume in ml (treat ml as grams for estimation). Also set top-level "habit_key": "Alcohol".
+  Example for "выпил бокал вина":
+  { "type": "NUTRITION", "habit_key": "Alcohol", "data": { "dish": "Вино красное", "ingredients": [{ "name": "вино красное", "grams": 200 }] } }
 - HYDRATION: { "volume_ml": 250 } (Use ONLY when the user explicitly logs drinking water or pure hydration beverages like tea, not when water is part of food)
 CRITICAL RULE FOR ALL TYPES: If a specific metric (like duration_hrs, steps, hrv, etc.) is NOT explicitly mentioned by the user, OMIT IT entirely from the JSON object (do NOT return 0 or null).
 
