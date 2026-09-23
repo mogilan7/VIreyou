@@ -139,10 +139,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const startOfDay = new Date();
-    startOfDay.setHours(0,0,0,0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23,59,59,999);
+    const tz = user.timezone || 'Europe/Moscow';
+    const now = new Date();
+    const userNowStr = now.toLocaleString('en-US', { timeZone: tz });
+    const userNow = new Date(userNowStr + ' UTC');
+    const diff = userNow.getTime() - now.getTime();
+
+    const startOfUserDayLocal = new Date(Date.UTC(userNow.getUTCFullYear(), userNow.getUTCMonth(), userNow.getUTCDate(), 0, 0, 0, 0));
+    const endOfUserDayLocal = new Date(Date.UTC(userNow.getUTCFullYear(), userNow.getUTCMonth(), userNow.getUTCDate(), 23, 59, 59, 999));
+
+    const startOfDay = new Date(startOfUserDayLocal.getTime() - diff);
+    const endOfDay = new Date(endOfUserDayLocal.getTime() - diff);
 
     // 2. Create or Update SleepLog if sleep data exists
     if (sleepDurationHrs > 0) {
