@@ -18,7 +18,7 @@ const NUTRITION_NORMS: any = {
     cholesterol: { norm: 300, unit: 'мг' },
     omega_3: { norm: 1.6, unit: 'г' },
     omega_6: { norm: 17, unit: 'г' },
-    vitamin_A: { norm: 900, unit: 'мкг' }, vitamin_D: { norm: 15, unit: 'мкг' }, vitamin_E: { norm: 15, unit: 'мг' }, vitamin_K: { norm: 120, unit: 'мкг' },
+    vitamin_A: { norm: 900, unit: 'мкг' }, vitamin_D: { norm: 15, unit: 'мкг' }, vitamin_E: { norm: 15, unit: 'мг' }, vitamin_K1: { norm: 90, unit: 'мкг' }, vitamin_K2: { norm: 45, unit: 'мкг' },
     vitamin_B1: { norm: 1.2, unit: 'мг' }, vitamin_B2: { norm: 1.3, unit: 'мг' }, vitamin_B3: { norm: 16, unit: 'мг' }, vitamin_B5: { norm: 5, unit: 'мг' },
     vitamin_B6: { norm: 1.3, unit: 'мг' }, vitamin_B7: { norm: 30, unit: 'мкг' }, vitamin_B9: { norm: 400, unit: 'мкг' }, vitamin_B12: { norm: 2.4, unit: 'мкг' },
     vitamin_C: { norm: 90, unit: 'мг' }, calcium: { norm: 1000, unit: 'мг' }, iron: { norm: 12, unit: 'мг' }, magnesium: { norm: 400, unit: 'мг' },
@@ -30,7 +30,7 @@ const NUTRIENT_NAMES: any = {
     protein: 'Белки', fat: 'Жиры', carbs: 'Углеводы', fiber: 'Клетчатка',
     sugar_fast: 'Простые углеводы', trans_fat: 'Трансжиры', cholesterol: 'Холестерин',
     omega_3: 'Омега-3', omega_6: 'Омега-6',
-    vitamin_A: 'Витамин A', vitamin_D: 'Витамин D', vitamin_E: 'Витамин E', vitamin_K: 'Витамин K',
+    vitamin_A: 'Витамин A', vitamin_D: 'Витамин D', vitamin_E: 'Витамин E', vitamin_K1: 'Витамин K1', vitamin_K2: 'Витамин K2',
     vitamin_B1: 'Витамин B1', vitamin_B2: 'Витамин B2', vitamin_B3: 'Витамин B3',
     vitamin_B5: 'Витамин B5', vitamin_B6: 'Витамин B6', vitamin_B7: 'Витамин B7',
     vitamin_B9: 'Витамин B9', vitamin_B12: 'Витамин B12', vitamin_C: 'Витамин C',
@@ -56,7 +56,7 @@ export default async function LifestylePage({
 
         const nutrientKeys = [
             'protein', 'fat', 'carbs', 'fiber', 'sugar_fast', 'trans_fat', 'cholesterol',
-            'omega_3', 'omega_6', 'vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K',
+            'omega_3', 'omega_6', 'vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K1', 'vitamin_K2',
             'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B5', 'vitamin_B6', 'vitamin_B7',
             'vitamin_B9', 'vitamin_B12', 'vitamin_C', 'calcium', 'iron', 'magnesium',
             'phosphorus', 'potassium', 'sodium', 'zinc', 'copper', 'manganese', 'selenium', 'iodine'

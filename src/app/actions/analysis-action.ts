@@ -151,7 +151,7 @@ async function getAggregatedAnalysisData(userId: string) {
   const nutrientKeys = [
     'calories', 'protein', 'carbs', 'fat', 'fiber', 'added_sugar', 'vitamin_D', 'vitamin_B12', 
     'magnesium', 'zinc', 'omega_3', 'omega_6', 'calcium', 'iron', 'vitamin_A', 'vitamin_C', 
-    'vitamin_E', 'vitamin_K', 'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B6', 
+    'vitamin_E', 'vitamin_K1', 'vitamin_K2', 'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B6', 
     'sodium', 'potassium', 'cholesterol'
   ];
 
