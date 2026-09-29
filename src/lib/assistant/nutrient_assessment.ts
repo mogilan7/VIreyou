@@ -47,7 +47,7 @@ export async function getValidDays(userId: string, windowDays: number = 14) {
   for (const log of nutritionLogs) {
     const dayStr = getLocalDate(log.date);
     if (!dailySums[dayStr]) {
-       dailySums[dayStr] = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, meals: 0, date: log.date, vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0, vitamin_B1: 0, vitamin_B2: 0, vitamin_B3: 0, vitamin_B5: 0, vitamin_B6: 0, vitamin_B7: 0, vitamin_B9: 0, vitamin_B12: 0, vitamin_C: 0, calcium: 0, iron: 0, magnesium: 0, phosphorus: 0, potassium: 0, sodium: 0, zinc: 0, copper: 0, manganese: 0, selenium: 0, iodine: 0 };
+       dailySums[dayStr] = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, meals: 0, date: log.date, vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0, vitamin_K1: 0, vitamin_K2: 0, vitamin_B1: 0, vitamin_B2: 0, vitamin_B3: 0, vitamin_B5: 0, vitamin_B6: 0, vitamin_B7: 0, vitamin_B9: 0, vitamin_B12: 0, vitamin_C: 0, calcium: 0, iron: 0, magnesium: 0, phosphorus: 0, potassium: 0, sodium: 0, zinc: 0, copper: 0, manganese: 0, selenium: 0, iodine: 0 };
     }
     dailySums[dayStr].kcal += log.calories || 0;
     dailySums[dayStr].protein += log.protein || 0;
@@ -58,6 +58,8 @@ export async function getValidDays(userId: string, windowDays: number = 14) {
     dailySums[dayStr].vitamin_D += log.vitamin_D || 0;
     dailySums[dayStr].vitamin_E += log.vitamin_E || 0;
     dailySums[dayStr].vitamin_K += log.vitamin_K || 0;
+    dailySums[dayStr].vitamin_K1 += (log as any).vitamin_K1 || 0;
+    dailySums[dayStr].vitamin_K2 += (log as any).vitamin_K2 || 0;
     dailySums[dayStr].vitamin_B1 += log.vitamin_B1 || 0;
     dailySums[dayStr].vitamin_B2 += log.vitamin_B2 || 0;
     dailySums[dayStr].vitamin_B3 += log.vitamin_B3 || 0;
@@ -169,6 +171,8 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
       vitamin_D: acc.vitamin_D + (d.vitamin_D || 0),
       vitamin_E: acc.vitamin_E + (d.vitamin_E || 0),
       vitamin_K: acc.vitamin_K + (d.vitamin_K || 0),
+      vitamin_K1: acc.vitamin_K1 + (d.vitamin_K1 || 0),
+      vitamin_K2: acc.vitamin_K2 + (d.vitamin_K2 || 0),
       vitamin_B1: acc.vitamin_B1 + (d.vitamin_B1 || 0),
       vitamin_B2: acc.vitamin_B2 + (d.vitamin_B2 || 0),
       vitamin_B3: acc.vitamin_B3 + (d.vitamin_B3 || 0),
@@ -189,7 +193,7 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
       manganese: acc.manganese + (d.manganese || 0),
       selenium: acc.selenium + (d.selenium || 0),
       iodine: acc.iodine + (d.iodine || 0)
-    }), { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0, vitamin_B1: 0, vitamin_B2: 0, vitamin_B3: 0, vitamin_B5: 0, vitamin_B6: 0, vitamin_B7: 0, vitamin_B9: 0, vitamin_B12: 0, vitamin_C: 0, calcium: 0, iron: 0, magnesium: 0, phosphorus: 0, potassium: 0, sodium: 0, zinc: 0, copper: 0, manganese: 0, selenium: 0, iodine: 0 });
+    }), { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0, vitamin_K1: 0, vitamin_K2: 0, vitamin_B1: 0, vitamin_B2: 0, vitamin_B3: 0, vitamin_B5: 0, vitamin_B6: 0, vitamin_B7: 0, vitamin_B9: 0, vitamin_B12: 0, vitamin_C: 0, calcium: 0, iron: 0, magnesium: 0, phosphorus: 0, potassium: 0, sodium: 0, zinc: 0, copper: 0, manganese: 0, selenium: 0, iodine: 0 });
     
     // Fallback to BMR if target_calories is missing
     const targetKcal = user?.target_calories || Math.round(bmr * 1.2); 
@@ -201,6 +205,8 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
         vitamin_D: Math.round(sum.vitamin_D / validDaysCount),
         vitamin_E: Math.round(sum.vitamin_E / validDaysCount),
         vitamin_K: Math.round(sum.vitamin_K / validDaysCount),
+        vitamin_K1: Math.round(sum.vitamin_K1 / validDaysCount),
+        vitamin_K2: Math.round(sum.vitamin_K2 / validDaysCount),
         vitamin_B1: Math.round(sum.vitamin_B1 / validDaysCount),
         vitamin_B2: Math.round(sum.vitamin_B2 / validDaysCount),
         vitamin_B3: Math.round(sum.vitamin_B3 / validDaysCount),

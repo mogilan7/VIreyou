@@ -166,10 +166,17 @@ Return STRICTLY in JSON format with exactly these keys. Do not output anything e
   "calories": 0.0, "protein": 0.0, "carbs": 0.0, "fat": 0.0, "fiber": 0.0,
   "sugar_fast": 0.0, "trans_fat": 0.0, "cholesterol": 0.0, "added_sugar": 0.0,
   "omega_3": 0.0, "omega_6": 0.0, "water": 0.0,
-  "vitamin_A": 0.0, "vitamin_D": 0.0, "vitamin_E": 0.0, "vitamin_K": 0.0,
+  "vitamin_A": 0.0, "vitamin_D": 0.0, "vitamin_E": 0.0,
+  "vitamin_K1": 0.0, "vitamin_K2": 0.0,
   "vitamin_B1": 0.0, "vitamin_B2": 0.0, "vitamin_B3": 0.0, "vitamin_B5": 0.0, "vitamin_B6": 0.0, "vitamin_B7": 0.0, "vitamin_B9": 0.0, "vitamin_B12": 0.0, "vitamin_C": 0.0,
   "calcium": 0.0, "iron": 0.0, "magnesium": 0.0, "phosphorus": 0.0, "potassium": 0.0, "sodium": 0.0, "zinc": 0.0, "copper": 0.0, "manganese": 0.0, "selenium": 0.0, "iodine": 0.0
-}`;
+}
+
+CRITICAL Vitamin K rules — always estimate BOTH separately (mcg per 100g):
+- vitamin_K1 (phylloquinone): found in PLANTS. High: spinach 483, kale 705, broccoli 102, parsley 1640, lettuce 126, soybean oil 184, olive oil 60, avocado 21. Animals/dairy: near zero.
+- vitamin_K2 (menaquinone MK-4/MK-7): found in ANIMAL & FERMENTED foods. High: natto 939, hard cheese 76, soft cheese 57, egg yolk 32, chicken liver 35, beef liver 5, butter 15, pork 10. Plant foods: near zero.
+- DO NOT put a combined K value into one field. Return both K1 and K2 always.`;
+
 
   const model = getModel("gemini-2.5-flash", 0.0);
   const result = await model.generateContent([
@@ -215,7 +222,9 @@ Return STRICTLY in JSON format with exactly these keys. Do not output anything e
           vitamin_A: aiData.vitamin_A || 0,
           vitamin_D: aiData.vitamin_D || 0,
           vitamin_E: aiData.vitamin_E || 0,
-          vitamin_K: aiData.vitamin_K || 0,
+          vitamin_K: (aiData.vitamin_K1 || 0) + (aiData.vitamin_K2 || 0) || aiData.vitamin_K || 0,
+          vitamin_K1: aiData.vitamin_K1 || 0,
+          vitamin_K2: aiData.vitamin_K2 || 0,
           vitamin_B1: aiData.vitamin_B1 || 0,
           vitamin_B2: aiData.vitamin_B2 || 0,
           vitamin_B3: aiData.vitamin_B3 || 0,
@@ -254,7 +263,7 @@ export function calculateTotalNutrients(ingredientsData: Array<{grams: number, n
   const totals: any = {
     grams: 0, calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0,
     sugar_fast: 0, trans_fat: 0, cholesterol: 0, added_sugar: 0, omega_3: 0, omega_6: 0, water: 0,
-    vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0,
+    vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0, vitamin_K1: 0, vitamin_K2: 0,
     vitamin_B1: 0, vitamin_B2: 0, vitamin_B3: 0, vitamin_B5: 0, vitamin_B6: 0, vitamin_B7: 0, vitamin_B9: 0, vitamin_B12: 0, vitamin_C: 0,
     calcium: 0, iron: 0, magnesium: 0, phosphorus: 0, potassium: 0, sodium: 0, zinc: 0, copper: 0, manganese: 0, selenium: 0, iodine: 0
   };

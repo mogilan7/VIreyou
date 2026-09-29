@@ -1390,7 +1390,7 @@ async function saveFoodLog(userId: string, foodData: any, localTodayStr?: string
   const validKeys = [
     'calories', 'protein', 'carbs', 'fat', 'fiber', 'description',
     'dish', 'grams', 'sugar_fast', 'trans_fat', 'cholesterol', 'added_sugar', 'omega_3', 'omega_6', 'water',
-    'vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K', 'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B5', 'vitamin_B6', 'vitamin_B7', 'vitamin_B9', 'vitamin_B12', 'vitamin_C',
+    'vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K', 'vitamin_K1', 'vitamin_K2', 'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B5', 'vitamin_B6', 'vitamin_B7', 'vitamin_B9', 'vitamin_B12', 'vitamin_C',
     'calcium', 'iron', 'magnesium', 'phosphorus', 'potassium', 'sodium', 'zinc', 'copper', 'manganese', 'selenium', 'iodine'
   ];
   const data: any = { id: crypto.randomUUID(), user_id: userId };
@@ -2825,7 +2825,7 @@ bot.action('menu_nutrition_reco', async (ctx: any) => {
         // Aggregate nutrients
         const totals: any = {
             calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0,
-            vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0,
+            vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0, vitamin_K1: 0, vitamin_K2: 0,
             vitamin_B1: 0, vitamin_B2: 0, vitamin_B3: 0, vitamin_B5: 0, vitamin_B6: 0,
             vitamin_B7: 0, vitamin_B9: 0, vitamin_B12: 0, vitamin_C: 0,
             calcium: 0, iron: 0, magnesium: 0, phosphorus: 0, potassium: 0, sodium: 0,
@@ -3342,7 +3342,8 @@ const NUTRITION_NORMS: any = {
     vitamin_A: { norm: 900, unit: 'мкг' },
     vitamin_D: { norm: 15, unit: 'мкг' },
     vitamin_E: { norm: 15, unit: 'мг' },
-    vitamin_K: { norm: 120, unit: 'мкг' },
+    vitamin_K1: { norm: 90, unit: 'мкг' },
+    vitamin_K2: { norm: 45, unit: 'мкг' },
     vitamin_B1: { norm: 1.2, unit: 'мг' },
     vitamin_B2: { norm: 1.3, unit: 'мг' },
     vitamin_B3: { norm: 16, unit: 'мг' },
@@ -3369,7 +3370,8 @@ const NUTRIENT_NAMES: any = {
     protein: 'Белки', fat: 'Жиры', carbs: 'Углеводы', fiber: 'Клетчатка',
     sugar_fast: 'Простые углеводы', trans_fat: 'Трансжиры', cholesterol: 'Холестерин',
     omega_3: 'Омега-3', omega_6: 'Омега-6',
-    vitamin_A: 'Витамин A', vitamin_D: 'Витамин D', vitamin_E: 'Витамин E', vitamin_K: 'Витамин K',
+    vitamin_A: 'Витамин A', vitamin_D: 'Витамин D', vitamin_E: 'Витамин E',
+    vitamin_K1: 'Витамин K1', vitamin_K2: 'Витамин K2',
     vitamin_B1: 'Витамин B1', vitamin_B2: 'Витамин B2', vitamin_B3: 'Витамин B3',
     vitamin_B5: 'Витамин B5', vitamin_B6: 'Витамин B6', vitamin_B7: 'Витамин B7',
     vitamin_B9: 'Витамин B9', vitamin_B12: 'Витамин B12', vitamin_C: 'Витамин C',
@@ -3414,7 +3416,7 @@ async function generateDailyReport(userId: string, lang: string = 'ru') {
     // Определение групп нутриентов
     const groups = {
         min: ['trans_fat', 'sugar_fast', 'sodium'],
-        balance: ['vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K', 'fat', 'calcium', 'iron', 'zinc', 'selenium', 'iodine', 'phosphorus'],
+        balance: ['vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K1', 'vitamin_K2', 'fat', 'calcium', 'iron', 'zinc', 'selenium', 'iodine', 'phosphorus'],
         max: ['protein', 'fiber', 'omega_3', 'potassium', 'magnesium', 'vitamin_C', 'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B5', 'vitamin_B6', 'vitamin_B7', 'vitamin_B9', 'vitamin_B12', 'carbs', 'cholesterol', 'omega_6', 'copper', 'manganese']
     };
 
@@ -3567,7 +3569,7 @@ export async function generateMarathonDailyReport(name?: string, squadId?: strin
 
         const groups = {
             min: ['trans_fat', 'sugar_fast', 'sodium'],
-            balance: ['vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K', 'fat', 'calcium', 'iron', 'zinc', 'selenium', 'iodine', 'phosphorus'],
+            balance: ['vitamin_A', 'vitamin_D', 'vitamin_E', 'vitamin_K1', 'vitamin_K2', 'fat', 'calcium', 'iron', 'zinc', 'selenium', 'iodine', 'phosphorus'],
             max: ['protein', 'fiber', 'omega_3', 'potassium', 'magnesium', 'vitamin_C', 'vitamin_B1', 'vitamin_B2', 'vitamin_B3', 'vitamin_B5', 'vitamin_B6', 'vitamin_B7', 'vitamin_B9', 'vitamin_B12']
         };
 

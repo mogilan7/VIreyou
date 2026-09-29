@@ -573,6 +573,8 @@ model FoodItem {
   vitamin_D        Float?
   vitamin_E        Float?
   vitamin_K        Float?
+  vitamin_K1       Float?
+  vitamin_K2       Float?
   vitamin_B1       Float?
   vitamin_B2       Float?
   vitamin_B3       Float?
@@ -711,6 +713,8 @@ model NutritionLog {
   vitamin_D         Float?
   vitamin_E         Float?
   vitamin_K         Float?
+  vitamin_K1        Float?
+  vitamin_K2        Float?
   vitamin_B1        Float?
   vitamin_B2        Float?
   vitamin_B3        Float?
