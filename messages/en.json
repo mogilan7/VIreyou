@@ -173,7 +173,9 @@
     "p10Title": "IPSS Questionnaire",
     "p10Desc": "International Prostate Symptom Score for prostate symptoms assessment.",
     "p11Title": "IIEF-5 Questionnaire",
-    "p11Desc": "International Index of Erectile Function for assessment."
+    "p11Desc": "International Index of Erectile Function for assessment.",
+    "functionalAgeTitle": "Functional Age (4 checks)",
+    "functionalAgeDesc": "No gadgets: walking speed, balance and muscle strength."
   },
   "EnergyCalculator": {
     "title": "Interactive Energy Expenditure Calculator",
@@ -1751,5 +1753,97 @@
     "saveError": "Error saving",
     "back": "Back to Diagnostics",
     "saveModalDesc": "To save your personalized water intake plan to your health cabinet, please log in or sign up."
+  },
+  "FunctionalBioAge": {
+    "title": "4 Functional Age Checks",
+    "subtitle": "No tests or gadgets — just a chair, measuring tape, and 10 minutes.",
+    "introText1": "Biological age is not just one number. Scientists look at how the body works: how confidently we walk, stand up, and keep balance.",
+    "introText2": "In the Dunedin study, 45-year-old peers were tested with similar simple tests. Those whose bodies aged faster walked slower, had weaker legs, and poorer balance.",
+    "introText3": "These checks are taken from scientific studies. Each has data on how the result relates to future health. This is not an assessment. It's a guide — where your body has a reserve, and where it needs attention.",
+    "forWhomTitle": "For whom:",
+    "forWhomText": "Adults 45+. Scales are calculated for age 50+; at a younger age, most results will be in the green zone — and that is normal.",
+    "beforeStartTitle": "Before starting",
+    "beforeStartText": "Safety is more important than the result: any check can be skipped, and the total will be calculated on the rest.",
+    "youNeedTitle": "You will need:",
+    "youNeedList": [
+      "a stable chair without wheels or armrests, seat height about 43–45 cm",
+      "a measuring tape and masking tape or two objects to mark 4 meters",
+      "a stopwatch (on a phone)",
+      "a wall or chair back nearby — to hold onto",
+      "ideally — a second person to time and support"
+    ],
+    "doNotDoTitle": "It's better not to do the checks now if:",
+    "doNotDoList": [
+      "you feel dizzy, have chest pain, or shortness of breath at rest",
+      "you recently had surgery, injury, or a fall",
+      "a doctor restricted physical activity",
+      "you have a hip or knee replacement — then skip the standing up check"
+    ],
+    "warningText": "During the checks: if pain, dizziness, or uncertainty appears — stop. The result is not worth the risk. They go in order: from the easiest to the hardest. Take a minute rest between them.",
+    "introBtn": "Start Checks",
+    "stepText": "Check",
+    "stepOf": "of",
+    "back": "Back to diagnostics",
+    "restart": "Start Over",
+    "resultTitle": "Your Results",
+    "backStep": "Back",
+    "saveBtn": "Save",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "skip": "Skip",
+    "next": "Next",
+    "zoneGreen": "Reserve",
+    "zoneYellow": "Middle",
+    "zoneRed": "Attention Zone",
+    "tests": {
+      "walking": {
+        "title": "Walking Speed",
+        "shows": "What it shows: doctors call normal walking speed the 'sixth vital sign'. It immediately shows the work of muscles, heart, nervous system, and balance.",
+        "howToTitle": "How to do it:",
+        "howToSteps": [
+          "Mark the start and finish on the floor 4 meters apart. Leave 1 meter before the start to accelerate, and 1 meter after the finish to slow down.",
+          "Walk at your normal pace, like on the street. Do not rush.",
+          "Time from the start line to the finish line.",
+          "Do 2 attempts and enter the best one. You can use a cane if you normally use one."
+        ],
+        "inputLabel": "Time for 4 meters, seconds",
+        "placeholder": "e.g., 4.2",
+        "basedOn": "Based on: in a pooled analysis of 9 studies (about 35,000 people 65+), a speed of 1.0 m/s and above was associated with better expected survival (Studenski et al., JAMA, 2011). A threshold of 0.8 m/s is used by the European consensus on sarcopenia as a sign of reduced physical function (EWGSOP2, 2019)."
+      },
+      "chair": {
+        "title": "Chair Stand in 30 Seconds",
+        "shows": "What it shows: leg strength and endurance. It is the leg muscles that keep us moving and protect against falls.",
+        "howToTitle": "How to do it:",
+        "howToSteps": [
+          "Place the chair back against the wall so it doesn't move.",
+          "Sit in the middle of the seat, feet flat on the floor shoulder-width apart, arms crossed over the chest.",
+          "On the 'start' command, stand up straight and sit back down. Repeat for 30 seconds at a calm pace.",
+          "Count how many times you fully stood up. If by the 30th second you are more than halfway up — it counts. If you can't stand without using your hands, the result = 0. This is also important information, not a failure."
+        ],
+        "genderLabel": "Gender",
+        "genderMale": "Male",
+        "genderFemale": "Female",
+        "ageLabel": "Age",
+        "ageSelect": "Select age",
+        "inputLabel": "Number of stands",
+        "placeholder": "e.g., 12",
+        "basedOn": "For ages 45–59, there are no official norms. We temporarily use the 60–64 row and label the result 'compared to people 60+'. Based on: 30-second chair stand test (Jones, Rikli & Beam, 1999) and norms by Rikli & Jones (1999). The same boundaries are used by the CDC STEADI fall prevention program."
+      },
+      "balance": {
+        "title": "One-Leg Stand",
+        "shows": "What it shows: balance. For this, the brain simultaneously integrates signals from the eyes, vestibular system, and receptors in the feet.",
+        "howToTitle": "How to do it:",
+        "howToSteps": [
+          "Stand near a wall or the back of a chair — at arm's length, without shoes.",
+          "Eyes open, look at a point ahead, arms along the body.",
+          "Place the free foot on the back of the supporting lower leg and stand for 10 seconds.",
+          "You have 3 attempts on either leg. If you lose balance — grab the support immediately."
+        ],
+        "inputLabel": "Did you stand for 10 seconds in at least one attempt?",
+        "yes": "Yes",
+        "no": "No",
+        "basedOn": "This check has two zones, without a middle — as it was evaluated in the study. Based on: in a study of 1,702 people aged 51–75, those who could not stand for 10 seconds were more likely to die in the next 7 years. The risk was 84% higher adjusting for age, sex, and disease (Araujo et al., British Journal of Sports Medicine, 2022). This is an observation, not a cause: balance rather reflects the overall condition of the organism."
+      }
+    }
   }
 }

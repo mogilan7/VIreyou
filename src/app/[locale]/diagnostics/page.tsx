@@ -174,6 +174,7 @@ export default async function DiagnosticsPage({ params }: { params: Promise<{ lo
                             { href: "/diagnostics/greene-scale", icon: <BrainCircuit size={20} className="fill-brand-leaf/20" />, title: t('p9Title'), desc: t('p9Desc') },
                             { href: "/diagnostics/ipss", icon: <ClipboardList size={20} className="fill-brand-leaf/20" />, title: t('p10Title'), desc: t('p10Desc') },
                             { href: "/diagnostics/mief-5", icon: <HeartPulse size={20} className="fill-brand-leaf/20" />, title: t('p11Title'), desc: t('p11Desc') },
+                            { href: "/diagnostics/functional-bio-age", icon: <Activity size={20} className="fill-brand-leaf/20" />, title: t("functionalAgeTitle"), desc: t("functionalAgeDesc") },
                         ].map((card) => (
                             hasActiveSubscription ? (
                                 /* UNLOCKED — clickable card */
