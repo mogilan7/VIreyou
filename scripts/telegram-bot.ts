@@ -287,7 +287,7 @@ async function showLifestyleAnalysis(ctx: any) {
     // Generate both reviews concurrently
     const [dailyResult, nutrientText] = await Promise.all([
       generateDailyReview(user.id),
-      generateNutrientReview(user.id, false)
+      generateNutrientReview(user.id, false, windowDays)
     ]);
     const dailyText = typeof dailyResult === 'string' ? dailyResult : dailyResult.text;
 
@@ -1452,9 +1452,19 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
     let text = "";
     if (parsedData.type === "NUTRITION") {
         const d = parsedData.data;
+        
+        let plantsInfo = "";
+        if (d.plants && Array.isArray(d.plants) && d.plants.length > 0) {
+            const count = d.plants.length;
+            const plural = count === 1 ? "" : (count < 5 ? "а" : "ов");
+            plantsInfo = lang === "en" 
+                ? `\n🌿 Plant Diversity: ${count} type${count > 1 ? "s" : ""} of fiber\n`
+                : `\n🌿 Растений (клетчатка): ${count} вид${plural}\n`;
+        }
+
         text = t(lang, 'Nutrition.saved', { 
             dish: d.dish || (lang === 'en' ? 'Unknown' : 'Без названия'), 
-            grams: d.grams || '?', cal: d.calories || 0, prot: d.protein || 0, carbs: d.carbs || 0, fat: d.fat || 0, desc: parsedData.description 
+            grams: d.grams || '?', cal: d.calories || 0, prot: d.protein || 0, carbs: d.carbs || 0, fat: d.fat || 0, desc: parsedData.description, plantsInfo
         });
         if (parsedData.habit_key) {
             text += t(lang, 'Nutrition.detectedHabit', { habit: formatHabitName(parsedData.habit_key, lang) });
@@ -1673,9 +1683,11 @@ async function processSinglePhoto(ctx: any, message: any) {
             }));
             const totalNutrients = calculateTotalNutrients(ingredientsData);
             totalNutrients.dish = foodData.dish;
+              totalNutrients.plants = foodData.plants || [];
             totalNutrients.description = foodData.description;
             totalNutrients.date_offset_days = foodData.date_offset_days;
             totalNutrients.habit_key = foodData.habit_key;
+            totalNutrients.plants = foodData.plants || [];
 
             await sendConfirmationMessage(ctx, {
                 type: "NUTRITION",
@@ -1744,6 +1756,7 @@ bot.on('voice', async (ctx: any) => {
                         habit_key: foodData.habit_key,
                         data: {
                             dish: foodData.dish,
+                            plants: foodData.plants,
                             ingredients: foodData.ingredients
                         }
                     };
@@ -1767,6 +1780,7 @@ bot.on('voice', async (ctx: any) => {
                     }
                     const totalNutrients = calculateTotalNutrients(ingredientsData);
                     totalNutrients.dish = parsedData.data?.dish;
+                    totalNutrients.plants = parsedData.data?.plants || [];
                     totalNutrients.description = parsedData.description;
                     totalNutrients.date_offset_days = parsedData.date_offset_days;
                     totalNutrients.habit_key = parsedData.habit_key;
@@ -1801,6 +1815,7 @@ bot.on('voice', async (ctx: any) => {
             }
             const totalNutrients = calculateTotalNutrients(ingredientsData);
             totalNutrients.dish = parsedData.data?.dish;
+                    totalNutrients.plants = parsedData.data?.plants || [];
             totalNutrients.description = parsedData.description;
             totalNutrients.date_offset_days = parsedData.date_offset_days;
             totalNutrients.habit_key = parsedData.habit_key;
@@ -1952,9 +1967,11 @@ bot.on('text', async (ctx: any) => {
               }
               const totalNutrients = calculateTotalNutrients(ingredientsData);
               totalNutrients.dish = foodData.dish;
+              totalNutrients.plants = foodData.plants || [];
               totalNutrients.description = foodData.description;
               totalNutrients.date_offset_days = foodData.date_offset_days;
               totalNutrients.habit_key = foodData.habit_key;
+            totalNutrients.plants = foodData.plants || [];
   
               await sendConfirmationMessage(ctx, {
                   type: "NUTRITION",
@@ -2082,6 +2099,7 @@ bot.on('text', async (ctx: any) => {
                       }));
                       const totalNutrients = calculateTotalNutrients(ingredientsData);
                       totalNutrients.dish = foodData.dish;
+              totalNutrients.plants = foodData.plants || [];
                       totalNutrients.description = foodData.description;
                       await sendConfirmationMessage(ctx, { type: 'NUTRITION', data: totalNutrients, description: foodData.description, base64: logData.base64 });
                   } else {
@@ -2127,6 +2145,7 @@ bot.on('text', async (ctx: any) => {
                       habit_key: foodData.habit_key,
                       data: {
                           dish: foodData.dish,
+                            plants: foodData.plants,
                           ingredients: foodData.ingredients
                       }
                   };
@@ -2150,6 +2169,7 @@ bot.on('text', async (ctx: any) => {
                   }
                   const totalNutrients = calculateTotalNutrients(ingredientsData);
                   totalNutrients.dish = parsedData.data?.dish;
+                    totalNutrients.plants = parsedData.data?.plants || [];
                   totalNutrients.description = parsedData.description;
                   totalNutrients.date_offset_days = parsedData.date_offset_days;
                   totalNutrients.habit_key = parsedData.habit_key;
@@ -2277,6 +2297,7 @@ bot.on('text', async (ctx: any) => {
               }
               const totalNutrients = calculateTotalNutrients(ingredientsData);
               totalNutrients.dish = parsedData.data?.dish;
+                    totalNutrients.plants = parsedData.data?.plants || [];
               totalNutrients.description = parsedData.description;
               totalNutrients.date_offset_days = parsedData.date_offset_days;
               totalNutrients.habit_key = parsedData.habit_key;

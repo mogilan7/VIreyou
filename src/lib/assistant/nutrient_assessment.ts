@@ -42,14 +42,17 @@ export async function getValidDays(userId: string, windowDays: number = 14) {
   ]);
 
   // Aggregate nutrition logs by day (YYYY-MM-DD)
-  const dailySums: Record<string, { kcal: number, protein: number, carbs: number, fat: number, fiber: number, iron: number, magnesium: number, sodium: number, iodine: number, meals: number, date: Date }> = {};
+  const dailySums: Record<string, { plants: Set<string>, kcal: number, protein: number, carbs: number, fat: number, fiber: number, iron: number, magnesium: number, sodium: number, iodine: number, meals: number, date: Date }> = {};
   
   for (const log of nutritionLogs) {
     const dayStr = getLocalDate(log.date);
     if (!dailySums[dayStr]) {
-       dailySums[dayStr] = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, meals: 0, date: log.date, vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0, vitamin_K1: 0, vitamin_K2: 0, vitamin_B1: 0, vitamin_B2: 0, vitamin_B3: 0, vitamin_B5: 0, vitamin_B6: 0, vitamin_B7: 0, vitamin_B9: 0, vitamin_B12: 0, vitamin_C: 0, calcium: 0, iron: 0, magnesium: 0, phosphorus: 0, potassium: 0, sodium: 0, zinc: 0, copper: 0, manganese: 0, selenium: 0, iodine: 0 };
+       dailySums[dayStr] = { plants: new Set<string>(), kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, meals: 0, date: log.date, vitamin_A: 0, vitamin_D: 0, vitamin_E: 0, vitamin_K: 0, vitamin_K1: 0, vitamin_K2: 0, vitamin_B1: 0, vitamin_B2: 0, vitamin_B3: 0, vitamin_B5: 0, vitamin_B6: 0, vitamin_B7: 0, vitamin_B9: 0, vitamin_B12: 0, vitamin_C: 0, calcium: 0, iron: 0, magnesium: 0, phosphorus: 0, potassium: 0, sodium: 0, zinc: 0, copper: 0, manganese: 0, selenium: 0, iodine: 0 };
     }
     dailySums[dayStr].kcal += log.calories || 0;
+        if (Array.isArray((log as any).plants)) {
+            (log as any).plants.forEach((p: string) => dailySums[dayStr].plants.add(p.toLowerCase().trim()));
+        }
     dailySums[dayStr].protein += log.protein || 0;
     dailySums[dayStr].carbs += log.carbs || 0;
     dailySums[dayStr].fat += log.fat || 0;
@@ -198,7 +201,21 @@ export async function generateNutrientAssessment(userId: string, windowDays: num
     // Fallback to BMR if target_calories is missing
     const targetKcal = user?.target_calories || Math.round(bmr * 1.2); 
     
-    fiberMineralsValue = fiberMineralsSufficient ? { fiber: Math.round(sum.fiber / validDaysCount) } : null;
+            let uniquePlantsCount = 0;
+        let uniquePlantsList: string[] = [];
+        if (fiberMineralsSufficient) {
+            const allPlants = new Set<string>();
+            validDays.forEach(d => {
+                if (d.plants) d.plants.forEach((p: string) => allPlants.add(p));
+            });
+            uniquePlantsCount = allPlants.size;
+            uniquePlantsList = Array.from(allPlants);
+        }
+        fiberMineralsValue = fiberMineralsSufficient ? { 
+            fiber: Math.round(sum.fiber / validDaysCount),
+            uniquePlantsCount,
+            uniquePlantsList
+        } : null;
     if (microsVitaminsSufficient) {
       microsVitaminsValue = {
         vitamin_A: Math.round(sum.vitamin_A / validDaysCount),

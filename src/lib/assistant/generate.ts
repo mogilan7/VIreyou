@@ -207,7 +207,7 @@ const NUTRIENT_PROMPT = `Твоя задача — проанализирова�
 Если стоит sufficient: false, ты НЕ даешь выводов по этому слою, а мягко объясняешь, что данных пока недостаточно (согласно rules).
 Если sufficient: true, ты аккуратно подсвечиваешь тренды. ВАЖНО: В контракте в блоке 'value' есть средние цифры потребления пользователя (kcal, protein, fat, carbs) и целевые расчетные значения для его базового обмена веществ (target_kcal, target_protein, target_fat, target_carbs). Обязательно НАЗОВИ фактические цифры и СРАВНИ их с целевыми (target_*), чтобы пользователь понимал свои текущие метрики относительно нормы!
 Также в секции 'water' находится средний объем выпитой воды за дни фиксации (average_ml) и личная цель пользователя (target_ml). Проанализируй это по той же логике, сравнив факт с персональной нормой.
-Если в блоке 'fiber_minerals' есть данные (fiber), обязательно назови фактическое потребление клетчатки (в граммах) и напомни, что здоровая норма составляет 25-30 г в день.
+Если в блоке 'fiber_minerals' есть данные (fiber, uniquePlantsCount, uniquePlantsList), обязательно назови фактическое потребление клетчатки (в граммах) и напомни, что здоровая норма составляет 25-30 г в день. ТАКЖЕ обязательно назови сколько разных видов растений (клетчатки) было съедено за этот период, и если нужно, перечисли самые интересные из uniquePlantsList. Напомни, что цель по рекомендациям микробиологов - 30 уникальных видов растений в неделю (American Gut Project).
 Если в блоке 'micros_vitamins' есть данные, проанализируй их. Найди паттерны: есть ли критический недостаток (например, железа, магния, йода) или явный избыток (например, натрия)? Назови конкретные значения, если они выбиваются.
 Если собрано много дней (почти месяц), обязательно отметь эту стабильность как большое достижение и дай более глубокий стратегический вывод по макро- и микронутриентам.
 
@@ -280,12 +280,12 @@ export async function generateDailyReview(userId: string): Promise<{ text: strin
   }
 }
 
-export async function generateNutrientReview(userId: string, forceShow: boolean = false): Promise<string> {
+export async function generateNutrientReview(userId: string, forceShow: boolean = false, windowDays: number = 30): Promise<string> {
   if (!apiKey) return "Ой, я не могу подключиться к своим нейросетям.";
   
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { temperature: 0.7 } });
   
-  const contract = await generateNutrientAssessment(userId, 30, forceShow);
+  const contract = await generateNutrientAssessment(userId, windowDays, forceShow);
   
   try {
     const result = await model.generateContent([
