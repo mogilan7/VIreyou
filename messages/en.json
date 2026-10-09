@@ -175,7 +175,9 @@
     "p11Title": "IIEF-5 Questionnaire",
     "p11Desc": "International Index of Erectile Function for assessment.",
     "functionalAgeTitle": "Functional Age (4 checks)",
-    "functionalAgeDesc": "No gadgets: walking speed, balance and muscle strength."
+    "functionalAgeDesc": "No gadgets: walking speed, balance and muscle strength.",
+    "functionalReserveTitle": "Functional Reserve Profile",
+    "functionalReserveDesc": "Fitness Age (HUNT), SPPB, grip strength, PhenoAge: domain scores, percentiles and a clinician PDF report."
   },
   "EnergyCalculator": {
     "title": "Interactive Energy Expenditure Calculator",

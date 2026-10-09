@@ -287,7 +287,7 @@ async function showLifestyleAnalysis(ctx: any) {
     // Generate both reviews concurrently
     const [dailyResult, nutrientText] = await Promise.all([
       generateDailyReview(user.id),
-      generateNutrientReview(user.id, false, windowDays)
+      generateNutrientReview(user.id, false)
     ]);
     const dailyText = typeof dailyResult === 'string' ? dailyResult : dailyResult.text;
 
@@ -1458,8 +1458,8 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
             const count = d.plants.length;
             const plural = count === 1 ? "" : (count < 5 ? "а" : "ов");
             plantsInfo = lang === "en" 
-                ? `\n🌿 Plant Diversity: ${count} type${count > 1 ? "s" : ""} of fiber\n`
-                : `\n🌿 Растений (клетчатка): ${count} вид${plural}\n`;
+                ? `\n🌿 Plant diversity (microbiome): ${count} type${count > 1 ? "s" : ""}\n`
+                : `\n🌿 Растений (для микробиома): ${count} вид${plural}\n`;
         }
 
         text = t(lang, 'Nutrition.saved', { 

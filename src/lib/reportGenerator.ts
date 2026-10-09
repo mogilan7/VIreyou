@@ -101,6 +101,7 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
 
     // --- Aggregation ---
 
+        const allPlants = new Set<string>();
     const nutritionSum: any = { calories: 0 };
     for (const key of Object.keys(NUTRITION_NORMS)) {
         nutritionSum[key] = 0;
@@ -113,7 +114,12 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
                 nutritionSum[key] += Number(log[key]);
             }
         }
+        if (Array.isArray(log.plants)) {
+            log.plants.forEach((p: string) => allPlants.add(p.toLowerCase().trim()));
+        }
     });
+    const uniquePlantsCount = allPlants.size;
+    const uniquePlantsList = Array.from(allPlants);
 
     const totalSteps = filteredActivity.reduce((sum: number, a: any) => sum + (a.steps || 0), 0);
     const avgSteps = filteredActivity.length > 0 ? totalSteps / denominator : 0;
@@ -173,7 +179,14 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
 
     markdown += `## 🍎 ${isEn ? 'Nutrition and Micronutrients' : 'Питание и Микроэлементы'}\n`;
     markdown += `• **${isEn ? 'Total Calories' : 'Всего калорий'}**: ${nutritionSum.calories.toFixed(0)} ${isEn ? 'kcal' : 'ккал'}\n`;
-    markdown += `• **${isEn ? 'Avg Calories/day' : 'Средние калории/день'}**: ${(nutritionSum.calories / denominator).toFixed(0)} ${isEn ? 'kcal' : 'ккал'}\n\n`;
+    markdown += `• **${isEn ? 'Avg Calories/day' : 'Средние калории/день'}**: ${(nutritionSum.calories / denominator).toFixed(0)} ${isEn ? 'kcal' : 'ккал'}\n`;
+    markdown += `• **${isEn ? 'Unique Plants Eaten (Fiber Diversity)' : 'Разнообразие растений (клетчатка)'}**: ${uniquePlantsCount} ${isEn ? 'types' : 'видов'}\n`;
+    if (uniquePlantsCount > 0) {
+        markdown += `  *(${uniquePlantsList.join(", ")})*\n`;
+        markdown += `  *${isEn ? 'Goal: 30 different plants a week for healthy microbiome.' : 'Цель: 30 разных растений в неделю для здорового микробиома (научный проект American Gut Project).'}*\n\n`;
+    } else {
+        markdown += `\n`;
+    }
 
     markdown += `| ${isEn ? 'Element' : 'Элемент'} | ${isEn ? 'Total' : 'Всего'} | ${isEn ? 'Norm for' : 'Норма за'} ${days}${isEn ? 'd' : 'д'} | ${isEn ? '% of norm' : '% от нормы'} |\n`;
     markdown += `|---|---|---|---|\n`;
@@ -206,6 +219,8 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
             nutrition: {
                 totalCalories: nutritionSum.calories,
                 avgCalories: nutritionSum.calories / denominator,
+                uniquePlantsCount,
+                uniquePlantsList,
                 totals: nutritionSum,
                 norms: NUTRITION_NORMS
             },

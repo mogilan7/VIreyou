@@ -84,6 +84,9 @@ Respond STRICTLY in JSON format:
       "grams": 150
     }
   ],
+  "plants": [
+    "Specific plant species (e.g. 'морковь', 'пшеница', 'миндаль', 'шпинат', 'чечевица') found in this food, for microbiome diversity tracking. ONLY distinct whole-plant species that contribute meaningful fiber/phytonutrients: vegetables, fruits, berries, legumes, whole grains, nuts, seeds, herbs, spices, mushrooms, cocoa (dark, >=70%). DO NOT include: refined/white flour or wheat flour in baked goods, sugar, sugar cane, refined oils, starch, coffee, tea, water, additives, animal products. Empty array if none."
+  ],
   "date_offset_days": 0,
   "habit_key": "Alcohol" | "Smoking" | "Sugar" | null
 }`;

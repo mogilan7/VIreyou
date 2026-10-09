@@ -739,6 +739,7 @@ model NutritionLog {
 
   @@index([user_id, date])
   @@schema("public")
+  plants            String[]  @default([])
 }
 
 model SleepLog {
