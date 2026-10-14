@@ -6,6 +6,7 @@ import { Wallet, Gift, ArrowRightLeft, Clock, Info } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import ReferralButton from '@/components/dashboard/ReferralButton';
 import CheckoutButton from '@/components/dashboard/CheckoutButton';
+import StarsCheckoutButton from '@/components/dashboard/StarsCheckoutButton';
 import ReferralInfo from '@/components/dashboard/ReferralInfo';
 import UpgradeButton from '@/components/dashboard/UpgradeButton';
 
@@ -126,13 +127,20 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                                     <li className="flex items-center gap-2 opacity-50">❌ {t('featureAI')}</li>
                                 </ul>
                             </div>
-                            <CheckoutButton 
-                                plan="Standard" 
-                                amount={locale === 'en' ? 7 : 495}
-                                className="mt-6 w-full py-2.5 rounded-xl font-bold text-white bg-slate-600 hover:bg-slate-700 transition-colors shadow-lg"
-                            >
-                                {t('orderStandard')}
-                            </CheckoutButton>
+                            <div className="flex flex-col gap-2 mt-6">
+                                <CheckoutButton 
+                                    plan="Standard" 
+                                    amount={locale === 'en' ? 7 : 495}
+                                    className="w-full py-2.5 rounded-xl font-bold text-white bg-slate-600 hover:bg-slate-700 transition-colors shadow-lg"
+                                >
+                                    {t('orderStandard')}
+                                </CheckoutButton>
+                                <StarsCheckoutButton 
+                                    plan="Standard" 
+                                    starsAmount={250}
+                                    className="w-full py-2 rounded-xl font-medium text-xs transition-all flex items-center justify-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 shadow-sm"
+                                />
+                            </div>
                         </div>
 
                         {/* PRO Tier */}
@@ -162,13 +170,20 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                                     <li className="flex items-center gap-2">✔️ <span className="text-[#60B76F] font-bold">{t('featureAI')}</span></li>
                                 </ul>
                             </div>
-                            <CheckoutButton 
-                                plan="PRO" 
-                                amount={locale === 'en' ? 15 : 745}
-                                className="mt-6 w-full py-2.5 rounded-xl font-bold text-white bg-[#60B76F] hover:bg-emerald-600 transition-colors shadow-lg shadow-[#60B76F]/30"
-                            >
-                                {t('orderPro')}
-                            </CheckoutButton>
+                            <div className="flex flex-col gap-2 mt-6">
+                                <CheckoutButton 
+                                    plan="PRO" 
+                                    amount={locale === 'en' ? 15 : 745}
+                                    className="w-full py-2.5 rounded-xl font-bold text-white bg-[#60B76F] hover:bg-emerald-600 transition-colors shadow-lg shadow-[#60B76F]/30"
+                                >
+                                    {t('orderPro')}
+                                </CheckoutButton>
+                                <StarsCheckoutButton 
+                                    plan="PRO" 
+                                    starsAmount={450}
+                                    className="w-full py-2 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 shadow-md"
+                                />
+                            </div>
                         </div>
                     </div>
                 </section>

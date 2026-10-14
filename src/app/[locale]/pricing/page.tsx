@@ -7,6 +7,7 @@ import { Link } from "@/i18n/routing";
 import { useTranslations, useLocale } from "next-intl";
 import { useState } from "react";
 import CheckoutButton from "@/components/dashboard/CheckoutButton";
+import StarsCheckoutButton from "@/components/dashboard/StarsCheckoutButton";
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
     const [open, setOpen] = useState(false);
@@ -98,7 +99,10 @@ export default function PricingPage() {
                             <Feature included={false} text={t("f7")} />
                         </ul>
 
-                        <CheckoutButton plan="Standard" amount={locale === "en" ? 7 : 495} className="w-full py-3.5 mt-auto rounded-full border border-brand-sage text-brand-text font-medium text-sm hover:border-brand-leaf hover:text-brand-leaf transition-colors text-center shadow-sm block">{t("btnAssistantStandard")}</CheckoutButton>
+                        <div className="flex flex-col gap-2 mt-auto">
+                            <CheckoutButton plan="Standard" amount={locale === "en" ? 7 : 495} className="w-full py-3 rounded-full border border-brand-sage text-brand-text font-medium text-sm hover:border-brand-leaf hover:text-brand-leaf transition-colors text-center shadow-sm block">{t("btnAssistantStandard")}</CheckoutButton>
+                            <StarsCheckoutButton plan="Standard" starsAmount={250} className="w-full py-2.5 rounded-full font-medium text-xs transition-all flex items-center justify-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 shadow-sm" />
+                        </div>
                     </div>
 
                     {/* Assistant PRO */}
@@ -147,7 +151,10 @@ export default function PricingPage() {
                             <Feature included={false} text={t("f7")} />
                         </ul>
                         
-                        <CheckoutButton plan="PRO" amount={locale === "en" ? 15 : 745} className="w-full py-3.5 mt-auto rounded-full border border-blue-500 text-blue-600 font-medium text-sm hover:bg-blue-50 transition-colors text-center shadow-sm block">{t("btnAssistantPro")}</CheckoutButton>
+                        <div className="flex flex-col gap-2 mt-auto">
+                            <CheckoutButton plan="PRO" amount={locale === "en" ? 15 : 745} className="w-full py-3 rounded-full border border-blue-500 text-blue-600 font-medium text-sm hover:bg-blue-50 transition-colors text-center shadow-sm block">{t("btnAssistantPro")}</CheckoutButton>
+                            <StarsCheckoutButton plan="PRO" starsAmount={450} className="w-full py-2.5 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 shadow-sm" />
+                        </div>
                     </div>
 
                     {/* Essential */}

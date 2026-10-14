@@ -1251,7 +1251,9 @@ async function checkSubscriptionLevel(ctx: any, user: any, requiredPlan: 'standa
       : `⏳ Ваш бесплатный пробный период (3 дня) завершён.\n\nЧтобы продолжать пользоваться ИИ-функциями — оформите подписку.\n\n🔥 Standard — распознавание еды и анализ продуктов.\n💎 Pro — всё из Standard + ИИ-советник и командные челленджи.`;
 
     await ctx.reply(msg, Markup.inlineKeyboard([
-      [Markup.button.webApp(lang === 'en' ? '💳 Choose a plan' : '💳 Выбрать тариф', dashboardUrl)]
+      [Markup.button.callback('⭐️ Оплатить PRO (450 ⭐️)', 'buy_stars_pro')],
+      [Markup.button.callback('⭐️ Оплатить Standard (250 ⭐️)', 'buy_stars_standard')],
+      [Markup.button.webApp(lang === 'en' ? '💳 Pay with Card on Web' : '💳 Оплатить картой на сайте', dashboardUrl)]
     ]));
     return false;
   }
@@ -1271,7 +1273,8 @@ async function checkSubscriptionLevel(ctx: any, user: any, requiredPlan: 'standa
       : `💎 Эта функция доступна только в тарифе Pro.\n\nВаш текущий тариф: Standard.\n\nUpgrade до Pro открывает:\n• 🍽️ ИИ-советник по питанию («Что съесть дальше?»)\n• 🏃 Командные челленджи и марафоны`;
 
     await ctx.reply(msg, Markup.inlineKeyboard([
-      [Markup.button.webApp(lang === 'en' ? '💎 Upgrade to Pro' : '💎 Перейти на Pro', dashboardUrl)]
+      [Markup.button.callback('⭐️ Перейти на PRO (450 ⭐️)', 'buy_stars_pro')],
+      [Markup.button.webApp(lang === 'en' ? '💳 Upgrade on Web' : '💳 Оплатить картой на сайте', dashboardUrl)]
     ]));
     return false;
   }
@@ -1343,6 +1346,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
       menuButtons.push([Markup.button.callback('✨ PRO', 'menu_pro')]);
   }
 
+  menuButtons.push([Markup.button.callback(lang === 'en' ? '⭐️ Get Subscription (Stars)' : '⭐️ Оформить подписку (Stars)', 'menu_buy_stars')]);
   menuButtons.push([Markup.button.webApp(t(lang, 'Menu.dashboard'), dashboardUrl)]);
   menuButtons.push([Markup.button.callback(t(lang, 'Menu.settings'), 'menu_settings')]);
 
@@ -3860,6 +3864,198 @@ bot.action('save_time_3_preset2', (ctx: any) => presetSave(ctx, "08:00", "14:00"
 
 // Периодический Отчет (объединен с Вечерним Опросом в строках 672+)
 
+
+
+
+// ----------------------------------------------------
+// Telegram Stars Payments (XTR)
+// ----------------------------------------------------
+
+async function sendStarsInvoice(ctx: any, plan: 'standard' | 'pro', targetUser?: any) {
+  const user = targetUser || ctx.state?.user;
+  if (!user) {
+    return ctx.reply('Ошибка: пользователь не найден. Попробуйте нажать /start.');
+  }
+
+  const lang = ctx.state?.lang || user.language || 'ru';
+  const isPro = plan === 'pro';
+  const amount = isPro ? 450 : 250;
+  const planName = isPro ? 'PRO 💎' : 'Standard 🔥';
+
+  const title = lang === 'en'
+    ? `VIReYou ${planName} (30 days)`
+    : `Подписка VIReYou ${planName} (30 дней)`;
+
+  const description = isPro
+    ? (lang === 'en'
+        ? 'Full AI nutrition advisor, longevity analytics, team challenges, and smart calculators.'
+        : 'Полный доступ: ИИ-советник по питанию, анализ долголетия, марафоны и смарт-калькуляторы.')
+    : (lang === 'en'
+        ? 'Food photo recognition, macro/micronutrient tracking, and ingredients analysis.'
+        : 'Базовый доступ: распознавание еды по фото, подсчет КБЖУ, витаминов и анализ состава.');
+
+  const payload = `stars_${plan}_${user.id}_${Date.now()}`;
+
+  try {
+    await ctx.replyWithInvoice({
+      title,
+      description,
+      payload,
+      provider_token: '', // Must be empty string for Telegram Stars
+      currency: 'XTR',
+      prices: [
+        { label: `${planName} (30 дн)`, amount }
+      ]
+    });
+  } catch (err: any) {
+    console.error('[STARS] Failed to send invoice:', err);
+    await ctx.reply(lang === 'en' 
+      ? 'Failed to generate invoice. Please try again later.'
+      : 'Не удалось сформировать счет в звездах. Попробуйте позже.');
+  }
+}
+
+async function showSubscriptionMenu(ctx: any) {
+  const user = ctx.state?.user;
+  const lang = ctx.state?.lang || user?.language || 'ru';
+
+  const isPro = user?.subscription_expires_at && new Date(user.subscription_expires_at) > new Date();
+  const expiresStr = user?.subscription_expires_at
+    ? new Date(user.subscription_expires_at).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    : null;
+
+  let statusText = '';
+  if (isPro) {
+    statusText = lang === 'en'
+      ? `💎 **Your plan:** PRO (active until ${expiresStr})
+You can extend your subscription at any time.`
+      : `💎 **Ваш тариф:** PRO (активен до ${expiresStr})
+Вы можете продлить подписку в любой момент.`;
+  } else {
+    statusText = lang === 'en'
+      ? '⚡️ Get a subscription to unlock full AI lifestyle & nutrition capabilities.'
+      : '⚡️ Выберите тариф для доступа к ИИ-ассистенту и аналитике долголетия:';
+  }
+
+  const msg = lang === 'en'
+    ? `⭐️ **Telegram Stars Subscriptions**\n\n${statusText}\n\n` +
+      `🔥 **Standard** — 250 ⭐️ / month\n` +
+      `• Food photo recognition\n• Nutrient & vitamin breakdown\n• Product barcode & ingredient analysis\n\n` +
+      `💎 **PRO** — 450 ⭐️ / month\n` +
+      `• Everything in Standard\n• AI Nutrition Coach («What to eat next?»)\n• Group Challenges & Marathons\n• Longevity Smart Calculators`
+    : `⭐️ **Оплата подписки Telegram Stars**\n\n${statusText}\n\n` +
+      `🔥 **Standard** — 250 ⭐️ в месяц\n` +
+      `• Распознавание блюд по фото\n• Углубленный подсчет 35+ нутриентов и витаминов\n• Анализ составов и добавок\n\n` +
+      `💎 **PRO** — 450 ⭐️ в месяц\n` +
+      `• Всё из Standard\n• Персональный ИИ-советник («Что съесть дальше?»)\n• Командные марафоны и челленджи\n• Доступ ко всем смарт-калькуляторам долголетия`;
+
+  const secret = process.env.JWT_SECRET || process.env.YOOKASSA_SECRET_KEY || 'default_secret';
+  const token = jwt.sign({ email: user?.email || 'user@vireyou.com' }, secret, { expiresIn: '1h' });
+  const dashboardUrl = `https://vireyou.com/api/auth/telegram-login?token=${token}&locale=${lang}`;
+
+  await ctx.reply(msg, {
+    parse_mode: 'Markdown',
+    ...Markup.inlineKeyboard([
+      [Markup.button.callback('⭐️ Оплатить PRO — 450 ⭐️', 'buy_stars_pro')],
+      [Markup.button.callback('⭐️ Оплатить Standard — 250 ⭐️', 'buy_stars_standard')],
+      [Markup.button.webApp(lang === 'en' ? '💳 Pay with Card on Web' : '💳 Оплатить картой на сайте', dashboardUrl)],
+      [Markup.button.callback(lang === 'en' ? '⬅️ Back' : '⬅️ Главное меню', 'menu_main')]
+    ])
+  });
+}
+
+bot.command('subscribe', showSubscriptionMenu);
+bot.command('stars', showSubscriptionMenu);
+bot.command('pay', showSubscriptionMenu);
+
+bot.action('menu_buy_stars', async (ctx: any) => {
+  await ctx.answerCbQuery().catch(() => {});
+  return showSubscriptionMenu(ctx);
+});
+
+bot.action('buy_stars_pro', async (ctx: any) => {
+  await ctx.answerCbQuery().catch(() => {});
+  return sendStarsInvoice(ctx, 'pro');
+});
+
+bot.action('buy_stars_standard', async (ctx: any) => {
+  await ctx.answerCbQuery().catch(() => {});
+  return sendStarsInvoice(ctx, 'standard');
+});
+
+bot.on('pre_checkout_query', async (ctx: any) => {
+  try {
+    console.log('[STARS] Answering pre_checkout_query for id:', ctx.preCheckoutQuery?.id);
+    await ctx.answerPreCheckoutQuery(true);
+  } catch (err: any) {
+    console.error('[STARS] Error in pre_checkout_query:', err);
+    await ctx.answerPreCheckoutQuery(false, 'Произошла ошибка при подготовке платежа.');
+  }
+});
+
+bot.on('successful_payment', async (ctx: any) => {
+  try {
+    const sp = ctx.message.successful_payment;
+    console.log('[STARS] Received successful_payment:', sp);
+
+    if (sp.currency !== 'XTR') return;
+
+    const payload = sp.invoice_payload || '';
+    const parts = payload.split('_'); // stars_pro_userId_timestamp
+    const planKey = parts[1] === 'standard' ? 'Standard' : 'PRO';
+    const userId = parts[2] || ctx.state?.user?.id;
+
+    if (!userId) {
+      console.error('[STARS] Cannot find userId in payload:', payload);
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      console.error('[STARS] User not found for id:', userId);
+      return;
+    }
+
+    const currentExpiry = user.subscription_expires_at && user.subscription_expires_at > new Date()
+      ? user.subscription_expires_at
+      : new Date();
+    const newExpiry = new Date(currentExpiry.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        subscription_expires_at: newExpiry,
+        role: planKey === 'PRO' ? 'PRO' : (user.role === 'admin' ? 'admin' : 'client')
+      }
+    });
+
+    await prisma.transaction.create({
+      data: {
+        user_id: user.id,
+        amount: sp.total_amount,
+        type: 'TELEGRAM_STARS',
+        description: `Telegram Stars: ${sp.telegram_payment_charge_id} | Plan: ${planKey} (${sp.total_amount} XTR)`
+      }
+    });
+
+    const formattedDate = newExpiry.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const msg = `🎉 **Оплата ${sp.total_amount} ⭐️ успешно получена!**\n\n` +
+      `Ваша подписка **${planKey === 'PRO' ? 'PRO 💎' : 'Standard 🔥'}** активирована на 30 дней.\n` +
+      `📅 Действует до: **${formattedDate}**\n\n` +
+      `Вам открыты все функции на платформе vireyou.com и в Telegram-боте!`;
+
+    await ctx.reply(msg, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('✨ Открыть PRO функции', 'menu_pro')],
+        [Markup.button.callback('📱 Главное меню', 'menu_main')]
+      ])
+    });
+  } catch (err: any) {
+    console.error('[STARS] Error handling successful_payment:', err);
+    await ctx.reply('⚠️ Платеж получен, но возникла ошибка при авто-активации. Администратор уже оповещен.');
+  }
+});
 
 
 bot.catch((err: any, ctx: any) => {
