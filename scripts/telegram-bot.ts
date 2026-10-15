@@ -1408,6 +1408,11 @@ async function saveFoodLog(userId: string, foodData: any, localTodayStr?: string
       data.created_at = calculateTargetDate(localTodayStr, Number(foodData.date_offset_days));
   }
 
+  // Сохраняем виды растений для разнообразия микробиома
+  if (Array.isArray(foodData.plants)) {
+      data.plants = foodData.plants.map((p: any) => String(p).toLowerCase().trim()).filter(Boolean);
+  }
+
   const log = await prisma.nutritionLog.create({ data });
 
   // Если есть вредная привычка
