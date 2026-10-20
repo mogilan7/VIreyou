@@ -68,3 +68,7 @@ check_*.ts
 *.log
 telegram-bot.log
 logs/
+
+# Local exports and analytics logs
+scripts/exports/
+*.log
