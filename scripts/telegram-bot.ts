@@ -22,6 +22,30 @@ process.on('uncaughtException', (err) => {
 });
 
 import prisma from "../src/lib/prisma";
+async function logBotEvent(event: string, opts: {
+    userId?: string | null;
+    sessionId?: string | null;
+    utmSource?: string | null;
+    utmCampaign?: string | null;
+    meta?: Record<string, any>;
+} = {}) {
+    try {
+        await prisma.analyticsEvent.create({
+            data: {
+                event,
+                user_id: opts.userId || null,
+                session_id: opts.sessionId || (opts.userId ? `tg_${opts.userId}` : "tg_unknown"),
+                source: "telegram_bot",
+                utm_source: opts.utmSource || null,
+                utm_campaign: opts.utmCampaign || null,
+                meta: opts.meta || {}
+            }
+        });
+    } catch (e) {
+        console.warn("[ANALYTICS] Failed to log bot event:", event, e);
+    }
+}
+
 import { analyzeFoodWithAI, getIngredientNutrientsWithAI, calculateTotalNutrients, analyzeScreenshotWithAI, transcribeVoiceWithAI, analyzeTextWithAI, analyzeDailyNutritionWithAI, analyzeProductLabelWithAI, getProactiveNutritionAdvice, determineTimezoneFromCity, generateSupportResponse } from "../src/lib/telegram/ai-services";
 import { generatePeriodicReport } from "../src/lib/reportGenerator";
 import { aggregateUserContext } from "../src/lib/assistant/context";
@@ -478,7 +502,44 @@ bot.command('stats', async (ctx: any) => {
 
 bot.command('start', async (ctx: any) => {
   const args = ctx.message.text.split(' ');
-  const payload = args[1];
+  const payload = args[1] || null;
+  const tgId = ctx.from?.id ? ctx.from.id.toString() : null;
+
+  // Track bot_start event
+  await logBotEvent('bot_start', {
+      userId: ctx.state?.user?.id || null,
+      sessionId: tgId ? `tg_${tgId}` : "tg_unknown",
+      utmSource: payload?.startsWith("yt_") ? "youtube" : (payload || null),
+      utmCampaign: payload || null,
+      meta: {
+          payload,
+          tg_id: tgId,
+          username: ctx.from?.username || null,
+          first_name: ctx.from?.first_name || null
+      }
+  });
+
+  // Update start_param if user already exists
+  if (payload && tgId) {
+      const existingUser = ctx.state?.user || await prisma.user.findFirst({ where: { telegram_id: tgId } });
+      if (existingUser) {
+          try {
+              // Only update start_param / UTMs, NEVER touch subscription_expires_at
+              await prisma.user.update({
+                  where: { id: existingUser.id },
+                  data: {
+                      start_param: payload,
+                      ...(payload.startsWith("yt_") ? { utm_source: "youtube", utm_campaign: payload } : {})
+                  }
+              });
+              ctx.state.user = existingUser;
+          } catch (e) {
+              console.error("[AUTH] Failed to update start_param:", e);
+          }
+      }
+      // If user does NOT exist, do NOT auto-create dummy account or grant free trial.
+      // They will register cleanly via WebApp button or email link, preserving single-account integrity.
+  }
 
   // 1. Сначала проверяем специальные команды ссылки
   if (payload === 'marathon') {
@@ -615,7 +676,7 @@ bot.command('start', async (ctx: any) => {
             parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: "Открыть платформу / Войти", web_app: { url: `${NEXT_PUBLIC_SITE_URL}/ru/login?from=telegram` } }]
+                    [{ text: "Открыть платформу / Войти", web_app: { url: `${NEXT_PUBLIC_SITE_URL}/ru/login?from=telegram${payload ? '&utm_campaign=' + encodeURIComponent(payload) : ''}${payload?.startsWith('yt_') ? '&utm_source=youtube' : ''}` } }]
                 ]
             }
         }
@@ -3922,6 +3983,11 @@ async function sendStarsInvoice(ctx: any, plan: 'standard' | 'pro', targetUser?:
 
 async function showSubscriptionMenu(ctx: any) {
   const user = ctx.state?.user;
+  logBotEvent('paywall_view', {
+      userId: user?.id || null,
+      sessionId: user ? `tg_${user.id}` : (ctx.from?.id ? `tg_${ctx.from.id}` : null),
+      meta: { location: 'telegram_subscription_menu' }
+  });
   const lang = ctx.state?.lang || user?.language || 'ru';
 
   const isPro = user?.subscription_expires_at && new Date(user.subscription_expires_at) > new Date();
@@ -3980,11 +4046,21 @@ bot.action('menu_buy_stars', async (ctx: any) => {
 
 bot.action('buy_stars_pro', async (ctx: any) => {
   await ctx.answerCbQuery().catch(() => {});
+  logBotEvent('checkout_click', {
+      userId: ctx.state?.user?.id || null,
+      sessionId: ctx.state?.user ? `tg_${ctx.state.user.id}` : (ctx.from?.id ? `tg_${ctx.from.id}` : null),
+      meta: { plan: 'pro', method: 'telegram_stars', amount: 450 }
+  });
   return sendStarsInvoice(ctx, 'pro');
 });
 
 bot.action('buy_stars_standard', async (ctx: any) => {
   await ctx.answerCbQuery().catch(() => {});
+  logBotEvent('checkout_click', {
+      userId: ctx.state?.user?.id || null,
+      sessionId: ctx.state?.user ? `tg_${ctx.state.user.id}` : (ctx.from?.id ? `tg_${ctx.from.id}` : null),
+      meta: { plan: 'standard', method: 'telegram_stars', amount: 250 }
+  });
   return sendStarsInvoice(ctx, 'standard');
 });
 

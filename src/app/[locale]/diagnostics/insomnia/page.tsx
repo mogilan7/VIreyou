@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { trackTestStart, trackTestComplete } from '@/lib/analytics';
 import { Moon, Info, RefreshCcw, AlertCircle, CheckCircle, Brain, Layout, ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
@@ -12,6 +13,8 @@ export default function InsomniaCalculatorPage() {
 
     const [answers, setAnswers] = useState<number[]>(Array(7).fill(null));
     const [totalScore, setTotalScore] = useState(0);
+    const startedRef = useRef(false);
+    const completedRef = useRef(false);
 
     // Auth & Save State
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -68,9 +71,18 @@ export default function InsomniaCalculatorPage() {
     useEffect(() => {
         const score = answers.reduce((acc, curr) => acc + (curr !== null ? curr : 0), 0);
         setTotalScore(score);
+        if (answers.filter(a => a !== null).length === 7 && !completedRef.current) {
+            completedRef.current = true;
+            const interp = getInterpretation(score);
+            trackTestComplete('insomnia', score, interp.label, !isAuthenticated);
+        }
     }, [answers]);
 
     const handleSelect = (qIdx: number, val: number) => {
+        if (!startedRef.current) {
+            startedRef.current = true;
+            trackTestStart('insomnia');
+        }
         const newAnswers = [...answers];
         newAnswers[qIdx] = val;
         setAnswers(newAnswers);

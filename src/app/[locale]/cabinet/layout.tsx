@@ -47,6 +47,11 @@ export default async function CabinetLayout({
             }
         }
 
+        const utm_source = cookieStore.get('vireyou_utm_source')?.value || null;
+        const utm_medium = cookieStore.get('vireyou_utm_medium')?.value || null;
+        const utm_campaign = cookieStore.get('vireyou_utm_campaign')?.value || null;
+        const utm_content = cookieStore.get('vireyou_utm_content')?.value || null;
+
         await prisma.user.create({
             data: {
                 id: user.id,
@@ -55,7 +60,11 @@ export default async function CabinetLayout({
                 full_name: user.user_metadata?.full_name || 'Пользователь',
                 balance: 0,
                 language: locale,
-                referrer_id: referrerId
+                referrer_id: referrerId,
+                utm_source,
+                utm_medium,
+                utm_campaign,
+                utm_content
             }
         });
     } else if (dbUser) {
@@ -78,8 +87,8 @@ export default async function CabinetLayout({
             }
         }
 
-        if (dbUser.id !== user.id) {
-            console.warn(`[AUTH] User ID mismatch for ${user.email}: Supabase=${user.id}, Prisma=${dbUser.id}`);
+        if (user && dbUser.id !== user.id) {
+            console.warn(`[AUTH] User ID mismatch for ${user?.email}: Supabase=${user?.id}, Prisma=${dbUser.id}`);
         }
     }
 

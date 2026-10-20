@@ -1,173 +1,359 @@
-import dotenv from 'dotenv';
-dotenv.config();
-dotenv.config({ path: '.env.local', override: true });
-import prisma from '../src/lib/prisma';
-import fs from 'fs';
-import path from 'path';
+import * as dotenv from "dotenv";
+import * as path from "path";
+dotenv.config({ path: path.resolve(__dirname, "../.env.local") });
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+/**
+ * Еженедельная автоматическая выгрузка воронки VIReyou
+ * Выгружает данные из Supabase (view public.weekly_funnel и AnalyticsEvent)
+ * за последние 7 дней и предыдущие 7 дней.
+ * 
+ * Сохраняет CSV с UTF-8 BOM в папку Google Drive:
+ * ~/Library/CloudStorage/GoogleDrive-mogilev.andrey@gmail.com/Мой диск/VIReyou/VIReyou_Аналитика/
+ * а также в локальный backup scripts/exports/
+ */
 
-function getFormattedDate(d = new Date()) {
+import { PrismaClient } from '@prisma/client';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const prisma = new PrismaClient();
+
+function getFormattedDate(): string {
+    const d = new Date();
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
 
+function formatDate(d: Date | string): string {
+    const date = new Date(d);
+    return date.toISOString().split('T')[0];
+}
+
+function calcChange(last: number, prev: number): string {
+    if (prev === 0) {
+        return last > 0 ? '+100%' : '0%';
+    }
+    const diff = ((last - prev) / prev) * 100;
+    const sign = diff > 0 ? '+' : '';
+    return `${sign}${diff.toFixed(1)}%`;
+}
+
+function calcPct(part: number, total: number): string {
+    if (!total || total === 0) return '0.0%';
+    return `${((part / total) * 100).toFixed(1)}%`;
+}
+
+interface FunnelRow {
+    period: string;
+    period_start: string;
+    period_end: string;
+    portal_visits: number;
+    portal_visits_utm: number;
+    bot_reg_total: number;
+    bot_reg_with_referrer: number;
+    bot_reg_with_start_param: number;
+    bot_reg_organic: number;
+    bot_start_total: number;
+    bot_start_yt: number;
+    tests_completed_total: number;
+    tests_unique_users: number;
+    tests_unique_users_in_bot: number;
+    event_tests_started: number;
+    event_tests_completed_all: number;
+    event_tests_completed_anon: number;
+    test_systemic_bio_age: number;
+    test_systemic_bio_age_in_bot: number;
+    test_functional_reserve: number;
+    test_functional_reserve_in_bot: number;
+    test_energy: number;
+    test_energy_in_bot: number;
+    test_circadian: number;
+    test_circadian_in_bot: number;
+    test_insomnia: number;
+    test_insomnia_in_bot: number;
+    test_sarc_f: number;
+    test_sarc_f_in_bot: number;
+    event_start_systemic_bio_age: number;
+    event_start_functional_reserve: number;
+    event_start_energy: number;
+    event_start_circadian: number;
+    event_start_insomnia: number;
+    event_start_sarc_f: number;
+    activated_users_24h: number;
+    d7_cohort_size: number;
+    d7_active_users: number;
+    event_paywall_views: number;
+    event_paywall_portal: number;
+    event_paywall_bot: number;
+    event_checkout_clicks: number;
+    checkout_clicks_pending: number;
+    successful_payments_count: number;
+    successful_payments_sum: number;
+}
+
+interface CampaignRow {
+    campaign: string;
+    source: string;
+    visits: number;
+    test_starts: number;
+    test_completes: number;
+    bot_starts: number;
+    checkout_clicks: number;
+}
+
 async function exportWeeklyMetrics() {
     console.log('[METRICS EXPORT] Starting weekly funnel export...');
 
-    // Read metrics from Supabase view
-    const rows: any[] = await prisma.$queryRaw`SELECT * FROM public.weekly_funnel;`;
+    // 1. Query view weekly_funnel
+    const rows = await prisma.$queryRaw<FunnelRow[]>`
+        SELECT * FROM public.weekly_funnel;
+    `;
 
     if (!rows || rows.length < 2) {
-        throw new Error('Expected 2 rows from weekly_funnel view (last_7_days and previous_7_days)');
+        throw new Error(`Expected 2 rows from weekly_funnel view, got ${rows?.length || 0}`);
     }
 
     const last = rows.find(r => r.period === 'last_7_days') || rows[0];
     const prev = rows.find(r => r.period === 'previous_7_days') || rows[1];
 
-    const formatDateStr = (d: any) => {
-        if (!d) return '';
-        const dt = new Date(d);
-        return dt.toISOString().split('T')[0];
-    };
+    const lastRange = `${formatDate(last.period_start)} — ${formatDate(last.period_end)}`;
+    const prevRange = `${formatDate(prev.period_start)} — ${formatDate(prev.period_end)}`;
 
-    const lastRange = `${formatDateStr(last.period_start)} .. ${formatDateStr(last.period_end)}`;
-    const prevRange = `${formatDateStr(prev.period_start)} .. ${formatDateStr(prev.period_end)}`;
+    console.log(`[METRICS EXPORT] Loaded periods: Last (${lastRange}) vs Prev (${prevRange})`);
 
-    const calcChange = (curr: number, prior: number) => {
-        const diff = curr - prior;
-        if (prior === 0) return diff > 0 ? `+${diff} (новый рост)` : '0';
-        const pct = Math.round((diff / prior) * 100);
-        return `${diff >= 0 ? '+' : ''}${diff} (${pct >= 0 ? '+' : ''}${pct}%)`;
-    };
+    // 2. Query Top-5 campaigns from AnalyticsEvent
+    let topCampaigns: CampaignRow[] = [];
+    try {
+        topCampaigns = await prisma.$queryRaw<CampaignRow[]>`
+            SELECT 
+                COALESCE(NULLIF(utm_campaign, ''), '(не указана)') AS campaign,
+                COALESCE(NULLIF(utm_source, ''), '(не указан)') AS source,
+                count(*) FILTER (WHERE event = 'portal_visit')::int AS visits,
+                count(*) FILTER (WHERE event = 'test_start')::int AS test_starts,
+                count(*) FILTER (WHERE event = 'test_complete')::int AS test_completes,
+                count(*) FILTER (WHERE event = 'bot_start')::int AS bot_starts,
+                count(*) FILTER (WHERE event = 'checkout_click')::int AS checkout_clicks
+            FROM "AnalyticsEvent"
+            WHERE created_at >= now() - interval '7 days'
+            GROUP BY utm_campaign, utm_source
+            ORDER BY visits DESC, test_starts DESC
+            LIMIT 5;
+        `;
+    } catch (e) {
+        console.warn('[METRICS EXPORT] Warning: Failed to query top campaigns:', e);
+    }
 
-    const calcPct = (num: number, denom: number) => {
-        if (!denom || denom === 0) return '0%';
-        return `${Math.round((num / denom) * 100)}%`;
-    };
-
-    // Prepare funnel items
+    // 3. Assemble main funnel metrics
     const funnelMetrics = [
+        // 0. Трафик и Визиты
         {
-            category: '1. Регистрации в боте',
-            metric: 'Новые регистрации в Telegram-боте (всего)',
+            category: '0. Трафик и Визиты портала',
+            metric: 'Визиты портала (сессии portal_visit)',
+            last: Number(last.portal_visits || 0),
+            prev: Number(prev.portal_visits || 0),
+            change: calcChange(Number(last.portal_visits || 0), Number(prev.portal_visits || 0)),
+            status: 'Активно',
+            note: 'Первый заход в уникальной сессии за период'
+        },
+        {
+            category: '0. Трафик и Визиты портала',
+            metric: 'Визиты с UTM-метками (маркетинговый трафик)',
+            last: Number(last.portal_visits_utm || 0),
+            prev: Number(prev.portal_visits_utm || 0),
+            change: calcChange(Number(last.portal_visits_utm || 0), Number(prev.portal_visits_utm || 0)),
+            status: 'Активно',
+            note: 'Визиты с известным utm_source (YouTube, Reels и т.д.)'
+        },
+        {
+            category: '0. Трафик и Визиты портала',
+            metric: 'Доля размеченного UTM-трафика (%)',
+            last: calcPct(Number(last.portal_visits_utm || 0), Number(last.portal_visits || 0)),
+            prev: calcPct(Number(prev.portal_visits_utm || 0), Number(prev.portal_visits || 0)),
+            change: '-',
+            status: 'Активно',
+            note: 'portal_visits_utm / portal_visits'
+        },
+
+        // 1. Привлечение и бот
+        {
+            category: '1. Привлечение и Бот',
+            metric: 'Запуски бота (события bot_start)',
+            last: Number(last.bot_start_total || 0),
+            prev: Number(prev.bot_start_total || 0),
+            change: calcChange(Number(last.bot_start_total || 0), Number(prev.bot_start_total || 0)),
+            status: 'Активно',
+            note: 'События /start бота в Telegram'
+        },
+        {
+            category: '1. Привлечение и Бот',
+            metric: 'Запуски бота из YouTube (start=yt_*)',
+            last: Number(last.bot_start_yt || 0),
+            prev: Number(prev.bot_start_yt || 0),
+            change: calcChange(Number(last.bot_start_yt || 0), Number(prev.bot_start_yt || 0)),
+            status: 'Активно',
+            note: 'Переходы по ссылкам t.me/vireyou_bot?start=yt_<тема>'
+        },
+        {
+            category: '1. Привлечение и Бот',
+            metric: 'Новые регистрации в боте (всего)',
             last: Number(last.bot_reg_total),
             prev: Number(prev.bot_reg_total),
             change: calcChange(Number(last.bot_reg_total), Number(prev.bot_reg_total)),
             status: 'Активно',
-            note: 'Пользователи с заполненным telegram_id'
+            note: 'Пользователи с telegram_id, созданные за период'
         },
         {
-            category: '1. Регистрации в боте',
-            metric: '— С реферальным источником (ref / squad)',
+            category: '1. Привлечение и Бот',
+            metric: 'Регистрации с меткой start_param',
+            last: Number(last.bot_reg_with_start_param || 0),
+            prev: Number(prev.bot_reg_with_start_param || 0),
+            change: calcChange(Number(last.bot_reg_with_start_param || 0), Number(prev.bot_reg_with_start_param || 0)),
+            status: 'Активно',
+            note: 'Регистрации с сохраненным start_param (YouTube, кампании)'
+        },
+        {
+            category: '1. Привлечение и Бот',
+            metric: 'Регистрации по реферальной ссылке',
             last: Number(last.bot_reg_with_referrer),
             prev: Number(prev.bot_reg_with_referrer),
             change: calcChange(Number(last.bot_reg_with_referrer), Number(prev.bot_reg_with_referrer)),
             status: 'Активно',
-            note: 'Пришли по реф-ссылке или приглашению в марафон'
+            note: 'Пользователи с заполненным referrer_id'
         },
         {
-            category: '1. Регистрации в боте',
-            metric: '— Прямые / органика (без реферера)',
+            category: '1. Привлечение и Бот',
+            metric: 'Органические регистрации в боте',
             last: Number(last.bot_reg_organic),
             prev: Number(prev.bot_reg_organic),
             change: calcChange(Number(last.bot_reg_organic), Number(prev.bot_reg_organic)),
             status: 'Активно',
-            note: 'Прямой поиск или ссылка без start-параметра'
-        },
-        {
-            category: '1. Регистрации в боте',
-            metric: '— Источник / start-параметры рекламных кампаний',
-            last: 'N/A',
-            prev: 'N/A',
-            change: 'N/A',
-            status: 'НЕ ЛОГИРУЕТСЯ В БД',
-            note: 'Произвольные utm/start-параметры не сохраняются в User'
+            note: 'Без реферера и без рекламного start_param'
         },
 
+        // 2. Диагностика и Тесты (Общие)
         {
-            category: '2. Прохождения тестов',
-            metric: 'Всего прохождений тестов на портале',
+            category: '2. Диагностика и Тесты (Общие)',
+            metric: 'Начатые тесты на портале (всего, с анонимами)',
+            last: Number(last.event_tests_started || 0),
+            prev: Number(prev.event_tests_started || 0),
+            change: calcChange(Number(last.event_tests_started || 0), Number(prev.event_tests_started || 0)),
+            status: 'Активно',
+            note: 'События test_start из AnalyticsEvent'
+        },
+        {
+            category: '2. Диагностика и Тесты (Общие)',
+            metric: 'Завершенные тесты (всего, с анонимами)',
+            last: Number(last.event_tests_completed_all || 0),
+            prev: Number(prev.event_tests_completed_all || 0),
+            change: calcChange(Number(last.event_tests_completed_all || 0), Number(prev.event_tests_completed_all || 0)),
+            status: 'Активно',
+            note: 'События test_complete из AnalyticsEvent'
+        },
+        {
+            category: '2. Диагностика и Тесты (Общие)',
+            metric: 'Завершено тестов анонимами (без входа)',
+            last: Number(last.event_tests_completed_anon || 0),
+            prev: Number(prev.event_tests_completed_anon || 0),
+            change: calcChange(Number(last.event_tests_completed_anon || 0), Number(prev.event_tests_completed_anon || 0)),
+            status: 'Активно',
+            note: 'Пользователи, прошедшие тест до регистрации/входа'
+        },
+        {
+            category: '2. Диагностика и Тесты (Общие)',
+            metric: 'Конверсия прохождения тестов (Complete / Start %)',
+            last: calcPct(Number(last.event_tests_completed_all || 0), Number(last.event_tests_started || 0)),
+            prev: calcPct(Number(prev.event_tests_completed_all || 0), Number(prev.event_tests_started || 0)),
+            change: '-',
+            status: 'Активно',
+            note: 'event_tests_completed_all / event_tests_started'
+        },
+        {
+            category: '2. Диагностика и Тесты (Общие)',
+            metric: 'Сохраненные тесты в профилях (test_results)',
             last: Number(last.tests_completed_total),
             prev: Number(prev.tests_completed_total),
             change: calcChange(Number(last.tests_completed_total), Number(prev.tests_completed_total)),
             status: 'Активно',
-            note: 'Суммарно все тесты из test_results'
+            note: 'Записи в таблице test_results авторизованных пользователей'
         },
         {
-            category: '2. Прохождения тестов',
-            metric: 'Уникальных пользователей, прошедших тесты',
+            category: '2. Диагностика и Тесты (Общие)',
+            metric: 'Уникальные пользователи, сохранившие тесты',
             last: Number(last.tests_unique_users),
             prev: Number(prev.tests_unique_users),
             change: calcChange(Number(last.tests_unique_users), Number(prev.tests_unique_users)),
             status: 'Активно',
-            note: 'Уникальные user_id в test_results'
+            note: 'Количество человек, сохранивших результат хотя бы 1 теста'
         },
         {
-            category: '2. Прохождения тестов',
-            metric: 'Из них зарегистрированы в Telegram-боте',
+            category: '2. Диагностика и Тесты (Общие)',
+            metric: 'Из них зарегистрированы в боте (чел)',
             last: Number(last.tests_unique_users_in_bot),
             prev: Number(prev.tests_unique_users_in_bot),
             change: calcChange(Number(last.tests_unique_users_in_bot), Number(prev.tests_unique_users_in_bot)),
             status: 'Активно',
-            note: `Конверсия тест -> бот: ${calcPct(Number(last.tests_unique_users_in_bot), Number(last.tests_unique_users))}`
+            note: 'Прошли тест и имеют привязанный telegram_id'
         },
 
+        // 2.1. Детализация тестов
         {
             category: '2.1. Детализация тестов',
-            metric: 'Системный Био-возраст (systemic-bio-age) [всего / в боте]',
-            last: `${last.test_systemic_bio_age} / ${last.test_systemic_bio_age_in_bot}`,
-            prev: `${prev.test_systemic_bio_age} / ${prev.test_systemic_bio_age_in_bot}`,
+            metric: 'Биовозраст систем (systemic-bio-age) [старт / сохр]',
+            last: `${last.event_start_systemic_bio_age || 0} / ${last.test_systemic_bio_age}`,
+            prev: `${prev.event_start_systemic_bio_age || 0} / ${prev.test_systemic_bio_age}`,
             change: calcChange(Number(last.test_systemic_bio_age), Number(prev.test_systemic_bio_age)),
             status: 'Активно',
-            note: 'Маркеры крови и системный био-возраст'
+            note: 'Старты в событиях / Сохраненные в test_results'
         },
         {
             category: '2.1. Детализация тестов',
-            metric: 'Функциональный резерв (functional-reserve) [всего / в боте]',
-            last: `${last.test_functional_reserve} / ${last.test_functional_reserve_in_bot}`,
-            prev: `${prev.test_functional_reserve} / ${prev.test_functional_reserve_in_bot}`,
+            metric: 'Функциональный резерв (functional-reserve) [старт / сохр]',
+            last: `${last.event_start_functional_reserve || 0} / ${last.test_functional_reserve}`,
+            prev: `${prev.event_start_functional_reserve || 0} / ${prev.test_functional_reserve}`,
             change: calcChange(Number(last.test_functional_reserve), Number(prev.test_functional_reserve)),
             status: 'Активно',
-            note: 'Физические и когнитивные тесты долголетия'
+            note: 'Старты в событиях / Сохраненные в test_results'
         },
         {
             category: '2.1. Детализация тестов',
-            metric: 'Энергия и КБЖУ (energy) [всего / в боте]',
-            last: `${last.test_energy} / ${last.test_energy_in_bot}`,
-            prev: `${prev.test_energy} / ${prev.test_energy_in_bot}`,
+            metric: 'Энергообмен BMR/TDEE (energy) [старт / сохр]',
+            last: `${last.event_start_energy || 0} / ${last.test_energy}`,
+            prev: `${prev.event_start_energy || 0} / ${prev.test_energy}`,
             change: calcChange(Number(last.test_energy), Number(prev.test_energy)),
             status: 'Активно',
-            note: 'Калькулятор нормы калорий и макронутриентов'
+            note: 'Старты в событиях / Сохраненные в test_results'
         },
         {
             category: '2.1. Детализация тестов',
-            metric: 'Циркадные ритмы / Хронотип (circadian) [всего / в боте]',
-            last: `${last.test_circadian} / ${last.test_circadian_in_bot}`,
-            prev: `${prev.test_circadian} / ${prev.test_circadian_in_bot}`,
+            metric: 'Циркадный хронотип (circadian) [старт / сохр]',
+            last: `${last.event_start_circadian || 0} / ${last.test_circadian}`,
+            prev: `${prev.event_start_circadian || 0} / ${prev.test_circadian}`,
             change: calcChange(Number(last.test_circadian), Number(prev.test_circadian)),
             status: 'Активно',
-            note: 'Хронотип и циркадный профиль'
+            note: 'Старты в событиях / Сохраненные в test_results'
         },
         {
             category: '2.1. Детализация тестов',
-            metric: 'Опросник бессонницы (insomnia) [всего / в боте]',
-            last: `${last.test_insomnia} / ${last.test_insomnia_in_bot}`,
-            prev: `${prev.test_insomnia} / ${prev.test_insomnia_in_bot}`,
+            metric: 'Индекс бессонницы ISI (insomnia) [старт / сохр]',
+            last: `${last.event_start_insomnia || 0} / ${last.test_insomnia}`,
+            prev: `${prev.event_start_insomnia || 0} / ${prev.test_insomnia}`,
             change: calcChange(Number(last.test_insomnia), Number(prev.test_insomnia)),
             status: 'Активно',
-            note: 'Индекс тяжести инсомнии (ISI)'
+            note: 'Старты в событиях / Сохраненные в test_results'
         },
         {
             category: '2.1. Детализация тестов',
-            metric: 'Саркопения (sarc-f) [всего / в боте]',
-            last: `${last.test_sarc_f} / ${last.test_sarc_f_in_bot}`,
-            prev: `${prev.test_sarc_f} / ${prev.test_sarc_f_in_bot}`,
+            metric: 'Саркопения SARC-F (sarc-f) [старт / сохр]',
+            last: `${last.event_start_sarc_f || 0} / ${last.test_sarc_f}`,
+            prev: `${prev.event_start_sarc_f || 0} / ${prev.test_sarc_f}`,
             change: calcChange(Number(last.test_sarc_f), Number(prev.test_sarc_f)),
             status: 'Активно',
-            note: 'Скрининг мышечной силы и массы SARC-F'
+            note: 'Старты в событиях / Сохраненные в test_results'
         },
 
+        // 3. Активация
         {
             category: '3. Активация',
             metric: 'Активация: залогировали еду в первые 24 часа (чел)',
@@ -187,6 +373,7 @@ async function exportWeeklyMetrics() {
             note: 'activated_users_24h / bot_reg_total'
         },
 
+        // 4. Удержание
         {
             category: '4. Удержание (Retention)',
             metric: 'Размер когорты (зарег. 7-14 дней назад)',
@@ -215,23 +402,42 @@ async function exportWeeklyMetrics() {
             note: 'd7_active_users / d7_cohort_size'
         },
 
+        // 5. Монетизация и Пейвол
         {
             category: '5. Монетизация и Пейвол',
-            metric: 'Пользователи, видевшие пейвол или предложение оплаты',
-            last: 'N/A',
-            prev: 'N/A',
-            change: 'N/A',
-            status: 'НЕ ЛОГИРУЕТСЯ В БД',
-            note: 'Показы экрана подписки в боте/вебе не пишутся в БД'
+            metric: 'Просмотры пейвола (события paywall_view всего)',
+            last: Number(last.event_paywall_views || 0),
+            prev: Number(prev.event_paywall_views || 0),
+            change: calcChange(Number(last.event_paywall_views || 0), Number(prev.event_paywall_views || 0)),
+            status: 'Активно',
+            note: 'Показы экранов тарифов на портале и меню в боте'
         },
         {
             category: '5. Монетизация и Пейвол',
-            metric: 'Нажатия «Оплатить» (попытки платежа)',
+            metric: 'Просмотры пейвола: портал / бот',
+            last: `${last.event_paywall_portal || 0} / ${last.event_paywall_bot || 0}`,
+            prev: `${prev.event_paywall_portal || 0} / ${prev.event_paywall_bot || 0}`,
+            change: '-',
+            status: 'Активно',
+            note: 'Разбивка по источнику (portal vs telegram_bot)'
+        },
+        {
+            category: '5. Монетизация и Пейвол',
+            metric: 'Клики «Оплатить» (события checkout_click)',
+            last: Number(last.event_checkout_clicks || 0),
+            prev: Number(prev.event_checkout_clicks || 0),
+            change: calcChange(Number(last.event_checkout_clicks || 0), Number(prev.event_checkout_clicks || 0)),
+            status: 'Активно',
+            note: 'Нажатия на кнопки тарифов перед переходом к оплате'
+        },
+        {
+            category: '5. Монетизация и Пейвол',
+            metric: 'Созданные заказы в БД (Transaction PENDING)',
             last: Number(last.checkout_clicks_pending),
             prev: Number(prev.checkout_clicks_pending),
             change: calcChange(Number(last.checkout_clicks_pending), Number(prev.checkout_clicks_pending)),
-            status: 'Частично',
-            note: 'Считает созданные pending-заказы в Transaction'
+            status: 'Активно',
+            note: 'Инициализированные платежи в платежных шлюзах'
         },
         {
             category: '5. Монетизация и Пейвол',
@@ -244,34 +450,22 @@ async function exportWeeklyMetrics() {
         },
         {
             category: '5. Монетизация и Пейвол',
+            metric: 'Конверсия клика в успешную оплату (%)',
+            last: calcPct(Number(last.successful_payments_count), Number(last.event_checkout_clicks || last.checkout_clicks_pending || 0)),
+            prev: calcPct(Number(prev.successful_payments_count), Number(prev.event_checkout_clicks || prev.checkout_clicks_pending || 0)),
+            change: '-',
+            status: 'Активно',
+            note: 'successful_payments / checkout_clicks'
+        },
+        {
+            category: '5. Монетизация и Пейвол',
             metric: 'Сумма успешных оплат (₽ / эквивалент)',
             last: `${Number(last.successful_payments_sum).toFixed(2)} ₽`,
             prev: `${Number(prev.successful_payments_sum).toFixed(2)} ₽`,
             change: calcChange(Number(last.successful_payments_sum), Number(prev.successful_payments_sum)),
             status: 'Активно',
             note: 'Фактическая выручка за период'
-        },
-
-        {
-            category: '6. Маркетинг и Трафик',
-            metric: 'Клики по UTM-ссылкам на портале',
-            last: 'N/A',
-            prev: 'N/A',
-            change: 'N/A',
-            status: 'НЕ ЛОГИРУЕТСЯ В БД',
-            note: 'UTM-метки не парсятся и не сохраняются в БД портала'
         }
-    ];
-
-    // Build CSV content
-    const csvHeader = [
-        'Категория',
-        'Метрика',
-        `Последние 7 дней (${lastRange})`,
-        `Предыдущие 7 дней (${prevRange})`,
-        'Динамика',
-        'Статус в БД',
-        'Примечание'
     ];
 
     const escapeCsv = (val: any) => {
@@ -282,9 +476,20 @@ async function exportWeeklyMetrics() {
         return s;
     };
 
-    const csvLines = [
-        csvHeader.map(escapeCsv).join(';')
+    const csvLines: string[] = [];
+
+    // Header 1: Main Funnel
+    csvLines.push(['=== ОСНОВНАЯ ВОРОНКА VIReyou (PORTAL + BOT) ==='].map(escapeCsv).join(';'));
+    const csvHeader = [
+        'Категория',
+        'Метрика',
+        `Последние 7 дней (${lastRange})`,
+        `Предыдущие 7 дней (${prevRange})`,
+        'Динамика',
+        'Статус в БД',
+        'Примечание'
     ];
+    csvLines.push(csvHeader.map(escapeCsv).join(';'));
 
     for (const item of funnelMetrics) {
         csvLines.push([
@@ -298,18 +503,56 @@ async function exportWeeklyMetrics() {
         ].map(escapeCsv).join(';'));
     }
 
-    const csvContent = '\uFEFF' + csvLines.join('\r\n'); // UTF-8 BOM for Excel
+    // Spacer
+    csvLines.push('');
+    csvLines.push(['=== ТОП-5 КАМПАНИЙ ПО ВИЗИТАМ ЗА 7 ДНЕЙ ==='].map(escapeCsv).join(';'));
+
+    const campHeader = [
+        'Кампания (utm_campaign / start_param)',
+        'Источник (utm_source)',
+        'Визиты портала',
+        'Старты тестов',
+        'Завершено тестов',
+        'Запуски бота',
+        'Клики оплаты'
+    ];
+    csvLines.push(campHeader.map(escapeCsv).join(';'));
+
+    if (topCampaigns.length > 0) {
+        for (const c of topCampaigns) {
+            csvLines.push([
+                c.campaign,
+                c.source,
+                c.visits,
+                c.test_starts,
+                c.test_completes,
+                c.bot_starts,
+                c.checkout_clicks
+            ].map(escapeCsv).join(';'));
+        }
+    } else {
+        csvLines.push([
+            '(данные накапливаются: новые события с UTM метками)',
+            '-',
+            0,
+            0,
+            0,
+            0,
+            0
+        ].map(escapeCsv).join(';'));
+    }
+
+    const csvContent = '\uFEFF' + csvLines.join('\r\n');
 
     const dateStr = getFormattedDate();
     const fileName = `vireyou_funnel_${dateStr}.csv`;
 
-    // Locate Google Drive folder
     const gdriveDir = '/Users/mogilevandrei/Library/CloudStorage/GoogleDrive-mogilev.andrey@gmail.com/Мой диск/VIReyou/VIReyou_Аналитика';
     const localDir = path.resolve(__dirname, 'exports');
 
-    let savedPaths: string[] = [];
+    const savedPaths: string[] = [];
 
-    // Save to local exports backup
+    // Local exports folder
     if (!fs.existsSync(localDir)) {
         fs.mkdirSync(localDir, { recursive: true });
     }
@@ -317,23 +560,24 @@ async function exportWeeklyMetrics() {
     fs.writeFileSync(localFilePath, csvContent, 'utf8');
     savedPaths.push(localFilePath);
 
-    // Save to Google Drive if folder exists
+    // Google Drive
     if (fs.existsSync(gdriveDir)) {
         const gdriveFilePath = path.join(gdriveDir, fileName);
         fs.writeFileSync(gdriveFilePath, csvContent, 'utf8');
         savedPaths.push(gdriveFilePath);
         console.log(`[METRICS EXPORT] Successfully saved to Google Drive: ${gdriveFilePath}`);
     } else {
-        console.warn(`[METRICS EXPORT] Google Drive path not found: ${gdriveDir}`);
+        console.warn(`[METRICS EXPORT] Google Drive directory not accessible: ${gdriveDir}`);
     }
 
-    console.log(`[METRICS EXPORT] Export completed successfully: ${fileName}`);
-    console.log('[METRICS EXPORT] File saved to:', savedPaths.join(', '));
+    console.log(`[METRICS EXPORT] Export completed: ${fileName}`);
+    console.log(`[METRICS EXPORT] Saved to:\n - ${savedPaths.join('\n - ')}`);
 
     return {
         fileName,
         savedPaths,
-        csvContent
+        csvContent,
+        topCampaignsCount: topCampaigns.length
     };
 }
 

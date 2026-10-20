@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { trackTestStart, trackTestComplete } from '@/lib/analytics';
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { saveTestResult } from "@/actions/save-test";
@@ -24,6 +25,7 @@ export default function SarcFPage() {
     const [currentStep, setCurrentStep] = useState(-1); // -1 is the intro screen
     const [answers, setAnswers] = useState<number[]>(Array(5).fill(-1));
     const [showResult, setShowResult] = useState(false);
+    const startedRef = useRef(false);
 
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -93,6 +95,10 @@ export default function SarcFPage() {
     ];
 
     const handleSelect = (value: number) => {
+        if (!startedRef.current) {
+            startedRef.current = true;
+            trackTestStart('sarc-f');
+        }
         const newAnswers = [...answers];
         newAnswers[currentStep] = value;
         setAnswers(newAnswers);
@@ -100,6 +106,9 @@ export default function SarcFPage() {
         if (currentStep < questions.length - 1) {
             setTimeout(() => setCurrentStep(currentStep + 1), 300);
         } else {
+            const finalScore = newAnswers.reduce((sum, val) => sum + (val !== -1 ? val : 0), 0);
+            const resConfig = getResultConfig(finalScore);
+            trackTestComplete('sarc-f', finalScore, resConfig.title, !isAuthenticated);
             setShowResult(true);
         }
     };

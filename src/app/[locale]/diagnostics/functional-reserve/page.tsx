@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
+import { trackTestStart, trackTestComplete } from "@/lib/analytics";
 import { useLocale } from "next-intl";
 import { ArrowLeft, ChevronLeft, ChevronRight, Home, Stethoscope, Activity } from "lucide-react";
 import { Link } from "@/i18n/routing";
@@ -30,6 +31,7 @@ export default function FunctionalReservePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     createClient().auth.getSession().then(({ data }) => setIsAuthenticated(!!data.session));
@@ -49,7 +51,13 @@ export default function FunctionalReservePage() {
         return n;
       });
     }
-    setIdx((i) => Math.max(0, Math.min(steps.length - 1, i + delta)));
+    const nextIdx = Math.max(0, Math.min(steps.length - 1, idx + delta));
+    if (steps[nextIdx] === "result" && !completedRef.current) {
+      completedRef.current = true;
+      const primary = profile?.hunt?.fitnessAge ?? profile?.sppb?.total ?? profile?.pheno?.phenoAge ?? 0;
+      trackTestComplete("functional-reserve", Math.round(primary * 10) / 10, `${protocol} completed`, !isAuthenticated);
+    }
+    setIdx(nextIdx);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -103,7 +111,7 @@ export default function FunctionalReservePage() {
             <h2 className="font-semibold text-gray-800">{d.protocolTitle}</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               {([["express", Home, d.express, d.expressDesc], ["full", Stethoscope, d.full, d.fullDesc]] as const).map(([k, Icon, t, desc]) => (
-                <button key={k} id={`fr-protocol-${k}`} onClick={() => setProtocol(k)}
+                <button key={k} id={`fr-protocol-${k}`} onClick={() => { trackTestStart("functional-reserve"); setProtocol(k); }}
                   className="text-left bg-white rounded-2xl border border-brand-sage/60 p-6 hover:-translate-y-1 hover:shadow-md transition-all">
                   <Icon className="w-6 h-6 text-brand-leaf mb-3" />
                   <div className="font-bold text-brand-text mb-1">{t}</div>

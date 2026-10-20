@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { trackTestStart, trackTestComplete } from '@/lib/analytics';
 import { 
   Heart, 
   Move, 
@@ -56,16 +57,25 @@ export default function BioAgeCalculatorPage() {
     const currentTest = currentStep >= 0 && currentStep < testConfigs.length ? testConfigs[currentStep] : null;
 
     const handleStart = () => {
+        trackTestStart('systemic-bio-age');
         setCurrentStep(0);
     };
 
     const handleSelect = (testId: string, age: number) => {
-        setResults(prev => ({ ...prev, [testId]: age }));
+        let updatedResults: Record<string, number> = {};
+        setResults(prev => {
+            updatedResults = { ...prev, [testId]: age };
+            return updatedResults;
+        });
+
         setTimeout(() => {
             if (currentStep < testConfigs.length - 1) {
-                setCurrentStep(currentStep + 1);
+                setCurrentStep(prev => prev + 1);
             } else {
                 setCurrentStep(testConfigs.length);
+                const vals = Object.values(updatedResults);
+                const finalAge = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+                trackTestComplete('systemic-bio-age', finalAge, `Системный биовозраст: ${finalAge} лет`, !isAuthenticated);
             }
         }, 300);
     };

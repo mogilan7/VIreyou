@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { trackTestStart, trackTestComplete } from '@/lib/analytics';
 import { ChevronRight, ChevronLeft, RefreshCcw, Sun, Moon, Clock, Info, ArrowLeft, Activity, Save, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
@@ -264,7 +265,10 @@ export default function CircadianCalculatorPage() {
         checkAuth();
     }, []);
 
-    const startQuiz = () => setCurrentStep(0);
+    const startQuiz = () => {
+        trackTestStart('circadian');
+        setCurrentStep(0);
+    };
 
     const handleAnswer = (points: number) => {
         const newAnswers = { ...answers, [currentStep]: points };
@@ -276,6 +280,7 @@ export default function CircadianCalculatorPage() {
             const totalScore = Object.values(newAnswers).reduce((a, b) => a + b, 0);
             setScore(totalScore);
             setCurrentStep(questions.length);
+            trackTestComplete('circadian', totalScore, getResultInfo(totalScore).type, !isAuthenticated);
         }
     };
 

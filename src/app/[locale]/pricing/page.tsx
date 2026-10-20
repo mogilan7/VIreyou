@@ -5,7 +5,8 @@ import PublicFooter from "@/components/layout/PublicFooter";
 import { Check, X, Diamond, ChevronDown } from "lucide-react";
 import { Link } from "@/i18n/routing";
 import { useTranslations, useLocale } from "next-intl";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { trackPaywallView } from "@/lib/analytics";
 import CheckoutButton from "@/components/dashboard/CheckoutButton";
 import StarsCheckoutButton from "@/components/dashboard/StarsCheckoutButton";
 
@@ -51,6 +52,10 @@ export default function PricingPage() {
     const tCommon = useTranslations("Common");
     const locale = useLocale();
     const isRu = locale === "ru";
+
+    useEffect(() => {
+        trackPaywallView("pricing_page");
+    }, []);
 
     // Contact link — Telegram channel or contact section
     

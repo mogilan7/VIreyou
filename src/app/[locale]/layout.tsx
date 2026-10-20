@@ -3,6 +3,7 @@ import "./globals.css";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import CookieBanner from "@/components/layout/CookieBanner";
+import AnalyticsTracker from "@/components/layout/AnalyticsTracker";
 import { Analytics } from "@vercel/analytics/next";
 
 export const maxDuration = 60;
@@ -57,6 +58,7 @@ export default async function RootLayout({
             {children}
           </main>
           <CookieBanner />
+          <AnalyticsTracker />
         </NextIntlClientProvider>
         <Analytics />
       </body>

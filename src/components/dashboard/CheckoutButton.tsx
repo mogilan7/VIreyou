@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
+import { trackCheckoutClick } from '@/lib/analytics';
 
 interface CheckoutButtonProps {
     plan: string;
@@ -27,6 +28,7 @@ export default function CheckoutButton({ plan, amount, className, children }: Ch
     }, []);
 
     const handleCheckout = async () => {
+        trackCheckoutClick(plan, isLava ? 'lava' : 'yookassa', amount);
         setLoading(true);
         try {
             const apiEndpoint = isLava

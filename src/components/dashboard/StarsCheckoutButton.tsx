@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useLocale } from 'next-intl';
+import { trackCheckoutClick } from '@/lib/analytics';
 
 interface StarsCheckoutButtonProps {
     plan: 'Standard' | 'PRO';
@@ -21,6 +22,7 @@ export default function StarsCheckoutButton({
     const isEn = locale === 'en';
 
     const handleCheckout = async () => {
+        trackCheckoutClick(plan, 'telegram_stars', starsAmount);
         setLoading(true);
         try {
             const res = await fetch('/api/payments/telegram-stars', {

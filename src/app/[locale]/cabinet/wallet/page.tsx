@@ -9,6 +9,7 @@ import CheckoutButton from '@/components/dashboard/CheckoutButton';
 import StarsCheckoutButton from '@/components/dashboard/StarsCheckoutButton';
 import ReferralInfo from '@/components/dashboard/ReferralInfo';
 import UpgradeButton from '@/components/dashboard/UpgradeButton';
+import WalletPaywallTracker from '@/components/dashboard/WalletPaywallTracker';
 
 export default async function WalletPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
@@ -43,6 +44,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
         <div className="min-h-screen flex w-full bg-[#F7F5F0] dark:bg-[#0F172A] text-[#2D2D2D] dark:text-white font-sans relative pb-24">
             <Sidebar role="client" profileName={user.full_name || t('userFallback')} />
 
+            <WalletPaywallTracker />
             <main className="flex-1 lg:ml-64 px-4 md:px-8 pt-8 space-y-6 w-full max-w-4xl mx-auto min-w-0">
                 <header className="space-y-2">
                     <h1 className="font-serif text-3xl font-bold tracking-tight">{t('title')}</h1>

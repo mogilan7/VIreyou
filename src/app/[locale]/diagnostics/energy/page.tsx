@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { trackTestStart, trackTestComplete } from '@/lib/analytics';
 import { Calculator, Activity, Scale, Ruler, User, Flame, Target, Info, HeartPulse, ArrowLeft } from 'lucide-react';
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
@@ -15,6 +16,7 @@ export default function EnergyCalculatorPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+    const startedRef = useRef(false);
 
     const [gender, setGender] = useState('female');
     const [age, setAge] = useState(30);
@@ -77,6 +79,10 @@ export default function EnergyCalculatorPage() {
     };
 
     useEffect(() => {
+        if (!startedRef.current) {
+            startedRef.current = true;
+            trackTestStart('energy');
+        }
         calculate();
     }, [gender, age, weight, height, activity, goal]);
 
@@ -90,6 +96,7 @@ export default function EnergyCalculatorPage() {
     }, []);
 
     const handleSave = async () => {
+        trackTestComplete('energy', results.targetCalories, `${results.targetCalories} kcal`, !isAuthenticated);
         if (!isAuthenticated) {
             setIsAuthModalOpen(true);
             return;
