@@ -22,6 +22,7 @@ process.on('uncaughtException', (err) => {
 });
 
 import prisma from "../src/lib/prisma";
+import { mergeUserAccounts } from "../src/lib/auth/mergeUsers";
 async function logBotEvent(event: string, opts: {
     userId?: string | null;
     sessionId?: string | null;
@@ -722,43 +723,9 @@ bot.command('start', async (ctx: any) => {
     let updatedUser;
     if (placeholderUser) {
         console.log(`[AUTH MERGE BOT] Merging placeholder ${placeholderUser.id} into ${user.id}`);
-        await prisma.nutritionLog.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
-        await prisma.activityLog.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
-        await prisma.habitLog.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
-        await prisma.sleepLog.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
-        await prisma.hydrationLog.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
-        await prisma.biomarkerResult.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
-        await prisma.healthData.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
-        await prisma.analyticsEvent.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
-
-        let finalSubscriptionExpiry = user.subscription_expires_at;
-        if (placeholderUser.subscription_expires_at) {
-            if (!finalSubscriptionExpiry || placeholderUser.subscription_expires_at < finalSubscriptionExpiry) {
-                finalSubscriptionExpiry = placeholderUser.subscription_expires_at;
-            }
-        }
-
-        const autoTz = detectTimezoneFromLang(ctx.from.language_code);
-        updatedUser = await prisma.user.update({
-            where: { id: user.id },
-            data: {
-                telegram_id: tgIdStr,
-                telegram_username: ctx.from.username || placeholderUser.telegram_username || null,
-                timezone: user.timezone && user.timezone !== 'Europe/Moscow' ? user.timezone : (placeholderUser.timezone || autoTz),
-                subscription_expires_at: finalSubscriptionExpiry,
-                start_param: user.start_param || placeholderUser.start_param,
-                utm_source: user.utm_source || placeholderUser.utm_source,
-                utm_campaign: user.utm_campaign || placeholderUser.utm_campaign
-            }
+        updatedUser = await prisma.$transaction(async (tx) => {
+            return await mergeUserAccounts(tx, user.id, placeholderUser.id);
         });
-
-        try {
-            await prisma.user.delete({ where: { id: placeholderUser.id } });
-            console.log(`[AUTH MERGE BOT] Deleted placeholder ${placeholderUser.id}`);
-        } catch (delErr) {
-            console.error("[AUTH MERGE BOT] Could not delete placeholder:", delErr);
-        }
-
         ctx.state.user = updatedUser;
         ctx.state.lang = (updatedUser as any).language || 'ru';
     } else {
