@@ -109,25 +109,37 @@ async function exportInstagramMetrics() {
     const sevenDaysAgoUnix = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000);
     const nowUnix = Math.floor(Date.now() / 1000);
 
-    const metricsToFetch = ['reach', 'accounts_engaged', 'profile_views', 'website_clicks'];
-    for (const metric of metricsToFetch) {
+    const metricsToFetch = [
+        { name: 'reach', type: 'values' },
+        { name: 'accounts_engaged', type: 'total_value' },
+        { name: 'profile_views', type: 'total_value' },
+        { name: 'website_clicks', type: 'total_value' }
+    ];
+    for (const m of metricsToFetch) {
         try {
-            const url = `https://graph.facebook.com/v21.0/${igAccountId}/insights?metric=${metric}&period=day&since=${sevenDaysAgoUnix}&until=${nowUnix}&access_token=${token}`;
+            const metricTypeParam = m.type === 'total_value' ? '&metric_type=total_value' : '';
+            const url = `https://graph.facebook.com/v21.0/${igAccountId}/insights?metric=${m.name}${metricTypeParam}&period=day&since=${sevenDaysAgoUnix}&until=${nowUnix}&access_token=${token}`;
             const res = await fetch(url);
             const data = await res.json();
 
-            if (data.data && data.data[0]?.values) {
-                const total = data.data[0].values.reduce((sum: number, item: any) => sum + (Number(item.value) || 0), 0);
-                csvLines.push([`Метрика: ${metric} (сумма за 7 дней)`, total, data.data[0].description || ''].map(escapeCsv).join(';'));
+            if (data.data && data.data[0]) {
+                const first = data.data[0];
+                let total = 0;
+                if (first.total_value !== undefined && first.total_value?.value !== undefined) {
+                    total = Number(first.total_value.value) || 0;
+                } else if (first.values) {
+                    total = first.values.reduce((sum: number, item: any) => sum + (Number(item.value) || 0), 0);
+                }
+                csvLines.push([`Метрика: ${m.name} (сумма за 7 дней)`, total, first.description || ''].map(escapeCsv).join(';'));
             } else if (data.error) {
-                console.warn(`[INSTAGRAM EXPORT] Метрика ${metric} недоступна:`, data.error.message);
-                csvLines.push([`Метрика: ${metric}`, '', `Не отдается API: ${data.error.message}`].map(escapeCsv).join(';'));
+                console.warn(`[INSTAGRAM EXPORT] Метрика ${m.name} недоступна:`, data.error.message);
+                csvLines.push([`Метрика: ${m.name}`, '', `Не отдается API: ${data.error.message}`].map(escapeCsv).join(';'));
             } else {
-                csvLines.push([`Метрика: ${metric}`, 0, 'Нет данных'].map(escapeCsv).join(';'));
+                csvLines.push([`Метрика: ${m.name}`, 0, 'Нет данных'].map(escapeCsv).join(';'));
             }
         } catch (err: any) {
-            console.warn(`[INSTAGRAM EXPORT] Ошибка запроса ${metric}:`, err?.message || err);
-            csvLines.push([`Метрика: ${metric}`, '', 'Ошибка запроса'].map(escapeCsv).join(';'));
+            console.warn(`[INSTAGRAM EXPORT] Ошибка запроса ${m.name}:`, err?.message || err);
+            csvLines.push([`Метрика: ${m.name}`, '', 'Ошибка запроса'].map(escapeCsv).join(';'));
         }
     }
 
@@ -162,7 +174,7 @@ async function exportInstagramMetrics() {
             // Query media insights
             try {
                 const insightMetrics = isReel
-                    ? 'reach,saved,shares,plays'
+                    ? 'reach,saved,shares,views'
                     : 'reach,saved';
                 const insUrl = `https://graph.facebook.com/v21.0/${item.id}/insights?metric=${insightMetrics}&access_token=${token}`;
                 const insRes = await fetch(insUrl);
@@ -173,7 +185,7 @@ async function exportInstagramMetrics() {
                     if (m.name === 'reach') reach = val;
                     if (m.name === 'saved') saved = val;
                     if (m.name === 'shares') shares = val;
-                    if (m.name === 'plays') plays = val;
+                    if (m.name === 'views' || m.name === 'plays') plays = val;
                 }
             } catch (insErr: any) {
                 console.warn(`[INSTAGRAM EXPORT] Не удалось получить инсайты для медиа ${item.id}:`, insErr?.message || insErr);
