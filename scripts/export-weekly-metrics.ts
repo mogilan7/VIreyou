@@ -57,6 +57,7 @@ interface FunnelRow {
     bot_reg_organic: number;
     bot_start_total: number;
     bot_start_yt: number;
+    event_bot_signups: number;
     tests_completed_total: number;
     tests_unique_users: number;
     tests_unique_users_in_bot: number;
@@ -82,6 +83,7 @@ interface FunnelRow {
     event_start_insomnia: number;
     event_start_sarc_f: number;
     activated_users_24h: number;
+    event_first_meals_logged: number;
     d7_cohort_size: number;
     d7_active_users: number;
     event_paywall_views: number;
@@ -194,6 +196,15 @@ async function exportWeeklyMetrics() {
             change: calcChange(Number(last.bot_start_yt || 0), Number(prev.bot_start_yt || 0)),
             status: 'Активно',
             note: 'Переходы по ссылкам t.me/vireyou_bot?start=yt_<тема>'
+        },
+{
+            category: '1. Привлечение и Бот',
+            metric: 'Создано профилей в боте (события bot_signup)',
+            last: Number(last.event_bot_signups || 0),
+            prev: Number(prev.event_bot_signups || 0),
+            change: calcChange(Number(last.event_bot_signups || 0), Number(prev.event_bot_signups || 0)),
+            status: 'Активно',
+            note: 'Момент создания Telegram-first профиля при /start'
         },
         {
             category: '1. Привлечение и Бот',

@@ -519,29 +519,7 @@ bot.command('start', async (ctx: any) => {
       }
   });
 
-  // Update start_param if user already exists
-  if (payload && tgId) {
-      const existingUser = ctx.state?.user || await prisma.user.findFirst({ where: { telegram_id: tgId } });
-      if (existingUser) {
-          try {
-              // Only update start_param / UTMs, NEVER touch subscription_expires_at
-              await prisma.user.update({
-                  where: { id: existingUser.id },
-                  data: {
-                      start_param: payload,
-                      ...(payload.startsWith("yt_") ? { utm_source: "youtube", utm_campaign: payload } : {})
-                  }
-              });
-              ctx.state.user = existingUser;
-          } catch (e) {
-              console.error("[AUTH] Failed to update start_param:", e);
-          }
-      }
-      // If user does NOT exist, do NOT auto-create dummy account or grant free trial.
-      // They will register cleanly via WebApp button or email link, preserving single-account integrity.
-  }
-
-  // 1. Сначала проверяем специальные команды ссылки
+  // 1. Специальная команда марафона
   if (payload === 'marathon') {
       const user = ctx.state.user;
       const lang = ctx.state.lang || 'ru';
@@ -551,23 +529,19 @@ bot.command('start', async (ctx: any) => {
       return await handleMarathonJoinLogic(ctx, user, lang);
   }
 
-  let refId = null;
-  let squadId = null;
+  let refId: string | null = null;
+  let squadId: string | null = null;
 
   if (payload?.startsWith('ref_')) {
       refId = payload.replace('ref_', '');
   } else if (payload?.startsWith('sq_')) {
       squadId = payload.replace('sq_', '');
-      // If joining a squad, the squad creator is the referrer
       const squad = await prisma.squad.findUnique({ where: { id: squadId } });
       if (squad) refId = squad.creator_id;
   }
 
-  // Referral and User Handling Logic
   const handleUserReferral = async (currentUser: any, rId: string | null) => {
       if (!rId || rId === currentUser?.id) return currentUser;
-
-      // If user doesn't have a referrer, try to set one
       if (currentUser && !currentUser.referrer_id) {
           const referrer = await prisma.user.findUnique({ where: { id: rId } });
           if (referrer && referrer.id !== currentUser.id) {
@@ -581,60 +555,6 @@ bot.command('start', async (ctx: any) => {
       return currentUser;
   };
 
-  // Automatic user creation or update for seamless Telegram onboarding
-  if (refId || squadId) {
-      const tgId = ctx.from.id.toString();
-      const autoEmail = `tg_${tgId}@vireyou.com`;
-      
-      let userRecord = await prisma.user.findFirst({ 
-          where: { 
-              OR: [
-                  { telegram_id: tgId },
-                  { email: autoEmail }
-              ]
-          } 
-      });
-      
-      if (!userRecord) {
-          userRecord = await prisma.user.create({ data: { id: crypto.randomUUID(),
-                  email: autoEmail,
-                  telegram_id: tgId,
-                  role: 'client',
-                  full_name: ctx.from.first_name || 'Спортсмен',
-                  language: detectTimezoneFromLang(ctx.from.language_code) === 'Europe/Moscow' ? 'ru' : 'en',
-                  timezone: detectTimezoneFromLang(ctx.from.language_code),
-                  referrer_id: (refId && refId !== tgId) ? refId : null,
-                  subscription_expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // 3 days free trial
-              }
-          });
-      } else {
-          // Check if we can update the referrer for an existing user
-          userRecord = await handleUserReferral(userRecord, refId);
-      }
-      
-      ctx.state.user = userRecord;
-      ctx.state.lang = userRecord.language || 'ru';
-  }
-
-  // 2. Иначе интерпретируем payload как email (для связки аккаунтов)
-  let email = null;
-  let linkUserId = null;
-  
-  if (payload && payload.startsWith('link_')) {
-      linkUserId = payload.replace('link_', '');
-  } else if (payload && !refId && !squadId && payload !== 'marathon') {
-      email = payload;
-      try {
-          const decoded = Buffer.from(payload, 'base64').toString('utf8');
-          if (decoded.includes('@')) {
-              email = decoded;
-          }
-      } catch (e: any) {
-          console.log("Not base64 or failed decoding, using raw:", payload);
-      }
-  }
-
-  // Helper to join squad if ID exists
   const joinSquadIfNeeded = async (user: any) => {
       if (squadId) {
           try {
@@ -651,36 +571,111 @@ bot.command('start', async (ctx: any) => {
       }
   };
 
-  if (!email) {
-    // Проверяем авторизацию еще раз (для запуска без аргументов или после авторегистрации)
-    const user = ctx.state.user;
-    if (user) {
-         await joinSquadIfNeeded(user);
-         if (!user.language) {
-             return sendLanguagePrompt(ctx);
-         }
-         
-         // Trigger onboarding for new users or if physical params are missing
-         if (!user.weight || !user.height) {
-             return startOnboarding(ctx);
-         }
+  // 2. Проверяем, не является ли payload попыткой связать аккаунт (email или link_)
+  let email: string | null = null;
+  let linkUserId: string | null = null;
+  
+  if (payload && payload.startsWith('link_')) {
+      linkUserId = payload.replace('link_', '');
+  } else if (payload && !refId && !squadId && payload !== 'marathon' && !payload.startsWith('yt_')) {
+      let candidate = payload;
+      try {
+          const decoded = Buffer.from(payload, 'base64').toString('utf8');
+          if (decoded.includes('@')) {
+              candidate = decoded;
+          }
+      } catch (e) {}
+      if (candidate.includes('@')) {
+          email = candidate;
+      }
+  }
 
-         return sendWelcomeMenu(ctx, user);
-    }
-    
-    // Unlinked user - offer WebApp for login/registration
-    const NEXT_PUBLIC_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://vireyou.com';
-    return ctx.reply(
-        "👋 Привет! Я твой ассистент по долголетию.\n\nДля работы со мной нужно привязать аккаунт.\nОткрой платформу прямо здесь в Telegram, чтобы автоматически зарегистрироваться и привязать профиль, либо введи команду вида:\n`/start твой_email@example.com`",
-        {
-            parse_mode: 'Markdown',
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: "Открыть платформу / Войти", web_app: { url: `${NEXT_PUBLIC_SITE_URL}/ru/login?from=telegram${payload ? '&utm_campaign=' + encodeURIComponent(payload) : ''}${payload?.startsWith('yt_') ? '&utm_source=youtube' : ''}` } }]
-                ]
-            }
-        }
-    );
+  // 3. Telegram-First онбординг для ВСЕХ пользователей без email-связки
+  if (!email && !linkUserId && tgId) {
+      const autoEmail = `tg_${tgId}@vireyou.com`;
+      let userRecord = await prisma.user.findFirst({
+          where: {
+              OR: [
+                  { telegram_id: tgId },
+                  { email: autoEmail }
+              ]
+          }
+      });
+
+      if (!userRecord) {
+          // Создаем Telegram-first пользователя
+          const userLang = detectTimezoneFromLang(ctx.from?.language_code) === 'Europe/Moscow' ? 'ru' : 'en';
+          const userTz = detectTimezoneFromLang(ctx.from?.language_code);
+          const utmSrc = payload?.startsWith("yt_") ? "youtube" : (payload || null);
+          const utmCamp = payload || null;
+
+          userRecord = await prisma.user.create({
+              data: {
+                  id: crypto.randomUUID(),
+                  email: autoEmail,
+                  telegram_id: tgId,
+                  telegram_username: ctx.from?.username || null,
+                  role: 'client',
+                  full_name: ctx.from?.first_name || 'Спортсмен',
+                  language: userLang,
+                  timezone: userTz,
+                  referrer_id: (refId && refId !== tgId) ? refId : null,
+                  subscription_expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days free trial
+                  start_param: payload || null,
+                  utm_source: utmSrc,
+                  utm_campaign: utmCamp
+              }
+          });
+
+          // Событие bot_signup
+          await logBotEvent('bot_signup', {
+              userId: userRecord.id,
+              sessionId: `tg_${tgId}`,
+              utmSource: utmSrc,
+              utmCampaign: utmCamp,
+              meta: {
+                  tg_id: tgId,
+                  payload,
+                  username: ctx.from?.username || null,
+                  first_name: ctx.from?.first_name || null
+              }
+          });
+
+          ctx.state.user = userRecord;
+          ctx.state.lang = userRecord.language || 'ru';
+
+          await joinSquadIfNeeded(userRecord);
+
+          // Первое сообщение: короткое приветствие и сразу призыв отправить еду
+          const welcomeMsg = ctx.state.lang === 'en'
+              ? "👋 Hello! I am your longevity and nutrition assistant VIReyou.\n\nSend a photo of your plate or use voice to tell me what you ate — I will analyze almost 30 nutrients."
+              : "👋 Привет! Я твой ассистент по долголетию и питанию VIReyou.\n\nПришлите фото тарелки или голосом расскажите, что съели — я разберу почти 30 нутриентов.";
+          return ctx.reply(welcomeMsg);
+      } else {
+          // Пользователь уже существует
+          userRecord = await handleUserReferral(userRecord, refId);
+          if (payload && !userRecord.start_param) {
+              userRecord = await prisma.user.update({
+                  where: { id: userRecord.id },
+                  data: {
+                      start_param: payload,
+                      ...(payload.startsWith("yt_") ? { utm_source: "youtube", utm_campaign: payload } : {})
+                  }
+              });
+          }
+          if (ctx.from?.username && userRecord.telegram_username !== ctx.from.username) {
+              await prisma.user.update({
+                  where: { id: userRecord.id },
+                  data: { telegram_username: ctx.from.username }
+              });
+          }
+
+          ctx.state.user = userRecord;
+          ctx.state.lang = userRecord.language || 'ru';
+
+          await joinSquadIfNeeded(userRecord);
+          return sendWelcomeMenu(ctx, userRecord);
+      }
   }
 
   // Handle deep link from web platform
@@ -712,21 +707,75 @@ bot.command('start', async (ctx: any) => {
       return ctx.reply(t(ctx.state.lang, 'Auth.userNotFound'));
     }
 
-    // Auto-detect timezone from Telegram language_code if not already set
-    const autoTz = detectTimezoneFromLang(ctx.from.language_code);
-    const updateData: any = { telegram_id: ctx.from.id.toString() };
-    if (!(user as any).timezone || (user as any).timezone === 'Europe/Moscow') {
-        updateData.timezone = autoTz;
-    }
-
-    const updatedUser = await prisma.user.update({
-      where: { email },
-      data: updateData,
+    const tgIdStr = ctx.from.id.toString();
+    // Check if there was a placeholder account for this tgId to merge
+    const placeholderUser = await prisma.user.findFirst({
+        where: {
+            OR: [
+                { telegram_id: tgIdStr },
+                { email: `tg_${tgIdStr}@vireyou.com` }
+            ],
+            id: { not: user.id }
+        }
     });
 
-    ctx.state.user = updatedUser;
-    ctx.state.lang = (updatedUser as any).language || 'ru';
+    let updatedUser;
+    if (placeholderUser) {
+        console.log(`[AUTH MERGE BOT] Merging placeholder ${placeholderUser.id} into ${user.id}`);
+        await prisma.nutritionLog.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
+        await prisma.activityLog.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
+        await prisma.habitLog.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
+        await prisma.sleepLog.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
+        await prisma.hydrationLog.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
+        await prisma.biomarkerResult.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
+        await prisma.healthData.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
+        await prisma.analyticsEvent.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: user.id } });
 
+        let finalSubscriptionExpiry = user.subscription_expires_at;
+        if (placeholderUser.subscription_expires_at) {
+            if (!finalSubscriptionExpiry || placeholderUser.subscription_expires_at < finalSubscriptionExpiry) {
+                finalSubscriptionExpiry = placeholderUser.subscription_expires_at;
+            }
+        }
+
+        const autoTz = detectTimezoneFromLang(ctx.from.language_code);
+        updatedUser = await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                telegram_id: tgIdStr,
+                telegram_username: ctx.from.username || placeholderUser.telegram_username || null,
+                timezone: user.timezone && user.timezone !== 'Europe/Moscow' ? user.timezone : (placeholderUser.timezone || autoTz),
+                subscription_expires_at: finalSubscriptionExpiry,
+                start_param: user.start_param || placeholderUser.start_param,
+                utm_source: user.utm_source || placeholderUser.utm_source,
+                utm_campaign: user.utm_campaign || placeholderUser.utm_campaign
+            }
+        });
+
+        try {
+            await prisma.user.delete({ where: { id: placeholderUser.id } });
+            console.log(`[AUTH MERGE BOT] Deleted placeholder ${placeholderUser.id}`);
+        } catch (delErr) {
+            console.error("[AUTH MERGE BOT] Could not delete placeholder:", delErr);
+        }
+
+        ctx.state.user = updatedUser;
+        ctx.state.lang = (updatedUser as any).language || 'ru';
+    } else {
+        const autoTz = detectTimezoneFromLang(ctx.from.language_code);
+        const updateData: any = { telegram_id: tgIdStr };
+        if (!(user as any).timezone || (user as any).timezone === 'Europe/Moscow') {
+            updateData.timezone = autoTz;
+        }
+
+        updatedUser = await prisma.user.update({
+            where: { email },
+            data: updateData,
+        });
+
+        ctx.state.user = updatedUser;
+        ctx.state.lang = (updatedUser as any).language || 'ru';
+    }
     ctx.reply(t(ctx.state.lang, 'Auth.linkSuccess'));
     
     await joinSquadIfNeeded(updatedUser);
@@ -2412,11 +2461,44 @@ bot.action('save_log_confirm', async (ctx: any) => {
         let date = new Date();
         if (cached.date_offset_days && cached.localToday) {
             date = calculateTargetDate(cached.localToday, Number(cached.date_offset_days));
-        }
-
-        if (cached.type === "NUTRITION") {
+        }        if (cached.type === "NUTRITION") {
             await saveFoodLog(user.id, cached.data, cached.localToday);
-            // Note: saveFoodLog already handles habit_key internally
+            // Check if this was the user's first meal logged
+            try {
+                const totalMeals = await prisma.nutritionLog.count({ where: { user_id: user.id } });
+                if (totalMeals === 1) {
+                    await logBotEvent('first_meal_logged', {
+                        userId: user.id,
+                        sessionId: `tg_${user.telegram_id}`,
+                        utmSource: user.utm_source,
+                        utmCampaign: user.utm_campaign,
+                        meta: {
+                            tg_id: user.telegram_id,
+                            dish: cached.data?.dish || cached.description || null
+                        }
+                    });
+
+                    const secret = process.env.JWT_SECRET || process.env.YOOKASSA_SECRET_KEY || 'default_secret';
+                    const token = jwt.sign({ email: user.email }, secret, { expiresIn: '7d' });
+                    const cabinetUrl = `https://vireyou.com/api/auth/telegram-login?token=${token}&locale=${lang}`;
+                    const firstMealMsg = lang === 'en'
+                        ? "🎉 Awesome! Your first meal is logged.\\n\\nOpen your personal cabinet to see all charts, biomarker impacts, and nutrition balance:"
+                        : "🎉 Отлично! Твой первый приём пищи записан.\\n\\nОткрой личный кабинет, чтобы увидеть графики, баланс нутриентов и влияние на биомаркеры:";
+
+                    delete tempLog[user.id];
+                    console.log(`[SAVE_LOG] Successfully saved first meal for user ${user.id}`);
+                    await ctx.reply(t(lang, 'Confirmation.success'));
+                    return ctx.reply(firstMealMsg, {
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: lang === 'en' ? "📱 Open Cabinet" : "📱 Открыть кабинет", web_app: { url: cabinetUrl } }]
+                            ]
+                        }
+                    });
+                }
+            } catch (errFirstMeal) {
+                console.error("[FIRST_MEAL_CHECK] Error:", errFirstMeal);
+            }
         } else if (cached.type === "SLEEP") {
             const startOfDay = new Date(date);
             startOfDay.setHours(0,0,0,0);

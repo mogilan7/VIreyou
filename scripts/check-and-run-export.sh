@@ -1,26 +1,68 @@
 #!/bin/bash
-# Checks if the weekly export for this week has already run.
-# If not (e.g. Mac was asleep or turned off), runs it immediately on wake/startup.
+# Smart watchdog for VIReyou weekly export
+# Checks if the export has run for the most recent Sunday 23:00 Myanmar cutoff (16:30 UTC).
+# If not (e.g. Mac was asleep or turned off), runs it and saves timestamp ONLY on exit code 0.
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_DIR"
 
-LAST_RUN_FILE="$PROJECT_DIR/scripts/exports/.last_run_timestamp"
+LAST_SUCCESS_FILE="$PROJECT_DIR/scripts/exports/.last_successful_export"
+mkdir -p "$PROJECT_DIR/scripts/exports"
 
-# Current week identifier, e.g., 2026-42
-CURRENT_WEEK=$(date '+%Y-%W')
+# Use Node.js to evaluate cutoff condition with timezone precision
+SHOULD_RUN=$(node -e '
+const fs = require("fs");
+const file = process.argv[1];
 
-if [ -f "$LAST_RUN_FILE" ]; then
-    LAST_WEEK=$(cat "$LAST_RUN_FILE")
+function getLastSundayCutoff(now = new Date()) {
+    const d = new Date(now);
+    const day = d.getUTCDay(); // 0 is Sunday, 1 is Monday...
+    const hours = d.getUTCHours();
+    const minutes = d.getUTCMinutes();
+    let daysBack = day;
+    // Sunday 23:00 Myanmar is Sunday 16:30 UTC
+    if (day === 0) {
+        if (hours < 16 || (hours === 16 && minutes < 30)) {
+            daysBack = 7;
+        }
+    }
+    return new Date(Date.UTC(
+        d.getUTCFullYear(),
+        d.getUTCMonth(),
+        d.getUTCDate() - daysBack,
+        16, 30, 0, 0
+    ));
+}
+
+const cutoff = getLastSundayCutoff();
+let shouldRun = false;
+
+if (!fs.existsSync(file)) {
+    shouldRun = true;
+} else {
+    try {
+        const lastStr = fs.readFileSync(file, "utf8").trim();
+        const lastDate = new Date(lastStr);
+        if (isNaN(lastDate.getTime()) || lastDate < cutoff) {
+            shouldRun = true;
+        }
+    } catch {
+        shouldRun = true;
+    }
+}
+
+console.log(shouldRun ? "YES" : "NO");
+' "$LAST_SUCCESS_FILE")
+
+if [ "$SHOULD_RUN" = "YES" ]; then
+    echo "[WATCHDOG $(date '+%Y-%m-%d %H:%M:%S')] Export is pending for the latest Sunday cutoff. Executing..."
+    if "$PROJECT_DIR/scripts/run-export.sh"; then
+        node -e 'const fs = require("fs"); fs.writeFileSync(process.argv[1], new Date().toISOString(), "utf8");' "$LAST_SUCCESS_FILE"
+        echo "[WATCHDOG $(date '+%Y-%m-%d %H:%M:%S')] ✅ Export finished successfully. Timestamp updated."
+    else
+        echo "[WATCHDOG $(date '+%Y-%m-%d %H:%M:%S')] ❌ Export exited with error. Timestamp NOT updated (will retry next check)."
+    fi
 else
-    LAST_WEEK=""
-fi
-
-# Run export if it has not been run yet for this week
-if [ "$CURRENT_WEEK" != "$LAST_WEEK" ]; then
-    echo "[LAUNCHD] Weekly export has not run for week $CURRENT_WEEK. Running now..."
-    "$PROJECT_DIR/scripts/run-export.sh"
-    echo "$CURRENT_WEEK" > "$LAST_RUN_FILE"
-else
-    echo "[LAUNCHD] Weekly export for week $CURRENT_WEEK has already completed."
+    # Already ran for the current cycle
+    exit 0
 fi
