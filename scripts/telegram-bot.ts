@@ -38,6 +38,10 @@ function generateAutoLoginUrl(user: { email: string; telegram_id?: string | numb
     const token = jwt.sign(payload, secret, { expiresIn: '15m' });
     return `https://vireyou.com/api/auth/telegram-login?token=${token}&locale=${locale}`;
 }
+
+function getCabinetWebAppUrl(locale: string = "ru"): string {
+    return `https://vireyou.com/${locale}/cabinet/lifestyle`;
+}
 async function logBotEvent(event: string, opts: {
     userId?: string | null;
     sessionId?: string | null;
@@ -520,6 +524,18 @@ bot.command('start', async (ctx: any) => {
   const args = ctx.message.text.split(' ');
   const payload = args[1] || null;
   const tgId = ctx.from?.id ? ctx.from.id.toString() : null;
+
+  // Set chat menu button to clean cabinet WebApp URL
+  try {
+      const userLang = ctx.state?.lang || (ctx.from?.language_code === "en" ? "en" : "ru");
+      await ctx.setChatMenuButton({
+          type: "web_app",
+          text: userLang === "en" ? "Cabinet" : "Кабинет",
+          web_app: { url: getCabinetWebAppUrl(userLang) }
+      });
+  } catch (menuErr) {
+      console.warn("[BOT] Failed to setChatMenuButton in /start:", menuErr);
+  }
 
   // Track bot_start event
   await logBotEvent('bot_start', {
@@ -1334,7 +1350,7 @@ async function checkSubscriptionLevel(ctx: any, user: any, requiredPlan: 'standa
   // Нет активной подписки
   if (!hasActiveSub) {
     const lang = ctx.state?.lang || 'ru';
-    const dashboardUrl = generateAutoLoginUrl(freshUser, lang);
+    const dashboardUrl = getCabinetWebAppUrl(lang);
 
     const msg = lang === 'en'
       ? `⏳ Your 3-day free trial has ended.\n\nTo continue using AI features — get a subscription.\n\n🔥 Standard — food photo recognition & product analysis.\n💎 Pro — everything in Standard + AI nutrition coach & group challenges.`
@@ -1354,7 +1370,7 @@ async function checkSubscriptionLevel(ctx: any, user: any, requiredPlan: 'standa
   if (requiredPlan === 'pro' && userPlan !== 'pro') {
     // У пользователя Standard, а нужен Pro
     const lang = ctx.state?.lang || 'ru';
-    const dashboardUrl = generateAutoLoginUrl(freshUser, lang);
+    const dashboardUrl = getCabinetWebAppUrl(lang);
 
     const msg = lang === 'en'
       ? `💎 This feature is available on the Pro plan only.\n\nYour current plan: Standard.\n\nUpgrade to Pro to unlock:\n• 🍽️ AI nutrition advisor («What to eat next?»)\n• 🏃 Group challenges & marathons`
@@ -1418,7 +1434,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
   const daysSinceCreated = (new Date().getTime() - createdDate.getTime()) / (1000 * 3600 * 24);
   const isTrial = daysSinceCreated <= 3;
 
-  const dashboardUrl = generateAutoLoginUrl(user, lang);
+  const dashboardUrl = getCabinetWebAppUrl(lang);
 
   const menuButtons: any[][] = [
       [Markup.button.callback(t(lang, 'Menu.nutrition'), 'menu_nutrition')],
@@ -2454,7 +2470,7 @@ bot.action('save_log_confirm', async (ctx: any) => {
                         }
                     });
 
-                    const cabinetUrl = generateAutoLoginUrl(user, lang);
+                    const cabinetUrl = getCabinetWebAppUrl(lang);
                     const firstMealMsg = lang === 'en'
                         ? "🎉 Awesome! Your first meal is logged.\\n\\nOpen your personal cabinet to see all charts, biomarker impacts, and nutrition balance:"
                         : "🎉 Отлично! Твой первый приём пищи записан.\\n\\nОткрой личный кабинет, чтобы увидеть графики, баланс нутриентов и влияние на биомаркеры:";
@@ -2874,7 +2890,7 @@ bot.action('menu_checklist', async (ctx: any) => {
         const keyboard = {
             inline_keyboard: [
                 [{ text: t(lang, 'Checklist.nutritionReco'), callback_data: 'menu_nutrition_reco' }],
-                [{ text: t(lang, 'Checklist.cabinetBtn'), web_app: { url: generateAutoLoginUrl(user, lang) } }],
+                [{ text: t(lang, 'Checklist.cabinetBtn'), web_app: { url: getCabinetWebAppUrl(lang) } }],
                 [{ text: t(lang, 'Settings.back'), callback_data: "main_menu" }]
             ]
         };
@@ -2912,7 +2928,7 @@ bot.action('menu_checklist', async (ctx: any) => {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: t(lang, 'Checklist.nutritionReco'), callback_data: 'menu_nutrition_reco' }],
-                    [{ text: t(lang, 'Checklist.cabinetBtn'), web_app: { url: generateAutoLoginUrl(user, lang) } }],
+                    [{ text: t(lang, 'Checklist.cabinetBtn'), web_app: { url: getCabinetWebAppUrl(lang) } }],
                     [{ text: t(lang, 'Settings.back'), callback_data: "main_menu" }]
                 ]
             }
@@ -4076,7 +4092,7 @@ You can extend your subscription at any time.`
       `💎 **PRO** — 450 ⭐️ в месяц\n` +
       `• Всё из Standard\n• Персональный ИИ-советник («Что съесть дальше?»)\n• Командные марафоны и челленджи\n• Доступ ко всем смарт-калькуляторам долголетия`;
 
-  const dashboardUrl = generateAutoLoginUrl(user || { email: 'user@vireyou.com' }, lang);
+  const dashboardUrl = getCabinetWebAppUrl(lang);
 
   await ctx.reply(msg, {
     parse_mode: 'Markdown',
@@ -4205,6 +4221,15 @@ bot.launch({ dropPendingUpdates: true }).catch(err => {
     console.error("Bot launch failed:", err);
 });
 console.log("✅ Bot is polling for updates");
+
+// Set default chat menu button
+bot.telegram.setChatMenuButton({
+    menu_button: {
+        type: "web_app",
+        text: "Кабинет",
+        web_app: { url: "https://vireyou.com/ru/cabinet/lifestyle" }
+    }
+}).catch((err: any) => console.warn("[BOT] Failed to set default chat menu button:", err?.message || err));
 
 // Обеспечиваем корректное завершение
 process.once('SIGINT', () => bot.stop('SIGINT'));

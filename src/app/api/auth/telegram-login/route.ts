@@ -1,31 +1,19 @@
-export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { createClient } from '@supabase/supabase-js';
 import prisma from '@/lib/prisma';
+import { createSessionForUser } from '@/lib/auth/createSessionForUser';
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const token = searchParams.get('token');
     const locale = searchParams.get('locale') || 'ru';
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vireyou.com';
-    const dashboardUrl = `${siteUrl}/${locale}/cabinet/lifestyle`;
+    const dashboardUrl = new URL(`/${locale}/cabinet/lifestyle`, req.url);
 
-    // 1. Strict secret validation: ONLY JWT_SECRET, no fallbacks
+    // 1. Strict Secret Validation
     const secret = process.env.JWT_SECRET;
-    if (!secret) {
-        console.error('[AUTH CRITICAL] Missing JWT_SECRET environment variable');
-        return NextResponse.json({ error: 'Server auth configuration error' }, { status: 500 });
-    }
-
-    // 2. Check Supabase environment variables
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !serviceKey || !anonKey) {
-        console.error('[AUTH] Missing Supabase env vars');
-        return NextResponse.json({ error: 'Config error' }, { status: 500 });
+    if (!secret || secret.length < 32) {
+        console.error('[CRITICAL] JWT_SECRET is not configured or too short (min 32 chars required)!');
+        return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
     if (!token) {
@@ -33,7 +21,7 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        // 3. Verify JWT with strict secret (rejects any other signatures)
+        // 2. Verify JWT with strict secret (rejects any other signatures or expired tokens)
         const decoded = jwt.verify(token, secret) as {
             email: string;
             telegram_id?: string;
@@ -47,7 +35,7 @@ export async function GET(req: NextRequest) {
 
         const email = decoded.email;
 
-        // 4. Enforce single-use token via jti tracking
+        // 3. Enforce single-use token via jti tracking
         if (!decoded.jti) {
             console.error('[AUTH] Token rejected: missing jti claim');
             return NextResponse.redirect(new URL(`/${locale}/login?error=invalid_token`, req.url));
@@ -61,7 +49,7 @@ export async function GET(req: NextRequest) {
             return NextResponse.redirect(new URL(`/${locale}/login?error=token_already_used`, req.url));
         }
 
-        // 5. Verify telegram_id match against database user
+        // 4. Verify telegram_id match against database user if present
         const dbUser = await prisma.user.findFirst({ where: { email } });
         if (dbUser && dbUser.telegram_id && decoded.telegram_id) {
             if (String(dbUser.telegram_id) !== String(decoded.telegram_id)) {
@@ -70,7 +58,7 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // 6. Record jti as consumed
+        // 5. Record jti as consumed
         const expiresAt = decoded.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 15 * 60 * 1000);
         await prisma.$executeRaw`
             INSERT INTO public.used_auth_tokens (jti, user_id, expires_at)
@@ -78,89 +66,12 @@ export async function GET(req: NextRequest) {
             ON CONFLICT (jti) DO NOTHING
         `;
 
-        const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+        // 6. Establish session using shared helper
+        const sessionResult = await createSessionForUser(email, decoded.telegram_id || null);
 
-        // 7. Generate magic link for Supabase authentication
-        let { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-            type: 'magiclink',
-            email,
-        });
-
-        // Auto-create user if not found
-        if (linkError && (linkError.message.includes('User not found') || linkError.status === 422)) {
-            const newUserRes = await supabaseAdmin.auth.admin.createUser({
-                email,
-                email_confirm: true,
-                user_metadata: { source: 'telegram_bot' }
-            });
-            
-            // Sync Prisma ID if needed
-            if (newUserRes.data?.user?.id) {
-                const newAuthId = newUserRes.data.user.id;
-                try {
-                    const prismaUser = await prisma.user.findFirst({ where: { email } });
-                    if (prismaUser && prismaUser.id !== newAuthId) {
-                        const oldId = prismaUser.id;
-                        console.log(`[AUTH] Syncing Prisma ID from ${oldId} to ${newAuthId} for ${email}`);
-                        await prisma.$executeRaw`SET session_replication_role = replica`;
-                        await prisma.$executeRaw`UPDATE public."ActivityLog"      SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."HabitLog"         SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."NutritionLog"     SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."SleepLog"         SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."HydrationLog"     SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."BiomarkerResult"  SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."HealthData"       SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."MedicalDocument"  SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."Transaction"      SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."Consultation"     SET client_id  = ${newAuthId}::uuid WHERE client_id  = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."AccessPermission" SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."SquadParticipant" SET user_id    = ${newAuthId}::uuid WHERE user_id    = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."Squad"            SET creator_id = ${newAuthId}::uuid WHERE creator_id = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."User"             SET referrer_id = ${newAuthId}::uuid WHERE referrer_id = ${oldId}`;
-                        await prisma.$executeRaw`UPDATE public."User"             SET id = ${newAuthId}::uuid WHERE email = ${email}`;
-                        await prisma.$executeRaw`SET session_replication_role = DEFAULT`;
-                        console.log(`[AUTH] ✅ Full ID sync complete for ${email}`);
-                    }
-                } catch (syncErr) {
-                    console.error('[AUTH] Failed to sync Prisma ID (full):', syncErr);
-                    try { await prisma.$executeRaw`SET session_replication_role = DEFAULT`; } catch {}
-                }
-            }
-
-            const retry = await supabaseAdmin.auth.admin.generateLink({
-                type: 'magiclink',
-                email,
-            });
-            linkData = retry.data;
-            linkError = retry.error;
-        }
-
-        if (linkError || !linkData?.properties?.action_link) {
-            console.error('[AUTH] Supabase generateLink error:', linkError);
-            throw new Error('Link generation failed');
-        }
-
-        // 8. Extract token_hash and verify server-side to set cookies on vireyou.com
-        const actionLink = linkData.properties.action_link;
-        const actionUrl = new URL(actionLink);
-        const tokenHash = actionUrl.searchParams.get('token');
-
-        if (!tokenHash) {
-            console.error('[AUTH] No token in action_link:', actionLink);
-            throw new Error('Link parsing failed');
-        }
-
-        const { createClient: createServerClient } = await import('@/utils/supabase/server');
-        const supabaseServer = await createServerClient();
-        
-        const { error: verifyError } = await supabaseServer.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: 'magiclink',
-        });
-
-        if (verifyError) {
-            console.error('[AUTH] OTP verify error:', verifyError);
-            throw new Error('OTP verification failed');
+        if (!sessionResult.success) {
+            console.error(`[AUTH] Session creation failed for ${email}:`, sessionResult.error);
+            return NextResponse.redirect(new URL(`/${locale}/login?error=auth_failed`, req.url));
         }
 
         console.log(`[AUTH] Successfully authenticated ${email} via one-time Telegram link.`);

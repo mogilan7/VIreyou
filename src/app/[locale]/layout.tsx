@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import CookieBanner from "@/components/layout/CookieBanner";
 import AnalyticsTracker from "@/components/layout/AnalyticsTracker";
 import { Analytics } from "@vercel/analytics/next";
+import { TelegramMiniAppAutoLogin } from "@/components/auth/TelegramMiniAppAutoLogin";
 
 export const maxDuration = 60;
 
@@ -51,9 +53,14 @@ export default async function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet" />
+        <Script 
+          src="https://telegram.org/js/telegram-web-app.js" 
+          strategy="beforeInteractive" 
+        />
       </head>
       <body className="antialiased relative">
         <NextIntlClientProvider messages={messages}>
+          <TelegramMiniAppAutoLogin locale={locale} />
           <main className="min-h-screen w-full">
             {children}
           </main>
