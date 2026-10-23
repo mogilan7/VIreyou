@@ -390,7 +390,8 @@ Return STRICT JSON:
   "description": "Short description in ${lang === 'en' ? 'English' : 'Russian'}.",
   "data": { ... },
   "date_offset_days": 0,
-  "habit_key": "Alcohol" | "Smoking" | "Sugar" | null
+  "habit_key": "Alcohol" | "Smoking" | "Sugar" | null,
+  "additional_entries": []
 }
 
 **DATA RULES:**
@@ -422,6 +423,12 @@ Return STRICT JSON:
   Example for "выпил бокал вина":
   { "type": "NUTRITION", "habit_key": "Alcohol", "data": { "dish": "Вино красное", "ingredients": [{ "name": "вино красное", "grams": 200 }] } }
 - HYDRATION: { "volume_ml": 250 } (Use ONLY when the user explicitly logs drinking water or pure hydration beverages like tea, not when water is part of food)
+
+- MULTI-ACTION MESSAGES:
+  If the message contains multiple distinct health actions (e.g., "съел гречку с курицей и выпил стакан воды", or "побегал 5 км и выпил 500 мл воды"):
+  1. Put the primary action (e.g., NUTRITION) as the main "type" and "data".
+  2. Put the secondary actions in "additional_entries" array (e.g., [{ "type": "HYDRATION", "data": { "volume_ml": 250 }, "description": "Стакан воды" }]).
+  1 стакан воды = 250 мл, 1 кружка = 300 мл, 1 бутылка = 500 мл.
 CRITICAL RULE FOR ALL TYPES: If a specific metric (like duration_hrs, steps, hrv, etc.) is NOT explicitly mentioned by the user, OMIT IT entirely from the JSON object (do NOT return 0 or null).
 
 If the message is completely unintelligible or irrelevant to health, return status "ERROR". Be lenient with typos (e.g., "мне выпил" = "я выпил").`;

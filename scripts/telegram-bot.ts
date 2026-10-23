@@ -42,6 +42,102 @@ function generateAutoLoginUrl(user: { email: string; telegram_id?: string | numb
 function getCabinetWebAppUrl(locale: string = "ru"): string {
     return `https://vireyou.com/${locale}/cabinet/lifestyle`;
 }
+
+function getPersistentKeyboard(lang: string = "ru") {
+    const isEn = lang === "en";
+    return Markup.keyboard([
+        [isEn ? "🍽 Log Food" : "🍽 Записать еду", isEn ? "💧 Water +250 ml" : "💧 Вода +250 мл"],
+        [isEn ? "📋 Menu" : "📋 Меню", isEn ? "⭐ Subscription" : "⭐ Подписка"]
+    ]).resize().persistent();
+}
+
+async function logWaterAndGetSummary(user: any, volumeMl: number, lang: string = "ru"): Promise<string> {
+    const isEn = lang === "en";
+    const now = new Date();
+    await prisma.hydrationLog.create({
+        data: {
+            id: crypto.randomUUID(),
+            user_id: user.id,
+            volume_ml: volumeMl,
+            created_at: now
+        }
+    });
+
+    const localTodayStr = getUserLocalDate(user.timezone);
+    const datePart = localTodayStr.split(",")[0].trim();
+    const startOfDay = new Date(`${datePart}T00:00:00Z`);
+    const endOfDay = new Date(`${datePart}T23:59:59Z`);
+
+    const logs = await prisma.hydrationLog.findMany({
+        where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
+    });
+    const totalTodayMl = logs.reduce((sum: number, l: any) => sum + (l.volume_ml || 0), 0);
+
+    let targetWaterMl: number | null = null;
+    if (user.target_water && user.target_water > 0) {
+        targetWaterMl = Math.round(user.target_water);
+    } else {
+        const waterTest = await prisma.test_results.findFirst({
+            where: { user_id: user.id, test_type: "water" },
+            orderBy: { created_at: "desc" }
+        });
+        if (waterTest?.score && waterTest.score > 0) {
+            targetWaterMl = Math.round(waterTest.score);
+        } else if (user.weight && user.weight > 0) {
+            const mlPerKg = (user.age && user.age >= 66) ? 25 : (user.age && user.age >= 56 ? 30 : 35);
+            const sexF = (user.gender === "female" || user.gender === "f") ? 0.95 : 1.0;
+            const drink = user.weight * mlPerKg * sexF * 0.80;
+            targetWaterMl = Math.round(drink / 50) * 50;
+        }
+    }
+
+    if (isEn) {
+        const totalL = (totalTodayMl / 1000).toFixed(1);
+        if (targetWaterMl && targetWaterMl > 0) {
+            const targetL = (targetWaterMl / 1000).toFixed(1);
+            return `💧 +${volumeMl} ml · today ${totalL} L of ${targetL} L`;
+        }
+        return `💧 +${volumeMl} ml · today ${totalL} L`;
+    } else {
+        const totalL = (totalTodayMl / 1000).toFixed(1).replace(".", ",");
+        if (targetWaterMl && targetWaterMl > 0) {
+            const targetL = (targetWaterMl / 1000).toFixed(1).replace(".", ",");
+            return `💧 +${volumeMl} мл · сегодня ${totalL} л из ${targetL} л`;
+        }
+        return `💧 +${volumeMl} мл · сегодня ${totalL} л`;
+    }
+}
+
+async function setupBotCommands() {
+    try {
+        await bot.telegram.setMyCommands([
+            { command: "menu", description: "Главное меню" },
+            { command: "water", description: "Записать воду" },
+            { command: "subscribe", description: "Оформить подписку" },
+            { command: "help", description: "Как пользоваться ботом" },
+            { command: "start", description: "Начать заново" }
+        ], { language_code: "ru" });
+
+        await bot.telegram.setMyCommands([
+            { command: "menu", description: "Main menu" },
+            { command: "water", description: "Log water" },
+            { command: "subscribe", description: "Get subscription" },
+            { command: "help", description: "How to use" },
+            { command: "start", description: "Start over" }
+        ], { language_code: "en" });
+
+        await bot.telegram.setMyCommands([
+            { command: "menu", description: "Главное меню" },
+            { command: "water", description: "Записать воду" },
+            { command: "subscribe", description: "Оформить подписку" },
+            { command: "help", description: "Как пользоваться ботом" },
+            { command: "start", description: "Начать заново" }
+        ]);
+        console.log("[BOT] Commands registered via setMyCommands");
+    } catch (e: any) {
+        console.warn("[BOT] Failed to setMyCommands:", e?.message || e);
+    }
+}
 async function logBotEvent(event: string, opts: {
     userId?: string | null;
     sessionId?: string | null;
@@ -680,9 +776,9 @@ bot.command('start', async (ctx: any) => {
 
           // Первое сообщение: короткое приветствие и сразу призыв отправить еду
           const welcomeMsg = ctx.state.lang === 'en'
-              ? "👋 Hello! I am your longevity and nutrition assistant VIReyou.\n\nSend a photo of your plate or use voice to tell me what you ate — I will analyze almost 30 nutrients."
-              : "👋 Привет! Я твой ассистент по долголетию и питанию VIReyou.\n\nПришлите фото тарелки или голосом расскажите, что съели — я разберу почти 30 нутриентов.";
-          return ctx.reply(welcomeMsg);
+              ? "👋 Hello! I am your longevity and nutrition assistant VIReyou.\n💬 Write or speak in your own words — food, water, sleep, activity and habits.\n\nSend a photo of your plate or use voice to tell me what you ate — I will analyze almost 30 nutrients."
+              : "👋 Привет! Я твой ассистент по долголетию и питанию VIReyou.\n💬 Пишите или наговаривайте всё своими словами — еду, воду, сон, активность и привычки.\n\nПришлите фото тарелки или голосом расскажите, что съели — я разберу почти 30 нутриентов.";
+          return ctx.reply(welcomeMsg, getPersistentKeyboard(ctx.state.lang));
       } else {
           // Пользователь уже существует
           userRecord = await handleUserReferral(userRecord, refId);
@@ -786,6 +882,80 @@ bot.command('start', async (ctx: any) => {
     console.error("Start command error:", error);
     ctx.reply(t(ctx.state.lang, 'Auth.linkError'));
   }
+});
+
+bot.command('menu', async (ctx: any) => {
+    const user = ctx.state?.user;
+    if (!user) return ctx.reply(t(ctx.state?.lang || 'ru', 'Auth.notLinked'));
+    return sendWelcomeMenu(ctx, user);
+});
+
+bot.command('water', async (ctx: any) => {
+    const user = ctx.state?.user;
+    if (!user) return ctx.reply(t(ctx.state?.lang || 'ru', 'Auth.notLinked'));
+    const lang = ctx.state?.lang || user.language || 'ru';
+    const text = ctx.message?.text || '';
+    const match = text.match(/\/water\s+(\d+)/);
+    if (match) {
+        const vol = parseInt(match[1]);
+        const summary = await logWaterAndGetSummary(user, vol, lang);
+        return ctx.reply(summary);
+    }
+    return ctx.reply(t(lang, 'Water.prompt'), {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+            [Markup.button.callback(t(lang, 'Water.btn250'), 'water_250')],
+            [Markup.button.callback(t(lang, 'Water.btn500'), 'water_500')],
+            [Markup.button.callback(t(lang, 'Water.btn750'), 'water_750')]
+        ])
+    });
+});
+
+bot.command('help', async (ctx: any) => {
+    const lang = ctx.state?.lang || 'ru';
+    if (lang === 'en') {
+        const helpMsg = `ℹ️ *How to use VIReyou assistant*
+
+💬 *Free-form logging*:
+You can write or dictate anything in your own words — our AI understands nutrition, water, sleep, activity, and habits!
+
+*Examples of what you can send:*
+• 🍽 *Food*: Send a photo of your plate or write: _«ate buckwheat with chicken and drank a glass of water»_
+• 💧 *Water*: _«drank 1 liter of water»_ or click the button below
+• 🏃 *Activity*: _«30 active minutes today»_ or _«walked 8000 steps»_
+• 😴 *Sleep*: _«slept 7 hours»_ or send a smartwatch screenshot
+• 🍷 *Habits*: _«had a glass of wine»_
+
+⚡️ *Quick Commands:*
+/menu — Main menu
+/water — Log water
+/subscribe — Manage subscription
+/start — Restart bot
+
+📱 Open *Cabinet* using the button in the bottom left corner to view detailed charts and nutrient longevity analytics!`;
+        return ctx.reply(helpMsg, { parse_mode: 'Markdown', ...getPersistentKeyboard('en') });
+    } else {
+        const helpMsg = `ℹ️ *Как пользоваться ассистентом VIReyou*
+
+💬 *Свободный ввод*:
+Вы можете писать или наговаривать голосовым сообщением всё своими словами — наш ИИ распознаёт еду, воду, сон, активность и привычки!
+
+*Примеры фраз, которые можно отправить:*
+• 🍽 *Еда*: Пришлите фото тарелки или напишите: _«съел гречку с курицей и выпил стакан воды»_
+• 💧 *Вода*: _«выпил 1 литр воды»_ или нажмите кнопку под чатом
+• 🏃 *Активность*: _«30 активных минут сегодня»_ или _«прошёл 8000 шагов»_
+• 😴 *Сон*: _«спал 7 часов»_ или пришлите скриншот умных часов
+• 🍷 *Привычки*: _«выпил бокал вина»_
+
+⚡️ *Быстрые команды:*
+/menu — Главное меню
+/water — Записать воду
+/subscribe — Оформить подписку
+/start — Начать заново
+
+📱 Нажмите кнопку *«Кабинет»* в левом нижнем углу, чтобы открыть графики и персональную аналитику долголетия!`;
+        return ctx.reply(helpMsg, { parse_mode: 'Markdown', ...getPersistentKeyboard('ru') });
+    }
 });
 
 bot.command('profile', async (ctx: any) => {
@@ -1453,6 +1623,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
   menuButtons.push([Markup.button.callback(t(lang, 'Menu.settings'), 'menu_settings')]);
 
   try {
+      await ctx.reply(lang === 'en' ? "📋 Main Menu" : "📋 Главное меню", getPersistentKeyboard(lang));
       if (fs.existsSync(imagePath)) {
           await ctx.replyWithPhoto({ source: fs.createReadStream(imagePath) }, {
               caption: caption,
@@ -1553,6 +1724,7 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
         type: parsedData.type, 
         data: { ...parsedData.data, description: parsedData.description }, 
         description: parsedData.description,
+        additional_entries: parsedData.additional_entries || [],
         date_offset_days: parsedData.date_offset_days,
         habit_key: parsedData.habit_key,
         localToday: localToday,
@@ -1647,10 +1819,22 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
         text += `\n\n📅 _Дата записи: ${dateStr}_`;
     }
 
-    return ctx.reply(text, Markup.inlineKeyboard([
-        [Markup.button.callback(t(lang, 'Confirmation.btnSave'), 'save_log_confirm')],
-        [Markup.button.callback(t(lang, 'Confirmation.btnEdit'), 'edit_log_prompt')]
-    ]));
+    if (parsedData.additional_entries && Array.isArray(parsedData.additional_entries) && parsedData.additional_entries.length > 0) {
+        for (const entry of parsedData.additional_entries) {
+            if (entry.type === "HYDRATION") {
+                const vol = entry.data?.volume_ml || 250;
+                text += lang === 'en' ? `\n\n💧 + Also logged water: ${vol} ml` : `\n\n💧 + Также записано: вода ${vol} мл`;
+            }
+        }
+    }
+
+    return ctx.reply(text, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+            [Markup.button.callback(t(lang, 'Confirmation.btnSave'), 'save_log_confirm')],
+            [Markup.button.callback(t(lang, 'Confirmation.btnEdit'), 'edit_log_prompt')]
+        ])
+    });
 }
 
 
@@ -1950,20 +2134,59 @@ bot.on('voice', async (ctx: any) => {
 // Обработка ТЕКСТА
 // ----------------------------------------------------
 
+// Persistent reply keyboard handlers
+bot.hears(['🍽 Записать еду', '🍽 Log Food'], async (ctx: any) => {
+    const lang = ctx.state?.lang || 'ru';
+    return ctx.reply(lang === 'en' 
+        ? "Send a photo of your plate or a voice note of what you ate" 
+        : "Пришлите фото тарелки или голосовое, что съели");
+});
+
+bot.hears(['💧 Вода +250 мл', '💧 Water +250 ml'], async (ctx: any) => {
+    const user = ctx.state?.user;
+    if (!user) return ctx.reply(t(ctx.state?.lang || 'ru', 'Auth.notLinked'));
+    const lang = ctx.state?.lang || user.language || 'ru';
+    const summary = await logWaterAndGetSummary(user, 250, lang);
+    return ctx.reply(summary);
+});
+
+bot.hears(['📋 Меню', '📋 Menu'], async (ctx: any) => {
+    const user = ctx.state?.user;
+    if (!user) return ctx.reply(t(ctx.state?.lang || 'ru', 'Auth.notLinked'));
+    return sendWelcomeMenu(ctx, user);
+});
+
+bot.hears(['⭐ Подписка', '⭐ Subscription', '⭐️ Подписка', '⭐️ Subscription'], async (ctx: any) => {
+    return showSubscriptionMenu(ctx);
+});
+
 bot.hears(/^(\d+)\s*(мл|ml|миллилитров)$/i, async (ctx: any) => {
     const volume = parseInt(ctx.match[1]);
     const user = ctx.state.user;
     const lang = ctx.state.lang || 'ru';
 
     if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
-
-    await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(), user_id: user.id, volume_ml: volume }
-    });
-            return ctx.reply(t(lang, 'Water.saved', { vol: volume }));
+    const summary = await logWaterAndGetSummary(user, volume, lang);
+    return ctx.reply(summary);
 });
 
 bot.on('text', async (ctx: any) => {
     const text = ctx.message?.text?.trim() || '';
+
+    // Filter persistent reply keyboard buttons and commands so they never go to AI analysis
+    const persistentButtons = [
+        '🍽 Записать еду', '🍽 Log Food',
+        '💧 Вода +250 мл', '💧 Water +250 ml',
+        '📋 Меню', '📋 Menu',
+        '⭐ Подписка', '⭐ Subscription',
+        '⭐️ Подписка', '⭐️ Subscription'
+    ];
+    if (persistentButtons.includes(text)) {
+        return;
+    }
+    if (text.startsWith('/')) {
+        return;
+    }
 
     // Allow testing via just text 'review_test' or case-insensitive '/review_test'
     if (text.toLowerCase() === '/review_test' || text.toLowerCase() === 'review_test') {
@@ -2472,12 +2695,12 @@ bot.action('save_log_confirm', async (ctx: any) => {
 
                     const cabinetUrl = getCabinetWebAppUrl(lang);
                     const firstMealMsg = lang === 'en'
-                        ? "🎉 Awesome! Your first meal is logged.\\n\\nOpen your personal cabinet to see all charts, biomarker impacts, and nutrition balance:"
-                        : "🎉 Отлично! Твой первый приём пищи записан.\\n\\nОткрой личный кабинет, чтобы увидеть графики, баланс нутриентов и влияние на биомаркеры:";
+                        ? "🎉 Awesome! Your first meal is logged.\n\n💬 Tip: You can log anything in free form — just send a voice note or write: «drank 500 ml water», «walked 8000 steps», «slept 7 hours».\n\nOpen your personal cabinet to see all charts, biomarker impacts, and nutrition balance:"
+                        : "🎉 Отлично! Твой первый приём пищи записан.\n\n💬 Подсказка: вы можете записывать любые показатели свободным текстом или голосом — например: «выпил 500 мл воды», «прошёл 8000 шагов», «спал 7 часов».\n\nОткрой личный кабинет, чтобы увидеть графики, баланс нутриентов и влияние на биомаркеры:";
 
                     delete tempLog[user.id];
                     console.log(`[SAVE_LOG] Successfully saved first meal for user ${user.id}`);
-                    await ctx.reply(t(lang, 'Confirmation.success'));
+                    await ctx.reply(t(lang, 'Confirmation.success'), getPersistentKeyboard(lang));
                     return ctx.reply(firstMealMsg, {
                         reply_markup: {
                             inline_keyboard: [
@@ -2565,6 +2788,22 @@ bot.action('save_log_confirm', async (ctx: any) => {
                     created_at: date
                 }
             });
+        }
+
+        if (cached.additional_entries && Array.isArray(cached.additional_entries)) {
+            for (const entry of cached.additional_entries) {
+                if (entry.type === "HYDRATION") {
+                    await prisma.hydrationLog.create({
+                        data: {
+                            id: crypto.randomUUID(),
+                            user_id: user.id,
+                            volume_ml: Number(entry.data?.volume_ml || 250),
+                            created_at: date,
+                            date: date
+                        }
+                    });
+                }
+            }
         }
 
         delete tempLog[user.id];
@@ -3423,13 +3662,14 @@ cron.schedule('* * * * *', async () => {
 bot.action('menu_water', async (ctx: any) => {
     ctx.answerCbQuery();
     const lang = ctx.state.lang || 'ru';
-    await ctx.reply(t(lang, 'Water.prompt'), 
-        Markup.inlineKeyboard([
+    await ctx.reply(t(lang, 'Water.prompt'), {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
             [Markup.button.callback(t(lang, 'Water.btn250'), 'water_250')],
             [Markup.button.callback(t(lang, 'Water.btn500'), 'water_500')],
             [Markup.button.callback(t(lang, 'Water.btn750'), 'water_750')]
         ])
-    );
+    });
 });
 
 bot.action('daily_action_expand', async (ctx: any) => {
@@ -3454,36 +3694,30 @@ bot.action('daily_action_expand', async (ctx: any) => {
 });
 
 bot.action('water_750', async (ctx: any) => {
-    const user = await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
+    const user = ctx.state?.user || await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
     if (!user) return ctx.answerCbQuery("Пользователь не найден.");
-    const lang = (user as any).language || 'ru';
-    
-    await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(), user_id: user.id, volume_ml: 750 }
-    });
-    ctx.answerCbQuery(t(lang, 'Water.saved', { vol: 750 }));
-    ctx.reply(t(lang, 'Water.text', { vol: 750 }));
+    const lang = (user as any).language || ctx.state?.lang || 'ru';
+    const summary = await logWaterAndGetSummary(user, 750, lang);
+    await ctx.answerCbQuery().catch(() => {});
+    return ctx.reply(summary);
 });
 
 bot.action('water_250', async (ctx: any) => {
-    const user = await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
+    const user = ctx.state?.user || await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
     if (!user) return ctx.answerCbQuery("Пользователь не найден.");
-    const lang = (user as any).language || 'ru';
-    
-    await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(), user_id: user.id, volume_ml: 250 }
-    });
-    ctx.answerCbQuery(t(lang, 'Water.saved', { vol: 250 }));
-    ctx.reply(t(lang, 'Water.text', { vol: 250 }));
+    const lang = (user as any).language || ctx.state?.lang || 'ru';
+    const summary = await logWaterAndGetSummary(user, 250, lang);
+    await ctx.answerCbQuery().catch(() => {});
+    return ctx.reply(summary);
 });
 
 bot.action('water_500', async (ctx: any) => {
-    const user = await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
+    const user = ctx.state?.user || await prisma.user.findFirst({ where: { telegram_id: ctx.from.id.toString() } });
     if (!user) return ctx.answerCbQuery("Пользователь не найден.");
-    const lang = (user as any).language || 'ru';
-    
-    await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(), user_id: user.id, volume_ml: 500 }
-    });
-    ctx.answerCbQuery(t(lang, 'Water.saved', { vol: 500 }));
-    ctx.reply(t(lang, 'Water.text', { vol: 500 }));
+    const lang = (user as any).language || ctx.state?.lang || 'ru';
+    const summary = await logWaterAndGetSummary(user, 500, lang);
+    await ctx.answerCbQuery().catch(() => {});
+    return ctx.reply(summary);
 });
 
 bot.action('habits_check', async (ctx: any) => {
@@ -3800,9 +4034,12 @@ export async function generateMarathonDailyReport(name?: string, squadId?: strin
 bot.action('menu_nutrition', async (ctx: any) => {
     ctx.answerCbQuery();
     const lang = ctx.state.lang || 'ru';
-    await ctx.reply(t(lang, 'Nutrition.prompt'), Markup.inlineKeyboard([
-        [Markup.button.callback(t(lang, 'Nutrition.lifehackBtn'), 'lifehack_nutrition')]
-    ]));
+    await ctx.reply(t(lang, 'Nutrition.prompt'), {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+            [Markup.button.callback(t(lang, 'Nutrition.lifehackBtn'), 'lifehack_nutrition')]
+        ])
+    });
 });
 
 bot.action('lifehack_nutrition', async (ctx: any) => {
@@ -3823,19 +4060,19 @@ bot.action('get_nutrition_report', async (ctx: any) => {
 bot.action('menu_activity', async (ctx: any) => {
     ctx.answerCbQuery();
     const lang = ctx.state.lang || 'ru';
-    ctx.reply(t(lang, 'Activity.prompt'));
+    ctx.reply(t(lang, 'Activity.prompt'), { parse_mode: 'Markdown' });
 });
 
 bot.action('menu_sleep', async (ctx: any) => {
     ctx.answerCbQuery();
     const lang = ctx.state.lang || 'ru';
-    ctx.reply(t(lang, 'Sleep.prompt'));
+    ctx.reply(t(lang, 'Sleep.prompt'), { parse_mode: 'Markdown' });
 });
 
 bot.action('menu_habits', async (ctx: any) => {
     ctx.answerCbQuery();
     const lang = ctx.state.lang || 'ru';
-    ctx.reply(t(lang, 'Habits.prompt'));
+    ctx.reply(t(lang, 'Habits.prompt'), { parse_mode: 'Markdown' });
 });
 
 bot.action('menu_settings', async (ctx: any) => {
@@ -4217,7 +4454,9 @@ bot.catch((err: any, ctx: any) => {
 // Запуск
 
 console.log("Starting Telegram Bot (Long Polling)...");
-bot.launch({ dropPendingUpdates: true }).catch(err => {
+bot.launch({ dropPendingUpdates: true }).then(() => {
+    setupBotCommands();
+}).catch(err => {
     console.error("Bot launch failed:", err);
 });
 console.log("✅ Bot is polling for updates");
