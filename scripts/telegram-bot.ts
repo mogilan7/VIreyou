@@ -4454,9 +4454,8 @@ bot.catch((err: any, ctx: any) => {
 // Запуск
 
 console.log("Starting Telegram Bot (Long Polling)...");
-bot.launch({ dropPendingUpdates: true }).then(() => {
-    setupBotCommands();
-}).catch(err => {
+setupBotCommands();
+bot.launch({ dropPendingUpdates: true }).catch(err => {
     console.error("Bot launch failed:", err);
 });
 console.log("✅ Bot is polling for updates");
