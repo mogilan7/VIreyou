@@ -842,7 +842,7 @@ bot.command('start', async (ctx: any) => {
           // Первое сообщение: короткое приветствие и сразу призыв отправить еду
           const welcomeMsg = ctx.state.lang === 'en'
               ? "👋 Hello! I am your longevity and nutrition assistant VIReYou.\n💬 Write or speak in your own words — food, water, sleep, activity and habits.\n\nSend a photo of your plate or use voice to tell me what you ate — I will analyze almost 30 nutrients."
-              : "👋 Здравствуйте! Я ассистент VIReYou по питанию и долголетию.\n💬 Пишите или наговаривайте всё своими словами — еду, воду, сон, активность и привычки.\n\nПришлите фото тарелки или голосом расскажите, что съели — я разберу почти 30 нутриентов.";
+              : "👋 Здравствуйте! Я ассистент VIReYou по питанию и долголетию.\n💬 Пишите или наговаривайте всё своими словами: «литр воды», «30 минут прогулки», «сон 7 часов» — еду, воду, сон, активность и привычки.\n\nПришлите фото тарелки или голосом расскажите, что было на обед или перекус — я разберу почти 30 нутриентов.";
           return ctx.reply(welcomeMsg, getPersistentKeyboard(ctx.state.lang));
       } else {
           // Пользователь уже существует
@@ -985,11 +985,11 @@ bot.command('help', async (ctx: any) => {
 You can write or dictate anything in your own words — our AI understands nutrition, water, sleep, activity, and habits!
 
 *Examples of what you can send:*
-• 🍽 *Food*: Send a photo of your plate or write: _«ate buckwheat with chicken and drank a glass of water»_
-• 💧 *Water*: _«drank 1 liter of water»_ or click the button below
-• 🏃 *Activity*: _«30 active minutes today»_ or _«walked 8000 steps»_
-• 😴 *Sleep*: _«slept 7 hours»_ or send a smartwatch screenshot
-• 🍷 *Habits*: _«had a glass of wine»_
+• 🍽 *Food*: Send a photo of your plate or write: _«buckwheat with chicken and a glass of water»_
+• 💧 *Water*: _«1 liter of water»_ or click the button below
+• 🏃 *Activity*: _«30 minute walk»_ or _«8000 steps»_
+• 😴 *Sleep*: _«7 hours sleep»_ or send a smartwatch screenshot
+• 🍷 *Habits*: _«glass of wine»_
 
 ⚡️ *Quick Commands:*
 /menu — Main menu
@@ -1006,11 +1006,11 @@ You can write or dictate anything in your own words — our AI understands nutri
 Вы можете писать или наговаривать голосовым сообщением всё своими словами — наш ИИ распознаёт еду, воду, сон, активность и привычки!
 
 *Примеры фраз, которые можно отправить:*
-• 🍽 *Еда*: Пришлите фото тарелки или напишите: _«съел гречку с курицей и выпил стакан воды»_
-• 💧 *Вода*: _«выпил 1 литр воды»_ или нажмите кнопку под чатом
-• 🏃 *Активность*: _«30 активных минут сегодня»_ или _«прошёл 8000 шагов»_
-• 😴 *Сон*: _«спал 7 часов»_ или пришлите скриншот умных часов
-• 🍷 *Привычки*: _«выпил бокал вина»_
+• 🍽 *Еда*: Пришлите фото тарелки или напишите: _«гречка с курицей и стакан воды»_
+• 💧 *Вода*: _«литр воды»_ или нажмите кнопку под чатом
+• 🏃 *Активность*: _«30 минут прогулки»_ или _«8000 шагов»_
+• 😴 *Сон*: _«сон 7 часов»_ или пришлите скриншот умных часов
+• 🍷 *Привычки*: _«бокал вина»_
 
 ⚡️ *Быстрые команды:*
 /menu — Главное меню
@@ -2830,7 +2830,7 @@ bot.action('save_log_confirm', async (ctx: any) => {
                     const cabinetUrl = getCabinetWebAppUrl(lang);
                     const firstMealMsg = lang === 'en'
                         ? "🎉 Awesome! Your first meal is logged.\n\n💬 Tip: You can log anything in free form — just send a voice note or write: «drank 500 ml water», «walked 8000 steps», «slept 7 hours».\n\nOpen your personal cabinet to see all charts, biomarker impacts, and nutrition balance:"
-                        : "🎉 Отлично! Ваш первый приём пищи записан.\n\n💬 Подсказка: вы можете записывать любые показатели свободным текстом или голосом — например: «выпил 500 мл воды», «прошёл 8000 шагов», «спал 7 часов».\n\nОткройте личный кабинет, чтобы увидеть графики, баланс нутриентов и влияние на биомаркеры:";
+                        : "🎉 Отлично! Ваш первый приём пищи записан.\n\n💬 Подсказка: вы можете записывать любые показатели свободным текстом или голосом — например: «литр воды», «30 минут прогулки», «сон 7 часов».\n\nОткройте личный кабинет, чтобы увидеть графики, баланс нутриентов и влияние на биомаркеры:";
 
                     delete tempLog[user.id];
                     console.log(`[SAVE_LOG] Successfully saved first meal for user ${user.id}`);

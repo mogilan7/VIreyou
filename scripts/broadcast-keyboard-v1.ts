@@ -22,9 +22,9 @@ function getPersistentKeyboard(lang: string = "ru") {
     ]).resize().persistent();
 }
 
-const textRu = `Мы обновили бота 🌿\n\nВнизу теперь четыре кнопки: записать еду, добавить воду, открыть меню и подписку. Кабинет — кнопка слева от поля ввода.\n\nА ещё можно просто писать или наговаривать своими словами: «выпил литр воды», «гулял 30 минут», «спал 7 часов» — бот всё запишет.`;
+const textRu = `Мы обновили бота 🌿\n\nВнизу теперь четыре кнопки: записать еду, добавить воду, открыть меню и подписку. Кабинет — кнопка слева от поля ввода.\n\nА ещё можно просто написать или наговорить своими словами: «литр воды», «30 минут прогулки», «сон 7 часов» — бот всё запишет.`;
 
-const textEn = `We updated the bot 🌿\n\nThere are now four quick-access buttons below: log food, add water, open menu, and subscription. Cabinet is the button to the left of the input field.\n\nYou can also simply text or send a voice note in your own words: "drank 1 liter of water", "walked 30 minutes", "slept 7 hours" — the bot will log everything.`;
+const textEn = `We updated the bot 🌿\n\nThere are now four quick-access buttons below: log food, add water, open menu, and subscription. Cabinet is the button to the left of the input field.\n\nYou can also simply text or send a voice note in your own words: "1 liter of water", "30 minute walk", "7 hours sleep" — the bot will log everything.`;
 
 async function main() {
     const args = process.argv.slice(2);
@@ -53,7 +53,7 @@ async function main() {
         const tg = (u.telegram_id || "").toLowerCase();
         const un = (u.telegram_username || "").toLowerCase();
         const fn = (u.full_name || "").toLowerCase();
-        return tg.includes("test") || tg.includes("unknown") || un.includes("test_val") || fn.includes("test_val");
+        return tg.includes("test") || tg.includes("unknown") || un.includes("test_val") || fn.includes("test_val") || un === "ergomarket_support";
     };
 
     const eligible = allUsers.filter(u => {

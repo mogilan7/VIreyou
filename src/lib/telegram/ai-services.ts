@@ -420,12 +420,12 @@ Return STRICT JSON:
 - HABIT: { "habit_key": "Smoking" | "Sugar" } — use ONLY for non-food habits like smoking, sugar abuse (no nutritional data). 
   IMPORTANT: If user reports ALCOHOL consumption, do NOT use HABIT type. Use NUTRITION type instead (alcohol has calories!), and set "habit_key": "Alcohol" at the top level.
   For alcohol: return type "NUTRITION" with "dish" = drink name, and "ingredients" with the alcohol items and their volume in ml (treat ml as grams for estimation). Also set top-level "habit_key": "Alcohol".
-  Example for "выпил бокал вина":
+  Example for "бокал вина" (or "выпил бокал вина"):
   { "type": "NUTRITION", "habit_key": "Alcohol", "data": { "dish": "Вино красное", "ingredients": [{ "name": "вино красное", "grams": 200 }] } }
 - HYDRATION: { "volume_ml": 250 } (Use ONLY when the user explicitly logs drinking water or pure hydration beverages like tea, not when water is part of food)
 
 - MULTI-ACTION MESSAGES:
-  If the message contains multiple distinct health actions (e.g., "съел гречку с курицей и выпил стакан воды", or "побегал 5 км и выпил 500 мл воды"):
+  If the message contains multiple distinct health actions (e.g., "гречка с курицей и стакан воды", or "пробежка 5 км и 500 мл воды"):
   1. Put the primary action (e.g., NUTRITION) as the main "type" and "data".
   2. Put the secondary actions in "additional_entries" array (e.g., [{ "type": "HYDRATION", "data": { "volume_ml": 250 }, "description": "Стакан воды" }]).
   1 стакан воды = 250 мл, 1 кружка = 300 мл, 1 бутылка = 500 мл.
