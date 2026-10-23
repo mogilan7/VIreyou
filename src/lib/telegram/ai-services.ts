@@ -66,7 +66,8 @@ If you see a prepared dish, meal, or raw ingredients:
 1. DO NOT calculate calories or nutrients — only identify base items and their weight in grams.
 2. If the food is highly ambiguous and the user didn't specify, set status to "NEEDS_CLARIFICATION" and ask.
 3. habit_key: set to "Alcohol" for any alcoholic drink, "Smoking" for tobacco, "Sugar" for candy/sweets, null otherwise.
-4. CHAIN OF THOUGHT: You MUST start your JSON with a "reasoning" field. Explain what you see, compare sizes to reference objects (fork, hand, edge of plate, etc.), and estimate the volume before calculating the grams. This step-by-step thinking is crucial for accuracy.
+4. DO NOT extrapolate or guess specific subtypes, varieties, or colors if not explicitly specified by user or seen. E.g. "бокал вина" -> dish: "Вино", ingredient: "вино" (NOT "Вино красное"). "сок" -> "Сок", "рыба" -> "Рыба".
+5. CHAIN OF THOUGHT: You MUST start your JSON with a "reasoning" field. Explain what you see, compare sizes to reference objects (fork, hand, edge of plate, etc.), and estimate the volume before calculating the grams. This step-by-step thinking is crucial for accuracy.
 
 **CONTEXT:**
 Current date: ${todayStr}. Use it as a reference for date_offset_days. For example, "today" means 0, "yesterday" means -1, "day before yesterday" means -2.
@@ -414,6 +415,7 @@ Return STRICT JSON:
      - 1 medium chicken breast = 150g
   7. DO NOT calculate calories or nutrients — only identify base items and their weight in grams.
   8. If Alcohol is mentioned, set "habit_key": "Alcohol".
+  9. DO NOT extrapolate or guess specific subtypes, varieties, or colors if the user didn't specify them. For example, "бокал вина" -> dish: "Вино", ingredient name: "вино" (NOT "Вино красное" or "Вино белое"). "сок" -> dish: "Сок", ingredient name: "сок" (NOT "Апельсиновый сок"). "рыба" -> dish: "Рыба", ingredient name: "рыба" (NOT "Лосось"). Strictly stick to what the user said without hallucinating or inventing varieties.
 
 - SLEEP: { "duration_hrs": 8, "deep_hrs": 1.5, "rem_hrs": 2, "light_hrs": 4.5, "hrv": 60, "resting_heart_rate": 55 }
 - ACTIVITY: { "steps": 5000, "active_minutes": 30, "calories_burned": 250 }
@@ -421,7 +423,7 @@ Return STRICT JSON:
   IMPORTANT: If user reports ALCOHOL consumption, do NOT use HABIT type. Use NUTRITION type instead (alcohol has calories!), and set "habit_key": "Alcohol" at the top level.
   For alcohol: return type "NUTRITION" with "dish" = drink name, and "ingredients" with the alcohol items and their volume in ml (treat ml as grams for estimation). Also set top-level "habit_key": "Alcohol".
   Example for "бокал вина" (or "выпил бокал вина"):
-  { "type": "NUTRITION", "habit_key": "Alcohol", "data": { "dish": "Вино красное", "ingredients": [{ "name": "вино красное", "grams": 200 }] } }
+  { "type": "NUTRITION", "habit_key": "Alcohol", "data": { "dish": "Вино", "ingredients": [{ "name": "вино", "grams": 200 }] } }
 - HYDRATION: { "volume_ml": 250 } (Use ONLY when the user explicitly logs drinking water or pure hydration beverages like tea, not when water is part of food)
 
 - MULTI-ACTION MESSAGES:

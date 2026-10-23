@@ -841,8 +841,8 @@ bot.command('start', async (ctx: any) => {
 
           // Первое сообщение: короткое приветствие и сразу призыв отправить еду
           const welcomeMsg = ctx.state.lang === 'en'
-              ? "👋 Hello! I am your longevity and nutrition assistant VIReYou.\n💬 Write or speak in your own words — food, water, sleep, activity and habits.\n\nSend a photo of your plate or use voice to tell me what you ate — I will analyze almost 30 nutrients."
-              : "👋 Здравствуйте! Я ассистент VIReYou по питанию и долголетию.\n💬 Пишите или наговаривайте всё своими словами: «литр воды», «30 минут прогулки», «сон 7 часов» — еду, воду, сон, активность и привычки.\n\nПришлите фото тарелки или голосом расскажите, что было на обед или перекус — я разберу почти 30 нутриентов.";
+              ? "👋 Hello! I am your longevity and nutrition assistant VIReYou.\n💬 Write or speak in your own words — food, water, sleep, activity. For example: «1 liter of water», «30 minute walk», «7 hours sleep».\n\nSend a photo of your plate or use voice to tell me what you ate — I will analyze almost 30 nutrients."
+              : "👋 Здравствуйте! Я ассистент VIReYou по питанию и долголетию.\n💬 Пишите или наговаривайте своими словами — еду, воду, сон, активность. Например: «литр воды», «30 минут прогулки», «сон 7 часов».\n\nПришлите фото тарелки или голосом расскажите, что было на обед или перекус — я разберу почти 30 нутриентов.";
           return ctx.reply(welcomeMsg, getPersistentKeyboard(ctx.state.lang));
       } else {
           // Пользователь уже существует
