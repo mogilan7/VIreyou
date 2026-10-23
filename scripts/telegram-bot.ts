@@ -43,6 +43,59 @@ function getCabinetWebAppUrl(locale: string = "ru"): string {
     return `https://vireyou.com/${locale}/cabinet/lifestyle`;
 }
 
+
+function escapeHtml(str: any): string {
+    if (str === null || str === undefined) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
+function getLocalDayBounds(timezone?: string, offsetDays: number = 0): { startOfDay: Date; endOfDay: Date; targetDateStr: string } {
+    const tz = timezone || "Europe/Moscow";
+    const now = new Date();
+
+    const fmtDate = new Intl.DateTimeFormat("en-CA", {
+        timeZone: tz,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    });
+
+    const todayParts = fmtDate.format(now).split("-").map(Number);
+    const anchor = new Date(Date.UTC(todayParts[0], todayParts[1] - 1, todayParts[2], 12, 0, 0));
+    anchor.setUTCDate(anchor.getUTCDate() + offsetDays);
+
+    const targetDateStr = fmtDate.format(anchor);
+    const [y, m, d] = targetDateStr.split("-").map(Number);
+
+    const fmtParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hourCycle: "h23",
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric"
+    });
+
+    const guessUtc = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    const parts = fmtParts.formatToParts(guessUtc);
+    const partMap: Record<string, number> = {};
+    for (const p of parts) {
+        if (p.type !== "literal") partMap[p.type] = parseInt(p.value, 10);
+    }
+
+    const localMsFromMidnight = ((partMap.hour * 60 + partMap.minute) * 60 + partMap.second) * 1000;
+    const startOfDayMs = guessUtc.getTime() - localMsFromMidnight;
+    const startOfDay = new Date(startOfDayMs);
+    const endOfDay = new Date(startOfDayMs + 24 * 60 * 60 * 1000 - 1);
+
+    return { startOfDay, endOfDay, targetDateStr };
+}
+
 function getPersistentKeyboard(lang: string = "ru") {
     const isEn = lang === "en";
     return Markup.keyboard([
@@ -63,10 +116,7 @@ async function logWaterAndGetSummary(user: any, volumeMl: number, lang: string =
         }
     });
 
-    const localTodayStr = getUserLocalDate(user.timezone);
-    const datePart = localTodayStr.split(",")[0].trim();
-    const startOfDay = new Date(`${datePart}T00:00:00Z`);
-    const endOfDay = new Date(`${datePart}T23:59:59Z`);
+    const { startOfDay, endOfDay } = getLocalDayBounds(user.timezone, 0);
 
     const logs = await prisma.hydrationLog.findMany({
         where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
@@ -342,6 +392,21 @@ bot.use(async (ctx: any, next) => {
           where: { id: user.id },
           data: { telegram_username: ctx.from.username }
         });
+      }
+
+      // Страховка: если у пользователя keyboard_version < 1
+      if (((user as any).keyboard_version === null || (user as any).keyboard_version < 1) && ctx.chat?.type === "private") {
+        const uLang = ctx.state.lang || "ru";
+        try {
+          await ctx.reply(uLang === "en" ? "Quick access buttons below 👇" : "Кнопки быстрого доступа — внизу 👇", getPersistentKeyboard(uLang));
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { keyboard_version: 1 }
+          });
+          (user as any).keyboard_version = 1;
+        } catch (e: any) {
+          console.warn("[KEYBOARD_UPGRADE] Failed to deliver keyboard:", e?.message);
+        }
       }
     }
   }
@@ -776,8 +841,8 @@ bot.command('start', async (ctx: any) => {
 
           // Первое сообщение: короткое приветствие и сразу призыв отправить еду
           const welcomeMsg = ctx.state.lang === 'en'
-              ? "👋 Hello! I am your longevity and nutrition assistant VIReyou.\n💬 Write or speak in your own words — food, water, sleep, activity and habits.\n\nSend a photo of your plate or use voice to tell me what you ate — I will analyze almost 30 nutrients."
-              : "👋 Привет! Я твой ассистент по долголетию и питанию VIReyou.\n💬 Пишите или наговаривайте всё своими словами — еду, воду, сон, активность и привычки.\n\nПришлите фото тарелки или голосом расскажите, что съели — я разберу почти 30 нутриентов.";
+              ? "👋 Hello! I am your longevity and nutrition assistant VIReYou.\n💬 Write or speak in your own words — food, water, sleep, activity and habits.\n\nSend a photo of your plate or use voice to tell me what you ate — I will analyze almost 30 nutrients."
+              : "👋 Здравствуйте! Я ассистент VIReYou по питанию и долголетию.\n💬 Пишите или наговаривайте всё своими словами — еду, воду, сон, активность и привычки.\n\nПришлите фото тарелки или голосом расскажите, что съели — я разберу почти 30 нутриентов.";
           return ctx.reply(welcomeMsg, getPersistentKeyboard(ctx.state.lang));
       } else {
           // Пользователь уже существует
@@ -914,7 +979,7 @@ bot.command('water', async (ctx: any) => {
 bot.command('help', async (ctx: any) => {
     const lang = ctx.state?.lang || 'ru';
     if (lang === 'en') {
-        const helpMsg = `ℹ️ *How to use VIReyou assistant*
+        const helpMsg = `ℹ️ *How to use VIReYou assistant*
 
 💬 *Free-form logging*:
 You can write or dictate anything in your own words — our AI understands nutrition, water, sleep, activity, and habits!
@@ -935,7 +1000,7 @@ You can write or dictate anything in your own words — our AI understands nutri
 📱 Open *Cabinet* using the button in the bottom left corner to view detailed charts and nutrient longevity analytics!`;
         return ctx.reply(helpMsg, { parse_mode: 'Markdown', ...getPersistentKeyboard('en') });
     } else {
-        const helpMsg = `ℹ️ *Как пользоваться ассистентом VIReyou*
+        const helpMsg = `ℹ️ *Как пользоваться ассистентом VIReYou*
 
 💬 *Свободный ввод*:
 Вы можете писать или наговаривать голосовым сообщением всё своими словами — наш ИИ распознаёт еду, воду, сон, активность и привычки!
@@ -1716,8 +1781,7 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
     const user = ctx.state.user;
     if (!user) return;
 
-    console.log(`[DEBUG] parsedData for user ${user.id}:`, JSON.stringify(parsedData, null, 2));
-
+    const lang = ctx.state.lang || "ru";
     const localToday = getUserLocalDate(user.timezone);
 
     tempLog[user.id] = { 
@@ -1731,11 +1795,17 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
         base64: parsedData.base64 || tempLog[user.id]?.base64
     };
 
-    const lang = ctx.state.lang || 'ru';
     let text = "";
     if (parsedData.type === "NUTRITION") {
-        const d = parsedData.data;
-        
+        const d = parsedData.data || {};
+        const dishEscaped = escapeHtml(d.dish || (lang === "en" ? "Unknown" : "Без названия"));
+        const descEscaped = escapeHtml(parsedData.description || "");
+        const grams = d.grams ? escapeHtml(d.grams) : "?";
+        const cal = d.calories || 0;
+        const prot = d.protein || 0;
+        const carbs = d.carbs || 0;
+        const fat = d.fat || 0;
+
         let plantsInfo = "";
         if (d.plants && Array.isArray(d.plants) && d.plants.length > 0) {
             const count = d.plants.length;
@@ -1745,22 +1815,19 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
                 : `\n🌿 Растений (для микробиома): ${count} вид${plural}\n`;
         }
 
-        text = t(lang, 'Nutrition.saved', { 
-            dish: d.dish || (lang === 'en' ? 'Unknown' : 'Без названия'), 
-            grams: d.grams || '?', cal: d.calories || 0, prot: d.protein || 0, carbs: d.carbs || 0, fat: d.fat || 0, desc: parsedData.description, plantsInfo
-        });
+        if (lang === "en") {
+            text = `🍎 <b>Nutrition</b>: <b>${dishEscaped}</b> (${grams}g):\n\n🔥 Calories: ${cal} kcal\n🥩 Protein: ${prot}g\n🍞 Carbs: ${carbs}g\n🥑 Fat: ${fat}g${plantsInfo}\n📝 ${descEscaped}\n\n<i>Data source: USDA FoodData Central</i>`;
+        } else {
+            text = `🍎 <b>Питание</b>: <b>${dishEscaped}</b> (${grams}г):\n\n🔥 Калории: ${cal} ккал\n🥩 Белки: ${prot}г\n🍞 Углеводы: ${carbs}г\n🥑 Жиры: ${fat}г${plantsInfo}\n📝 ${descEscaped}\n\n<i>Источник данных: USDA FoodData Central</i>`;
+        }
+
         if (parsedData.habit_key) {
-            text += t(lang, 'Nutrition.detectedHabit', { habit: formatHabitName(parsedData.habit_key, lang) });
+            text += `\n⚠️ <b>${lang === "en" ? "Detected habit" : "Зафиксирована привычка"}</b>: ${escapeHtml(formatHabitName(parsedData.habit_key, lang))}`;
         }
     } else if (parsedData.type === "SLEEP") {
-        const d = parsedData.data;
+        const d = parsedData.data || {};
         const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
-        const date = new Date(localToday.split(',')[0].trim());
-        date.setDate(date.getDate() + dateOffset);
-        const startOfDay = new Date(date);
-        startOfDay.setHours(0,0,0,0);
-        const endOfDay = new Date(date);
-        endOfDay.setHours(23,59,59,999);
+        const { startOfDay, endOfDay } = getLocalDayBounds(user.timezone, dateOffset);
 
         const existing = await prisma.sleepLog.findFirst({
             where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
@@ -1773,24 +1840,23 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
         const hr = d.resting_heart_rate !== undefined ? d.resting_heart_rate : (existing?.resting_heart_rate || null);
         const hrv = d.hrv !== undefined ? d.hrv : (existing?.hrv || null);
 
-        text = t(lang, 'Sleep.saved', {
-            dur: dur ? Number(dur).toFixed(1) : 0, 
-            deep: deep ? Number(deep).toFixed(1) : 0, 
-            rem: rem ? Number(rem).toFixed(1) : 0, 
-            light: light ? Number(light).toFixed(1) : 0,
-            hr: hr ? Number(hr).toFixed(0) : '--', 
-            hrv: hrv ? Number(hrv).toFixed(0) : '--', 
-            desc: parsedData.description
-        });
+        const durStr = dur ? Number(dur).toFixed(1) : "0";
+        const deepStr = deep ? Number(deep).toFixed(1) : "0";
+        const remStr = rem ? Number(rem).toFixed(1) : "0";
+        const lightStr = light ? Number(light).toFixed(1) : "0";
+        const hrStr = hr ? String(Math.round(Number(hr))) : "--";
+        const hrvStr = hrv ? String(Math.round(Number(hrv))) : "--";
+        const descEscaped = escapeHtml(parsedData.description || "");
+
+        if (lang === "en") {
+            text = `🛌 <b>Sleep</b>: <b>${durStr} hrs</b>\n\nDeep: ${deepStr} hrs | REM: ${remStr} hrs | Light: ${lightStr} hrs\nPulse: ${hrStr} bpm | HRV: ${hrvStr} ms\n\n📝 ${descEscaped}`;
+        } else {
+            text = `🛌 <b>Сон</b>: <b>${durStr} ч</b>\n\nГлубокий: ${deepStr} ч | Быстрый: ${remStr} ч | Легкий: ${lightStr} ч\nПульс: ${hrStr} уд/м | ВСР: ${hrvStr} мс\n\n📝 ${descEscaped}`;
+        }
     } else if (parsedData.type === "ACTIVITY") {
-        const d = parsedData.data;
+        const d = parsedData.data || {};
         const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
-        const date = new Date(localToday.split(',')[0].trim());
-        date.setDate(date.getDate() + dateOffset);
-        const startOfDay = new Date(date);
-        startOfDay.setHours(0,0,0,0);
-        const endOfDay = new Date(date);
-        endOfDay.setHours(23,59,59,999);
+        const { startOfDay, endOfDay } = getLocalDayBounds(user.timezone, dateOffset);
 
         const existing = await prisma.activityLog.findFirst({
             where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
@@ -1799,40 +1865,85 @@ async function sendConfirmationMessage(ctx: any, parsedData: any) {
         const steps = d.steps !== undefined ? d.steps : (existing?.steps || 0);
         const cal = d.calories_burned !== undefined ? d.calories_burned : (existing?.calories_burned || 0);
         const mins = d.active_minutes !== undefined ? d.active_minutes : (existing?.active_minutes || 0);
+        const descEscaped = escapeHtml(parsedData.description || "");
 
-        text = t(lang, 'Activity.saved', {
-            steps: steps || 0, cal: cal || 0, mins: mins || 0, desc: parsedData.description
-        });
+        if (lang === "en") {
+            text = `🏃‍♂️ <b>Activity</b>: <b>${steps} steps</b>\n\n🔥 Calories: ${cal} kcal\n⏱ Active time: ${mins} min\n\n📝 ${descEscaped}`;
+        } else {
+            text = `🏃‍♂️ <b>Активность</b>: <b>${steps} шагов</b>\n\n🔥 Калории: ${cal} ккал\n⏱ Активность: ${mins} мин\n\n📝 ${descEscaped}`;
+        }
     } else if (parsedData.type === "HABIT") {
-        const d = parsedData.data;
-        text = t(lang, 'Habits.saved', { habit: formatHabitName(d.habit_key || parsedData.habit_key, lang), desc: parsedData.description });
+        const d = parsedData.data || {};
+        const habitName = escapeHtml(formatHabitName(d.habit_key || parsedData.habit_key, lang));
+        const descEscaped = escapeHtml(parsedData.description || "");
+        if (lang === "en") {
+            text = `🚭 <b>Habit</b>: <b>${habitName}</b>\n\n📝 ${descEscaped}`;
+        } else {
+            text = `🚭 <b>Привычка</b>: <b>${habitName}</b>\n\n📝 ${descEscaped}`;
+        }
     } else if (parsedData.type === "HYDRATION") {
-        const d = parsedData.data;
-        text = t(lang, 'Water.saved', { vol: d.volume_ml || 0 });
+        const d = parsedData.data || {};
+        const vol = d.volume_ml || 250;
+        text = lang === "en" 
+            ? `💧 <b>Water</b>: +${vol} ml` 
+            : `💧 <b>Вода</b>: +${vol} мл`;
     }
 
-    const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
-    if (dateOffset !== 0) {
-        const dateObj = new Date(localToday.split(',')[0].trim());
-        dateObj.setDate(dateObj.getDate() + dateOffset);
-        const dateStr = dateObj.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU', { day: 'numeric', month: 'long' });
-        text += `\n\n📅 _Дата записи: ${dateStr}_`;
-    }
-
+    // Additional entries of ALL types (ACTIVITY, SLEEP, HABIT, NUTRITION, HYDRATION)
     if (parsedData.additional_entries && Array.isArray(parsedData.additional_entries) && parsedData.additional_entries.length > 0) {
         for (const entry of parsedData.additional_entries) {
-            if (entry.type === "HYDRATION") {
-                const vol = entry.data?.volume_ml || 250;
-                text += lang === 'en' ? `\n\n💧 + Also logged water: ${vol} ml` : `\n\n💧 + Также записано: вода ${vol} мл`;
+            const eType = entry.type;
+            const eData = entry.data || {};
+            const eDesc = escapeHtml(entry.description || "");
+
+            if (eType === "NUTRITION") {
+                const dish = escapeHtml(eData.dish || entry.description || (lang === "en" ? "Meal" : "Блюдо"));
+                const cal = eData.calories ? ` (~${eData.calories} ккал)` : "";
+                text += lang === "en"
+                    ? `\n\n🍽 <b>Also logged food:</b> <b>${dish}</b>${cal}`
+                    : `\n\n🍽 <b>Также записана еда:</b> <b>${dish}</b>${cal}`;
+            } else if (eType === "HYDRATION") {
+                const vol = eData.volume_ml || 250;
+                text += lang === "en"
+                    ? `\n\n💧 <b>Also logged water:</b> <b>+${vol} ml</b>`
+                    : `\n\n💧 <b>Также записана вода:</b> <b>+${vol} мл</b>`;
+            } else if (eType === "ACTIVITY") {
+                const details = [];
+                if (eData.steps) details.push(`${eData.steps} ${lang === "en" ? "steps" : "шагов"}`);
+                if (eData.active_minutes) details.push(`${eData.active_minutes} ${lang === "en" ? "min" : "мин"}`);
+                if (eData.calories_burned) details.push(`${eData.calories_burned} ${lang === "en" ? "kcal" : "ккал"}`);
+                const detailStr = details.length ? ` (${details.join(", ")})` : "";
+                text += lang === "en"
+                    ? `\n\n🏃 <b>Also logged activity:</b> <b>${eDesc || "Exercise"}</b>${detailStr}`
+                    : `\n\n🏃 <b>Также записана активность:</b> <b>${eDesc || "Активность"}</b>${detailStr}`;
+            } else if (eType === "SLEEP") {
+                const hrs = eData.duration_hrs || 0;
+                text += lang === "en"
+                    ? `\n\n🛌 <b>Also logged sleep:</b> <b>${hrs} hrs</b>`
+                    : `\n\n🛌 <b>Также записан сон:</b> <b>${hrs} ч</b>`;
+            } else if (eType === "HABIT") {
+                const habitName = escapeHtml(formatHabitName(eData.habit_key || entry.habit_key, lang));
+                text += lang === "en"
+                    ? `\n\n🍷 <b>Also logged habit:</b> <b>${habitName}</b>`
+                    : `\n\n🍷 <b>Также записана привычка:</b> <b>${habitName}</b>`;
             }
         }
     }
 
+    const dateOffset = parsedData.date_offset_days ? Number(parsedData.date_offset_days) : 0;
+    if (dateOffset !== 0) {
+        const { targetDateStr } = getLocalDayBounds(user.timezone, dateOffset);
+        const [tY, tM, tD] = targetDateStr.split("-").map(Number);
+        const dateObj = new Date(tY, tM - 1, tD);
+        const dateStr = dateObj.toLocaleDateString(lang === "en" ? "en-US" : "ru-RU", { day: "numeric", month: "long" });
+        text += `\n\n📅 <i>${lang === "en" ? "Date:" : "Дата записи:"} ${dateStr}</i>`;
+    }
+
     return ctx.reply(text, {
-        parse_mode: 'Markdown',
+        parse_mode: "HTML",
         ...Markup.inlineKeyboard([
-            [Markup.button.callback(t(lang, 'Confirmation.btnSave'), 'save_log_confirm')],
-            [Markup.button.callback(t(lang, 'Confirmation.btnEdit'), 'edit_log_prompt')]
+            [Markup.button.callback(t(lang, "Confirmation.btnSave"), "save_log_confirm")],
+            [Markup.button.callback(t(lang, "Confirmation.btnEdit"), "edit_log_prompt")]
         ])
     });
 }
@@ -1881,10 +1992,7 @@ async function processSinglePhoto(ctx: any, message: any) {
 
     if (user && userStates[user.id] === 'WAITING_FOR_PRODUCT_PHOTO') {
         userStates[user.id] = '';
-        const localTodayStr = getUserLocalDate(user.timezone);
-        const datePart = localTodayStr.split(',')[0].trim();
-        const startOfDay = new Date(`${datePart}T00:00:00Z`);
-        const endOfDay = new Date(`${datePart}T23:59:59Z`);
+        const { startOfDay, endOfDay } = getLocalDayBounds(user.timezone, 0);
         const logs = await prisma.nutritionLog.findMany({ where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } } });
         const currentNutrients = logs.reduce((acc: any, log: any) => {
             acc.calories += Number(log.calories || 0);
@@ -2618,6 +2726,13 @@ bot.on('text', async (ctx: any) => {
   try {
       const parsedData = await analyzeTextWithAI(text, getUserLocalDate(ctx.state.user?.timezone), lang);
       if (parsedData.status === "SUCCESS") {
+          // Вода из свободного текста ("выпил литр воды") -> сразу даем тот же итог, что и кнопки
+          if (parsedData.type === "HYDRATION" && (!parsedData.additional_entries || parsedData.additional_entries.length === 0)) {
+              const volumeMl = Number(parsedData.data?.volume_ml || 250);
+              const summary = await logWaterAndGetSummary(user, volumeMl, lang);
+              return ctx.reply(summary);
+          }
+
           if (parsedData.type === "NUTRITION") {
               await ctx.reply(lang === 'en' ? "🔍 Calculating exact nutrients..." : "🔍 Ищу точные данные в базе...");
               const ingredientsData = [];
@@ -2638,6 +2753,25 @@ bot.on('text', async (ctx: any) => {
               
               parsedData.data = totalNutrients; // replace the data with calculated nutrients
           }
+
+          // Если в additional_entries есть NUTRITION (например при фразе "пробежал 5 км и съел банан")
+          if (parsedData.additional_entries && Array.isArray(parsedData.additional_entries)) {
+              for (const entry of parsedData.additional_entries) {
+                  if (entry.type === "NUTRITION" && entry.data?.ingredients?.length) {
+                      const ingredientsData = [];
+                      for (const item of entry.data.ingredients) {
+                          const dbData = await getIngredientNutrientsWithAI(item.name || "");
+                          ingredientsData.push({ grams: item.grams, nutrientsPer100g: dbData });
+                      }
+                      const totalNutrients = calculateTotalNutrients(ingredientsData);
+                      totalNutrients.dish = entry.data.dish || entry.description;
+                      totalNutrients.plants = entry.data.plants || [];
+                      totalNutrients.description = entry.description;
+                      entry.data = totalNutrients;
+                  }
+              }
+          }
+
           await sendConfirmationMessage(ctx, parsedData);
       } else {
           await ctx.reply(t(lang, 'Processing.textUnknown'));
@@ -2696,7 +2830,7 @@ bot.action('save_log_confirm', async (ctx: any) => {
                     const cabinetUrl = getCabinetWebAppUrl(lang);
                     const firstMealMsg = lang === 'en'
                         ? "🎉 Awesome! Your first meal is logged.\n\n💬 Tip: You can log anything in free form — just send a voice note or write: «drank 500 ml water», «walked 8000 steps», «slept 7 hours».\n\nOpen your personal cabinet to see all charts, biomarker impacts, and nutrition balance:"
-                        : "🎉 Отлично! Твой первый приём пищи записан.\n\n💬 Подсказка: вы можете записывать любые показатели свободным текстом или голосом — например: «выпил 500 мл воды», «прошёл 8000 шагов», «спал 7 часов».\n\nОткрой личный кабинет, чтобы увидеть графики, баланс нутриентов и влияние на биомаркеры:";
+                        : "🎉 Отлично! Ваш первый приём пищи записан.\n\n💬 Подсказка: вы можете записывать любые показатели свободным текстом или голосом — например: «выпил 500 мл воды», «прошёл 8000 шагов», «спал 7 часов».\n\nОткройте личный кабинет, чтобы увидеть графики, баланс нутриентов и влияние на биомаркеры:";
 
                     delete tempLog[user.id];
                     console.log(`[SAVE_LOG] Successfully saved first meal for user ${user.id}`);
@@ -2781,23 +2915,78 @@ bot.action('save_log_confirm', async (ctx: any) => {
                 }
             }
         } else if (cached.type === "HYDRATION") {
-            await prisma.hydrationLog.create({ data: { id: crypto.randomUUID(),
-                    user_id: user.id,
-                    date: date,
-                    volume_ml: Number(cached.data.volume_ml || 0),
-                    created_at: date
-                }
-            });
+            const vol = Number(cached.data.volume_ml || 0);
+            const summary = await logWaterAndGetSummary(user, vol, lang);
+            delete tempLog[user.id];
+            return ctx.reply(summary);
         }
 
         if (cached.additional_entries && Array.isArray(cached.additional_entries)) {
             for (const entry of cached.additional_entries) {
-                if (entry.type === "HYDRATION") {
+                const eType = entry.type;
+                const eData = entry.data || {};
+
+                if (eType === "HYDRATION") {
                     await prisma.hydrationLog.create({
                         data: {
                             id: crypto.randomUUID(),
                             user_id: user.id,
-                            volume_ml: Number(entry.data?.volume_ml || 250),
+                            volume_ml: Number(eData.volume_ml || 250),
+                            created_at: date,
+                            date: date
+                        }
+                    });
+                } else if (eType === "NUTRITION") {
+                    await saveFoodLog(user.id, eData, cached.localToday);
+                } else if (eType === "ACTIVITY") {
+                    const { startOfDay, endOfDay } = getLocalDayBounds(user.timezone, Number(cached.date_offset_days || 0));
+                    const existing = await prisma.activityLog.findFirst({
+                        where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
+                    });
+                    const actData: any = {
+                        user_id: user.id,
+                        steps: eData.steps !== undefined ? Number(eData.steps) : (existing?.steps || 0),
+                        active_minutes: eData.active_minutes !== undefined ? Number(eData.active_minutes) : (existing?.active_minutes || 0),
+                        calories_burned: eData.calories_burned !== undefined ? Number(eData.calories_burned) : (existing?.calories_burned || 0),
+                        notes: entry.description || existing?.notes,
+                        created_at: date
+                    };
+                    if (existing) {
+                        await prisma.activityLog.update({ where: { id: existing.id }, data: actData });
+                    } else {
+                        actData.id = crypto.randomUUID();
+                        await prisma.activityLog.create({ data: actData });
+                    }
+                } else if (eType === "SLEEP") {
+                    const { startOfDay, endOfDay } = getLocalDayBounds(user.timezone, Number(cached.date_offset_days || 0));
+                    const existing = await prisma.sleepLog.findFirst({
+                        where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
+                    });
+                    const sleepData: any = {
+                        user_id: user.id,
+                        duration_hrs: eData.duration_hrs !== undefined ? Number(eData.duration_hrs) : (existing?.duration_hrs || 0),
+                        deep_hrs: eData.deep_hrs !== undefined ? Number(eData.deep_hrs) : (existing?.deep_hrs || 0),
+                        rem_hrs: eData.rem_hrs !== undefined ? Number(eData.rem_hrs) : (existing?.rem_hrs || 0),
+                        light_hrs: eData.light_hrs !== undefined ? Number(eData.light_hrs) : (existing?.light_hrs || 0),
+                        hrv: eData.hrv !== undefined ? Number(eData.hrv) : (existing?.hrv || null),
+                        resting_heart_rate: eData.resting_heart_rate !== undefined ? Number(eData.resting_heart_rate) : (existing?.resting_heart_rate || null),
+                        notes: entry.description || existing?.notes,
+                        created_at: date
+                    };
+                    if (existing) {
+                        await prisma.sleepLog.update({ where: { id: existing.id }, data: sleepData });
+                    } else {
+                        sleepData.id = crypto.randomUUID();
+                        await prisma.sleepLog.create({ data: sleepData });
+                    }
+                } else if (eType === "HABIT") {
+                    const habitKey = eData.habit_key || entry.habit_key || "Привычка";
+                    await prisma.habitLog.create({
+                        data: {
+                            id: crypto.randomUUID(),
+                            user_id: user.id,
+                            habit_key: habitKey,
+                            completed: true,
                             created_at: date,
                             date: date
                         }
@@ -2871,10 +3060,7 @@ bot.action('menu_what_to_eat', async (ctx: any) => {
     await ctx.reply(lang === 'en' ? "⏳ Analyzing your day..." : "⏳ Анализирую ваш рацион за сегодня...");
 
     try {
-        const localTodayStr = getUserLocalDate(user.timezone);
-        const datePart = localTodayStr.split(',')[0].trim();
-        const startOfDay = new Date(`${datePart}T00:00:00Z`);
-        const endOfDay = new Date(`${datePart}T23:59:59Z`);
+        const { startOfDay, endOfDay } = getLocalDayBounds(user.timezone, 0);
         
         const logs = await prisma.nutritionLog.findMany({
             where: { user_id: user.id, created_at: { gte: startOfDay, lte: endOfDay } }
@@ -3200,14 +3386,7 @@ bot.action('menu_nutrition_reco', async (ctx: any) => {
     try {
         await ctx.reply(t(lang, 'Checklist.nutritionWait'));
 
-        // Calculate today's start/end in user's timezone
-        const userTz = user.timezone || 'Europe/Moscow';
-        const now = new Date();
-        const startOfDay = new Date(now.toLocaleString('en-US', { timeZone: userTz }));
-        startOfDay.setHours(0, 0, 0, 0);
-        
-        const endOfDay = new Date(startOfDay);
-        endOfDay.setHours(23, 59, 59, 999);
+        const { startOfDay, endOfDay } = getLocalDayBounds(user.timezone, 0);
 
         // Fetch logs for today
         const logs = await prisma.nutritionLog.findMany({
