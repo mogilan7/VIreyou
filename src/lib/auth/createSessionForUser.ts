@@ -109,28 +109,34 @@ export async function createSessionForUser(
         linkError = retry.error;
     }
 
-    if (linkError || !linkData?.properties?.action_link) {
+    if (linkError || !linkData?.properties) {
         console.error('[AUTH] Supabase generateLink error:', linkError);
         return { success: false, error: 'Link generation failed' };
     }
 
     // 3. Extract token_hash and verify OTP to set session cookies
-    const actionLink = linkData.properties.action_link;
-    const actionUrl = new URL(actionLink);
-    const tokenHash = actionUrl.searchParams.get('token');
+    const properties = linkData.properties as any;
+    let tokenHash = properties.hashed_token;
+
+    if (!tokenHash && properties.action_link) {
+        const actionUrl = new URL(properties.action_link);
+        tokenHash = actionUrl.searchParams.get('token') || actionUrl.searchParams.get('token_hash');
+    }
 
     if (!tokenHash) {
-        console.error('[AUTH] No token in action_link:', actionLink);
+        console.error('[AUTH] No token in linkData properties:', properties);
         return { success: false, error: 'Link parsing failed' };
     }
 
+    const otpType = (properties.verification_type as any) || 'magiclink';
+
     const { error: verifyError } = await supabaseServer.auth.verifyOtp({
         token_hash: tokenHash,
-        type: 'magiclink',
+        type: otpType,
     });
 
     if (verifyError) {
-        console.error('[AUTH] OTP verify error:', verifyError);
+        console.error(`[AUTH] OTP verify error (type: ${otpType}):`, verifyError);
         return { success: false, error: verifyError.message };
     }
 
