@@ -4,7 +4,7 @@
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_DIR"
 
-export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 mkdir -p "$PROJECT_DIR/scripts/exports"
 LOG_FILE="$PROJECT_DIR/scripts/exports/export.log"
