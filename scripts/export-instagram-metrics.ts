@@ -1,8 +1,8 @@
 /**
- * Еженедельная выгрузка Instagram Graph API для аккаунта @vi_beautylife / VIReyou
+ * Еженедельная выгрузка Instagram Graph API для аккаунта @vi_beautylife
  * Выгружает:
- * 1. Метрики аккаунта за 7 дней (reach, accounts_engaged, profile_views, website_clicks, follower_count)
- * 2. Метрики публикаций за 7 дней (тип, дата, reach, saved, shares, likes, comments, для reels: plays)
+ * 1. Метрики аккаунта (подписчики, общий охват, охват по подписчикам и не подписчикам, вовлеченность, клики)
+ * 2. Публикации и Reels за 7 дней (тип: карусель / рилс / фото, охват, сохранения, репосты, лайки, комментарии, подписки, посещения профиля)
  * Сохраняет в: instagram_YYYY-MM-DD.csv на Google Drive и локально.
  */
 
@@ -16,8 +16,8 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const appId = process.env.META_APP_ID;
 const appSecret = process.env.META_APP_SECRET;
-let token = process.env.INSTAGRAM_PAGE_ACCESS_TOKEN || process.env.INSTAGRAM_LONG_LIVED_TOKEN;
 const igAccountId = process.env.INSTAGRAM_ACCOUNT_ID;
+let token = process.env.INSTAGRAM_LONG_LIVED_TOKEN;
 
 function getFormattedDate(offsetDays: number = 0): string {
     const d = new Date();
@@ -37,32 +37,46 @@ const escapeCsv = (val: any) => {
 };
 
 async function refreshTokenIfNeeded() {
-    if (!token || !appId || !appSecret) return;
+    const expiresAtStr = process.env.INSTAGRAM_TOKEN_EXPIRES_AT;
+    if (!expiresAtStr || !token || !appSecret) return;
+
     try {
-        const expiresAtStr = process.env.INSTAGRAM_TOKEN_EXPIRES_AT;
-        if (expiresAtStr) {
-            const expiresAt = new Date(expiresAtStr).getTime();
-            const daysLeft = (expiresAt - Date.now()) / (1000 * 60 * 60 * 24);
-            // Meta allows refreshing if token is at least 24h old and still valid
-            if (daysLeft < 30) {
-                console.log(`[INSTAGRAM EXPORT] Токен истекает через ${daysLeft.toFixed(1)} дн. Запрос на автоматическое продление...`);
-                const refreshUrl = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${token}`;
-                const res = await fetch(refreshUrl);
-                const data = await res.json();
-                if (data.access_token) {
-                    token = data.access_token;
-                    const newExpiresAt = new Date(Date.now() + (data.expires_in || 5184000) * 1000).toISOString();
-                    let envContent = fs.readFileSync(envLocalPath, 'utf8');
-                    envContent = envContent.replace(/INSTAGRAM_LONG_LIVED_TOKEN=.*(\r?\n|$)/g, `INSTAGRAM_LONG_LIVED_TOKEN=${token}\n`);
-                    envContent = envContent.replace(/INSTAGRAM_TOKEN_EXPIRES_AT=.*(\r?\n|$)/g, `INSTAGRAM_TOKEN_EXPIRES_AT=${newExpiresAt}\n`);
-                    fs.writeFileSync(envLocalPath, envContent, 'utf8');
-                    console.log(`[INSTAGRAM EXPORT] ✅ Токен успешно продлен до ${newExpiresAt}`);
+        const expiresAt = new Date(expiresAtStr).getTime();
+        const daysLeft = (expiresAt - Date.now()) / (1000 * 3600 * 24);
+
+        if (daysLeft < 7) {
+            console.log(`[INSTAGRAM EXPORT] Токен истекает через ${daysLeft.toFixed(1)} дней. Обновляем...`);
+            const refreshUrl = `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${token}`;
+            const res = await fetch(refreshUrl);
+            const data = await res.json();
+
+            if (data.access_token) {
+                token = data.access_token;
+                const newExpires = new Date(Date.now() + (data.expires_in || 5184000) * 1000).toISOString();
+
+                // Save back to .env.local
+                if (fs.existsSync(envLocalPath)) {
+                    let content = fs.readFileSync(envLocalPath, 'utf8');
+                    content = content.replace(/^INSTAGRAM_LONG_LIVED_TOKEN=.*$/m, `INSTAGRAM_LONG_LIVED_TOKEN=${token}`);
+                    content = content.replace(/^INSTAGRAM_TOKEN_EXPIRES_AT=.*$/m, `INSTAGRAM_TOKEN_EXPIRES_AT=${newExpires}`);
+                    fs.writeFileSync(envLocalPath, content, 'utf8');
+                    console.log(`[INSTAGRAM EXPORT] Токен успешно обновлен в .env.local! Истекает: ${newExpires}`);
                 }
             }
         }
     } catch (e: any) {
-        console.warn('[INSTAGRAM EXPORT] Предупреждение: Не удалось продлить токен:', e?.message || e);
+        console.warn('[INSTAGRAM EXPORT] Не удалось обновить токен:', e?.message || e);
     }
+}
+
+function getMediaTypeName(item: any): string {
+    const mediaType = (item.media_type || '').toUpperCase();
+    const productType = (item.media_product_type || '').toUpperCase();
+
+    if (mediaType === 'CAROUSEL_ALBUM') return 'Карусель';
+    if (productType === 'REELS' || mediaType === 'VIDEO') return 'Рилс';
+    if (mediaType === 'IMAGE') return 'Фото';
+    return productType || mediaType || 'Публикация';
 }
 
 async function exportInstagramMetrics() {
@@ -105,7 +119,7 @@ async function exportInstagramMetrics() {
         csvLines.push(['Количество подписчиков', '', 'Ошибка получения'].map(escapeCsv).join(';'));
     }
 
-    // Account Insights (reach, accounts_engaged, profile_views, website_clicks)
+    // Account Insights
     const sevenDaysAgoUnix = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000);
     const nowUnix = Math.floor(Date.now() / 1000);
 
@@ -115,6 +129,7 @@ async function exportInstagramMetrics() {
         { name: 'profile_views', type: 'total_value' },
         { name: 'website_clicks', type: 'total_value' }
     ];
+
     for (const m of metricsToFetch) {
         try {
             const metricTypeParam = m.type === 'total_value' ? '&metric_type=total_value' : '';
@@ -143,20 +158,53 @@ async function exportInstagramMetrics() {
         }
     }
 
+    // Разбивка охвата по подписчикам и не-подписчикам
+    try {
+        const breakdownUrl = `https://graph.facebook.com/v21.0/${igAccountId}/insights?metric=reach&period=day&breakdown=follow_type&metric_type=total_value&since=${sevenDaysAgoUnix}&until=${nowUnix}&access_token=${token}`;
+        const bRes = await fetch(breakdownUrl);
+        const bData = await bRes.json();
+
+        if (bData.data && bData.data[0]) {
+            const breakdowns = bData.data[0]?.total_value?.breakdowns?.[0]?.results || [];
+            let followersReach = 0;
+            let nonFollowersReach = 0;
+
+            for (const r of breakdowns) {
+                const typeVal = r.dimension_values?.[0];
+                if (typeVal === 'FOLLOWER') followersReach = Number(r.value) || 0;
+                if (typeVal === 'NON_FOLLOWER') nonFollowersReach = Number(r.value) || 0;
+            }
+
+            const totalReachBreakdown = followersReach + nonFollowersReach;
+            const nonFollowerPct = totalReachBreakdown > 0 ? ((nonFollowersReach / totalReachBreakdown) * 100).toFixed(1) : '0.0';
+
+            csvLines.push(['Охват: Подписчики (Followers)', followersReach, 'Уникальные подписчики, видевшие контент за 7 дней'].map(escapeCsv).join(';'));
+            csvLines.push(['Охват: Не подписчики (Non-followers)', nonFollowersReach, 'Уникальные не-подписчики, видевшие контент за 7 дней'].map(escapeCsv).join(';'));
+            csvLines.push(['Доля охвата от не-подписчиков (%)', `${nonFollowerPct}%`, 'Процент вирального/нового охвата'].map(escapeCsv).join(';'));
+        } else if (bData.error) {
+            console.warn('[INSTAGRAM EXPORT] Разделение охвата недоступно:', bData.error.message);
+            csvLines.push(['Охват по подписчикам и не-подписчикам', '', `Не отдается API: ${bData.error.message}`].map(escapeCsv).join(';'));
+        }
+    } catch (bErr: any) {
+        console.warn('[INSTAGRAM EXPORT] Ошибка получения разбивки охвата:', bErr?.message || bErr);
+    }
+
     // --- 2. МЕТРИКИ ПУБЛИКАЦИЙ ЗА 7 ДНЕЙ ---
     csvLines.push('');
     csvLines.push(['=== 2. ПУБЛИКАЦИИ И REELS ЗА ПОСЛЕДНИЕ 7 ДНЕЙ ==='].map(escapeCsv).join(';'));
     csvLines.push([
         'ID поста',
-        'Тип',
+        'Тип (карусель / рилс / фото)',
         'Дата публикации',
         'Текст / Подпись',
         'Охват (Reach)',
         'Сохранения (Saved)',
-        'Шеринг (Shares)',
+        'Репосты / Шеринг (Shares)',
         'Лайки',
         'Комментарии',
-        'Просмотры видео / Plays (Reels)'
+        'Подписки с публикации (Follows)',
+        'Посещения профиля (Profile Visits)',
+        'Просмотры (Views / Plays)'
     ].map(escapeCsv).join(';'));
 
     try {
@@ -165,27 +213,41 @@ async function exportInstagramMetrics() {
         const mediaData = await mediaRes.json();
 
         for (const item of mediaData.data || []) {
-            const isReel = item.media_product_type === 'REELS' || item.media_type === 'VIDEO';
+            const typeLabel = getMediaTypeName(item);
             let reach = '';
             let saved = '';
             let shares = '';
             let plays = '';
+            let follows = '';
+            let profileVisits = '';
 
-            // Query media insights
+            // Query media insights (including follows and profile_visits)
             try {
-                const insightMetrics = isReel
-                    ? 'reach,saved,shares,views'
-                    : 'reach,saved';
-                const insUrl = `https://graph.facebook.com/v21.0/${item.id}/insights?metric=${insightMetrics}&access_token=${token}`;
+                const insUrl = `https://graph.facebook.com/v21.0/${item.id}/insights?metric=reach,saved,shares,views,follows,profile_visits&access_token=${token}`;
                 const insRes = await fetch(insUrl);
                 const insData = await insRes.json();
 
-                for (const m of insData.data || []) {
-                    const val = m.values?.[0]?.value ?? '';
-                    if (m.name === 'reach') reach = val;
-                    if (m.name === 'saved') saved = val;
-                    if (m.name === 'shares') shares = val;
-                    if (m.name === 'views' || m.name === 'plays') plays = val;
+                if (insData.data) {
+                    for (const m of insData.data) {
+                        const val = m.values?.[0]?.value ?? m.total_value?.value ?? '';
+                        if (m.name === 'reach') reach = String(val);
+                        if (m.name === 'saved') saved = String(val);
+                        if (m.name === 'shares') shares = String(val);
+                        if (m.name === 'views' || m.name === 'plays') plays = String(val);
+                        if (m.name === 'follows') follows = String(val);
+                        if (m.name === 'profile_visits' || m.name === 'profile_activity') profileVisits = String(val);
+                    }
+                } else if (insData.error) {
+                    // Fallback to simpler metric set if unsupported
+                    const fallbackUrl = `https://graph.facebook.com/v21.0/${item.id}/insights?metric=reach,saved,shares&access_token=${token}`;
+                    const fbRes = await fetch(fallbackUrl);
+                    const fbData = await fbRes.json();
+                    for (const m of fbData.data || []) {
+                        const val = m.values?.[0]?.value ?? '';
+                        if (m.name === 'reach') reach = String(val);
+                        if (m.name === 'saved') saved = String(val);
+                        if (m.name === 'shares') shares = String(val);
+                    }
                 }
             } catch (insErr: any) {
                 console.warn(`[INSTAGRAM EXPORT] Не удалось получить инсайты для медиа ${item.id}:`, insErr?.message || insErr);
@@ -195,7 +257,7 @@ async function exportInstagramMetrics() {
 
             csvLines.push([
                 item.id,
-                item.media_product_type || item.media_type || 'POST',
+                typeLabel,
                 item.timestamp ? item.timestamp.split('T')[0] : '',
                 cleanCaption,
                 reach,
@@ -203,12 +265,14 @@ async function exportInstagramMetrics() {
                 shares,
                 item.like_count ?? '',
                 item.comments_count ?? '',
+                follows,
+                profileVisits,
                 plays
             ].map(escapeCsv).join(';'));
         }
     } catch (e: any) {
         console.warn('[INSTAGRAM EXPORT] Ошибка получения медиа:', e?.message || e);
-        csvLines.push(['-', 'Данные недоступны', '', '', '', '', '', '', '', ''].map(escapeCsv).join(';'));
+        csvLines.push(['-', 'Данные недоступны', '', '', '', '', '', '', '', '', '', ''].map(escapeCsv).join(';'));
     }
 
     // Save CSV
@@ -228,7 +292,6 @@ async function exportInstagramMetrics() {
     if (fs.existsSync(gdriveDir)) {
         const gdriveFile = path.join(gdriveDir, fileName);
         fs.writeFileSync(gdriveFile, csvContent, 'utf8');
-        savedPaths.push(gdriveFile);
         console.log(`[INSTAGRAM EXPORT] Сохранено на Google Drive: ${gdriveFile}`);
     }
 

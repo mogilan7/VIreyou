@@ -31,11 +31,11 @@ export async function mergeUserAccounts(
     await tx.consultantLog.updateMany({ where: { userId: placeholderUser.id }, data: { userId: targetUser.id } });
 
     // 2. test_results (user_id is uuid in Postgres)
-    try {
-        await tx.$executeRawUnsafe(`UPDATE test_results SET user_id = '${targetUser.id}'::uuid WHERE user_id = '${placeholderUser.id}'::uuid`);
-    } catch (e) {
-        console.warn("[MERGE_TX] test_results update warning:", e);
-    }
+    await tx.$executeRaw`
+        UPDATE test_results 
+        SET user_id = ${targetUser.id}::uuid 
+        WHERE user_id = ${placeholderUser.id}::uuid
+    `;
 
     // 3. Unique 1-to-1 tables (HealthData, AssistantState, NutrientCalc)
     const targetHealth = await tx.healthData.findUnique({ where: { user_id: targetUser.id } });
@@ -143,7 +143,17 @@ export async function mergeUserAccounts(
         }
     });
 
-    // 9. Delete placeholder user
+    // 9. Clean up auth.users and delete placeholder user
+    const authPlaceholder: any[] = await tx.$queryRaw`
+        SELECT id FROM auth.users WHERE id = ${placeholderUser.id}::uuid LIMIT 1
+    `;
+    if (authPlaceholder && authPlaceholder.length > 0) {
+        await tx.$executeRaw`
+            DELETE FROM auth.users WHERE id = ${placeholderUser.id}::uuid
+        `;
+        console.log(`[MERGE_TX] Deleted placeholder from auth.users: ${placeholderUser.id}`);
+    }
+
     await tx.user.delete({ where: { id: placeholderUser.id } });
     console.log(`[MERGE_TX] Successfully merged ${placeholderUser.id} into ${targetUser.id} and deleted placeholder`);
 

@@ -72,3 +72,7 @@ logs/
 # Local exports and analytics logs
 scripts/exports/
 *.log
+
+# Merge and data backups
+scripts/backups/
+scripts/backups/*

@@ -123,6 +123,8 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
 
     const totalSteps = filteredActivity.reduce((sum: number, a: any) => sum + (a.steps || 0), 0);
     const avgSteps = filteredActivity.length > 0 ? totalSteps / denominator : 0;
+    const totalActiveMinutes = filteredActivity.reduce((sum: number, a: any) => sum + (a.active_minutes || 0), 0);
+    const avgActiveMinutes = filteredActivity.length > 0 ? totalActiveMinutes / denominator : 0;
     const totalCalBurned = filteredActivity.reduce((sum: number, a: any) => sum + (a.calories_burned || 0), 0);
 
     const avgSleepDuration = filteredSleep.length > 0 
@@ -173,6 +175,7 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
 
     markdown += `## 🏃‍♂️ ${isEn ? 'Activity and Sleep' : 'Активность и Сон'}\n`;
     markdown += `• **${isEn ? 'Avg Steps/day' : 'Средние шаги/день'}**: ${avgSteps.toFixed(0)} ${isEn ? 'steps' : 'шагов'}\n`;
+    markdown += `• **${isEn ? 'Active Minutes' : 'Активные минуты'}**: ${totalActiveMinutes.toFixed(0)} ${isEn ? 'min' : 'мин'} *(${isEn ? 'avg' : 'ср'}: ${avgActiveMinutes.toFixed(0)} ${isEn ? 'min/day' : 'мин/день'})*\n`;
     markdown += `• **${isEn ? 'Total Burned' : 'Всего сожжено'}**: ${totalCalBurned.toFixed(0)} ${isEn ? 'kcal' : 'ккал'}\n`;
     markdown += `• **${isEn ? 'Avg Sleep' : 'Средний сон'}**: ${avgSleepDuration.toFixed(1)} ${isEn ? 'h' : 'ч'}\n`;
     markdown += `• **${isEn ? 'Hydration (avg/day)' : 'Гидратация (ср/день)'}**: ${avgWater.toFixed(0)} ${isEn ? 'ml' : 'мл'}\n\n`;
@@ -213,7 +216,7 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         metrics: {
-            activity: { totalSteps, avgSteps, totalCalBurned },
+            activity: { totalSteps, avgSteps, totalActiveMinutes, avgActiveMinutes, totalCalBurned },
             sleep: { avgDuration: avgSleepDuration },
             hydration: { totalVolume: totalWater, avgVolume: avgWater },
             nutrition: {

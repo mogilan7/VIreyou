@@ -1,9 +1,10 @@
 /**
  * Еженедельная выгрузка YouTube Analytics API для канала @vireyou_ru (ID: UCWM0wgdL7oXzru22cEJwRIA)
  * Выгружает:
- * 1. Метрики по каждому видео и шортсу (просмотры, удержание, лайки, подписки, шеринг и т.д.)
- * 2. Источники трафика (insightTrafficSourceType)
- * 3. Итог по каналу (прирост и отток подписчиков)
+ * 1. Итоги по каналу: динамика за 7 дней + общее число подписчиков и часы просмотра длинных видео за 365 дней (прогресс YPP)
+ * 2. Метрики по каждому ролику и Shorts за последние 7 дней (включая статус показов и CTR)
+ * 3. Метрики по каждому ролику за всё время (просмотры, минуты, средний % просмотра, подписки)
+ * 4. Источники трафика (insightTrafficSourceType)
  * Сохраняет в: youtube_YYYY-MM-DD.csv на Google Drive и локально.
  */
 
@@ -61,7 +62,6 @@ async function exportYouTubeMetrics() {
     const youtubeData = google.youtube({ version: 'v3', auth: oauth2Client });
 
     // YouTube Analytics API has a 2-day processing delay for finalized metrics
-    // We compare [today - 8 .. today - 2] (last 7 completed days) vs [today - 15 .. today - 9]
     const lastStart = getFormattedDate(8);
     const lastEnd = getFormattedDate(2);
     const prevStart = getFormattedDate(15);
@@ -71,14 +71,84 @@ async function exportYouTubeMetrics() {
 
     const csvLines: string[] = [];
 
-    // --- 1. ИТОГ ПО КАНАЛУ ---
+    // --- 1. ИТОГ ПО КАНАЛУ И ПРОГРЕСС МОНЕТИЗАЦИИ ---
     csvLines.push(['=== 1. ИТОГИ ПО КАНАЛУ (@vireyou_ru / UCWM0wgdL7oXzru22cEJwRIA) ==='].map(escapeCsv).join(';'));
     csvLines.push([
         'Метрика',
         `Последние 7 дней (${lastStart} — ${lastEnd})`,
         `Предыдущие 7 дней (${prevStart} — ${prevEnd})`,
-        'Динамика'
+        'Динамика / Общий итог'
     ].map(escapeCsv).join(';'));
+
+    let channelTotalSubs = 0;
+    try {
+        const chRes = await youtubeData.channels.list({
+            id: [CHANNEL_ID],
+            part: ['statistics', 'snippet']
+        });
+        const chStats = chRes.data.items?.[0]?.statistics;
+        if (chStats) {
+            channelTotalSubs = Number(chStats.subscriberCount) || 0;
+        }
+    } catch (e: any) {
+        console.warn('[YOUTUBE EXPORT] Предупреждение: не удалось получить статистику канала:', e?.message || e);
+    }
+
+    // Расчет часов просмотра длинных видео за последние 365 дней (для YPP)
+    const d365Start = getFormattedDate(367);
+    const d365End = getFormattedDate(2);
+    let watchHours365Long = 0;
+    let watchHours365Shorts = 0;
+
+    // Кеш метаданных всех видео (title, duration, publishedAt, isShort)
+    const videoMetaMap = new Map<string, { title: string; isShort: boolean; publishedAt: string; duration: string }>();
+
+    try {
+        const rep365 = await youtubeAnalytics.reports.query({
+            ids: `channel==${CHANNEL_ID}`,
+            startDate: d365Start,
+            endDate: d365End,
+            dimensions: 'video',
+            metrics: 'views,estimatedMinutesWatched',
+            sort: '-estimatedMinutesWatched',
+            maxResults: 200
+        });
+
+        const v365Ids = (rep365.data.rows || []).map(r => r[0]);
+        for (let i = 0; i < v365Ids.length; i += 50) {
+            const chunk = v365Ids.slice(i, i + 50);
+            const m = await youtubeData.videos.list({
+                id: chunk,
+                part: ['snippet', 'contentDetails']
+            });
+            for (const item of m.data.items || []) {
+                const dur = item.contentDetails?.duration || '';
+                const isShort = dur.includes('S') && !dur.includes('M') && !dur.includes('H');
+                videoMetaMap.set(item.id!, {
+                    title: item.snippet?.title || item.id!,
+                    isShort,
+                    publishedAt: item.snippet?.publishedAt ? item.snippet.publishedAt.slice(0, 10) : '',
+                    duration: dur
+                });
+            }
+        }
+
+        let longMinutes = 0;
+        let shortMinutes = 0;
+        for (const r of rep365.data.rows || []) {
+            const meta = videoMetaMap.get(r[0]);
+            const mins = Number(r[1]) || 0;
+            if (meta && !meta.isShort) {
+                longMinutes += mins;
+            } else {
+                shortMinutes += mins;
+            }
+        }
+        watchHours365Long = Number((longMinutes / 60).toFixed(1));
+        watchHours365Shorts = Number((shortMinutes / 60).toFixed(1));
+    } catch (err: any) {
+        console.warn('[YOUTUBE EXPORT] Предупреждение: ошибка расчета 365-дневных часов:', err?.message || err);
+    }
 
     try {
         const [lastChannelStats, prevChannelStats] = await Promise.all([
@@ -123,12 +193,38 @@ async function exportYouTubeMetrics() {
             const diff = pVal === 0 ? (lVal > 0 ? '+100%' : '0%') : `${((lVal - pVal) / pVal * 100) > 0 ? '+' : ''}${(((lVal - pVal) / pVal) * 100).toFixed(1)}%`;
             csvLines.push([m.label, lVal, pVal, diff].map(escapeCsv).join(';'));
         }
+
+        // Блок прогресса к партнерской программе (YPP)
+        csvLines.push(['--- ПРОГРЕСС К МОНЕТИЗАЦИИ (YPP) ---', '', '', ''].map(escapeCsv).join(';'));
+        const subProgressPct = ((channelTotalSubs / 1000) * 100).toFixed(1);
+        csvLines.push([
+            'Общее число подписчиков (Всего)',
+            channelTotalSubs,
+            'Цель: 1 000',
+            `Прогресс: ${channelTotalSubs}/1000 (${subProgressPct}%)`
+        ].map(escapeCsv).join(';'));
+
+        const hoursProgressPct = ((watchHours365Long / 4000) * 100).toFixed(1);
+        csvLines.push([
+            'Часы просмотра длинных видео (за 365 дней)',
+            `${watchHours365Long} ч`,
+            'Цель: 4 000 ч',
+            `Прогресс: ${watchHours365Long}/4000 ч (${hoursProgressPct}%)`
+        ].map(escapeCsv).join(';'));
+
+        csvLines.push([
+            'Часы просмотра Shorts (за 365 дней, справочно)',
+            `${watchHours365Shorts} ч`,
+            'Альтернатива YPP: 10M просмотров',
+            `${watchHours365Shorts} ч`
+        ].map(escapeCsv).join(';'));
+
     } catch (e: any) {
         console.warn('[YOUTUBE EXPORT] Предупреждение: не удалось получить сводку канала:', e?.message || e);
         csvLines.push(['Сводка канала', 'Недоступно', 'Недоступно', '-'].map(escapeCsv).join(';'));
     }
 
-    // --- 2. МЕТРИКИ ПО КАЖДОМУ ВИДЕО И ШОРТСУ ---
+    // --- 2. МЕТРИКИ ПО КАЖДОМУ ВИДЕО И ШОРТСУ ЗА 7 ДНЕЙ ---
     csvLines.push('');
     csvLines.push(['=== 2. СТАТИСТИКА ПО РОЛИКАМ И SHORTS ЗА ПОСЛЕДНИЕ 7 ДНЕЙ ==='].map(escapeCsv).join(';'));
     csvLines.push([
@@ -147,6 +243,23 @@ async function exportYouTubeMetrics() {
         'CTR показов (%)'
     ].map(escapeCsv).join(';'));
 
+    // Проверка поддержки показов и CTR в API
+    let impressionsSupported = false;
+    let impressionsErrorMsg = 'Не отдаётся API (Ошибка: The query is not supported; метрики показов доступны только в YouTube Studio)';
+    try {
+        await youtubeAnalytics.reports.query({
+            ids: `channel==${CHANNEL_ID}`,
+            startDate: lastStart,
+            endDate: lastEnd,
+            dimensions: 'video',
+            metrics: 'views,videoThumbnailImpressions,videoThumbnailImpressionsClickRate',
+            maxResults: 1
+        });
+        impressionsSupported = true;
+    } catch (impErr: any) {
+        impressionsErrorMsg = `Не отдаётся API (Ошибка: ${impErr?.message || 'The query is not supported'}; показы доступны только в YouTube Studio)`;
+    }
+
     try {
         const videoReport = await youtubeAnalytics.reports.query({
             ids: `channel==${CHANNEL_ID}`,
@@ -155,32 +268,30 @@ async function exportYouTubeMetrics() {
             dimensions: 'video',
             metrics: 'views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained,likes,comments,shares',
             sort: '-views',
-            maxResults: 50
+            maxResults: 100
         });
 
         const vRows = videoReport.data.rows || [];
         const videoIds = vRows.map(r => r[0]);
 
-        // Fetch video titles & duration from YouTube Data API
-        const videoMetaMap = new Map<string, { title: string; isShort: boolean }>();
-        if (videoIds.length > 0) {
+        // Подгружаем метаданные, которых нет в кеше
+        const missingIds = videoIds.filter(id => !videoMetaMap.has(id));
+        if (missingIds.length > 0) {
             try {
-                const chunks = [];
-                for (let i = 0; i < videoIds.length; i += 50) {
-                    chunks.push(videoIds.slice(i, i + 50));
-                }
-                for (const chunk of chunks) {
+                for (let i = 0; i < missingIds.length; i += 50) {
+                    const chunk = missingIds.slice(i, i + 50);
                     const metaRes = await youtubeData.videos.list({
                         id: chunk,
                         part: ['snippet', 'contentDetails']
                     });
                     for (const item of metaRes.data.items || []) {
-                        const duration = item.contentDetails?.duration || '';
-                        // PT60S or less without minutes is typically Shorts
-                        const isShort = duration.includes('S') && !duration.includes('M') && !duration.includes('H');
+                        const dur = item.contentDetails?.duration || '';
+                        const isShort = dur.includes('S') && !dur.includes('M') && !dur.includes('H');
                         videoMetaMap.set(item.id!, {
                             title: item.snippet?.title || item.id!,
-                            isShort
+                            isShort,
+                            publishedAt: item.snippet?.publishedAt ? item.snippet.publishedAt.slice(0, 10) : '',
+                            duration: dur
                         });
                     }
                 }
@@ -191,7 +302,7 @@ async function exportYouTubeMetrics() {
 
         for (const row of vRows) {
             const vId = row[0];
-            const meta = videoMetaMap.get(vId) || { title: `Видео ${vId}`, isShort: false };
+            const meta = videoMetaMap.get(vId) || { title: `Видео ${vId}`, isShort: false, publishedAt: '', duration: '' };
             const views = row[1];
             const watchMin = row[2];
             const avgDuration = row[3];
@@ -200,10 +311,6 @@ async function exportYouTubeMetrics() {
             const likes = row[6];
             const comments = row[7];
             const shares = row[8];
-
-            // Impressions & CTR might not be exposed at per-video breakdown via v2 query for all account tiers
-            const impressions = '';
-            const ctr = '';
 
             csvLines.push([
                 vId,
@@ -217,18 +324,102 @@ async function exportYouTubeMetrics() {
                 likes,
                 comments,
                 shares,
-                impressions,
-                ctr
+                impressionsSupported ? '' : impressionsErrorMsg,
+                impressionsSupported ? '' : impressionsErrorMsg
             ].map(escapeCsv).join(';'));
         }
     } catch (e: any) {
-        console.warn('[YOUTUBE EXPORT] Предупреждение: Ошибка запроса статистики видео:', e?.message || e);
+        console.warn('[YOUTUBE EXPORT] Предупреждение: Ошибка запроса статистики видео за 7 дней:', e?.message || e);
         csvLines.push(['-', 'Данные временно недоступны', '-', '', '', '', '', '', '', '', '', '', ''].map(escapeCsv).join(';'));
     }
 
-    // --- 3. ИСТОЧНИКИ ТРАФИКА ---
+    // --- 3. СТАТИСТИКА ПО КАЖДОМУ РОЛИКУ ЗА ВСЁ ВРЕМЯ ---
     csvLines.push('');
-    csvLines.push(['=== 3. ИСТОЧНИКИ ТРАФИКА ЗА ПОСЛЕДНИЕ 7 ДНЕЙ ==='].map(escapeCsv).join(';'));
+    csvLines.push(['=== 3. СТАТИСТИКА ПО КАЖДОМУ РОЛИКУ ЗА ВСЁ ВРЕМЯ (LIFETIME) ==='].map(escapeCsv).join(';'));
+    csvLines.push([
+        'ID видео',
+        'Название видео',
+        'Тип',
+        'Дата публикации',
+        'Просмотры (Всего)',
+        'Минут просмотра (Всего)',
+        'Часов просмотра (Всего)',
+        'Средний % просмотра (%)',
+        'Подписчики (Всего +)',
+        'Ссылка на видео'
+    ].map(escapeCsv).join(';'));
+
+    try {
+        const lifetimeReport = await youtubeAnalytics.reports.query({
+            ids: `channel==${CHANNEL_ID}`,
+            startDate: '2020-01-01',
+            endDate: lastEnd,
+            dimensions: 'video',
+            metrics: 'views,estimatedMinutesWatched,averageViewPercentage,subscribersGained',
+            sort: '-views',
+            maxResults: 200
+        });
+
+        const lRows = lifetimeReport.data.rows || [];
+        const lVideoIds = lRows.map(r => r[0]);
+
+        // Подгружаем метаданные для всех роликов за всё время
+        const missingLifetimeIds = lVideoIds.filter(id => !videoMetaMap.has(id));
+        if (missingLifetimeIds.length > 0) {
+            try {
+                for (let i = 0; i < missingLifetimeIds.length; i += 50) {
+                    const chunk = missingLifetimeIds.slice(i, i + 50);
+                    const metaRes = await youtubeData.videos.list({
+                        id: chunk,
+                        part: ['snippet', 'contentDetails']
+                    });
+                    for (const item of metaRes.data.items || []) {
+                        const dur = item.contentDetails?.duration || '';
+                        const isShort = dur.includes('S') && !dur.includes('M') && !dur.includes('H');
+                        videoMetaMap.set(item.id!, {
+                            title: item.snippet?.title || item.id!,
+                            isShort,
+                            publishedAt: item.snippet?.publishedAt ? item.snippet.publishedAt.slice(0, 10) : '',
+                            duration: dur
+                        });
+                    }
+                }
+            } catch (err: any) {
+                console.warn('[YOUTUBE EXPORT] Предупреждение: Не удалось загрузить метаданные роликов за всё время:', err?.message || err);
+            }
+        }
+
+        for (const row of lRows) {
+            const vId = row[0];
+            const meta = videoMetaMap.get(vId) || { title: `Видео ${vId}`, isShort: false, publishedAt: '', duration: '' };
+            const views = row[1];
+            const watchMin = Number(row[2]) || 0;
+            const watchHours = (watchMin / 60).toFixed(1);
+            const avgPct = row[3];
+            const subs = row[4];
+            const videoUrl = meta.isShort ? `https://youtube.com/shorts/${vId}` : `https://youtu.be/${vId}`;
+
+            csvLines.push([
+                vId,
+                meta.title,
+                meta.isShort ? 'Shorts' : 'Video',
+                meta.publishedAt || '',
+                views,
+                watchMin,
+                watchHours,
+                avgPct !== null && avgPct !== undefined ? `${Number(avgPct).toFixed(1)}%` : '',
+                subs,
+                videoUrl
+            ].map(escapeCsv).join(';'));
+        }
+    } catch (e: any) {
+        console.warn('[YOUTUBE EXPORT] Предупреждение: Ошибка запроса статистики видео за всё время:', e?.message || e);
+        csvLines.push(['-', 'Данные недоступны', '', '', '', '', '', '', '', ''].map(escapeCsv).join(';'));
+    }
+
+    // --- 4. ИСТОЧНИКИ ТРАФИКА ЗА 7 ДНЕЙ ---
+    csvLines.push('');
+    csvLines.push(['=== 4. ИСТОЧНИКИ ТРАФИКА ЗА ПОСЛЕДНИЕ 7 ДНЕЙ ==='].map(escapeCsv).join(';'));
     csvLines.push([
         'Источник трафика (insightTrafficSourceType)',
         'Просмотры',

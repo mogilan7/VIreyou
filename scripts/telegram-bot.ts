@@ -23,6 +23,7 @@ process.on('uncaughtException', (err) => {
 
 import prisma from "../src/lib/prisma";
 import { mergeUserAccounts } from "../src/lib/auth/mergeUsers";
+import { sortTelegramAccounts } from "../src/lib/auth/telegramUser";
 
 function generateAutoLoginUrl(user: { email: string; telegram_id?: string | number | bigint | null }, locale: string = 'ru'): string {
     const secret = process.env.JWT_SECRET;
@@ -379,9 +380,52 @@ bot.use(async (ctx: any, next) => {
   ctx.state.lang = 'ru';
 
   if (tgId) {
-    const user = await prisma.user.findFirst({
+    const matchingUsers = await prisma.user.findMany({
       where: { telegram_id: tgId },
     });
+    let user = null;
+    if (matchingUsers.length > 1) {
+      const realAccounts = matchingUsers.filter(u => !u.email.startsWith('tg_'));
+      const placeholderAccounts = matchingUsers.filter(u => u.email.startsWith('tg_'));
+
+      if (realAccounts.length >= 2) {
+        console.warn(`[AUTH][ALERT] multiple real accounts for telegram_id ${tgId}`);
+        realAccounts.sort(sortTelegramAccounts);
+        user = realAccounts[0];
+      } else if (realAccounts.length === 1 && placeholderAccounts.length > 0) {
+        const targetUser = realAccounts[0];
+        for (const placeholder of placeholderAccounts) {
+          try {
+            await prisma.$transaction(async (tx) => {
+              await mergeUserAccounts(tx, targetUser.id, placeholder.id);
+            }, { maxWait: 20000, timeout: 60000 });
+          } catch (err: any) {
+            console.error(`[BOT AUTH] Auto-merge failed for placeholder ${placeholder.id}:`, err?.message);
+          }
+        }
+        user = await prisma.user.findUnique({ where: { id: targetUser.id } });
+      } else if (realAccounts.length === 0 && placeholderAccounts.length > 1) {
+        placeholderAccounts.sort(sortTelegramAccounts);
+        const targetUser = placeholderAccounts[0];
+        const extraPlaceholders = placeholderAccounts.slice(1);
+        for (const placeholder of extraPlaceholders) {
+          try {
+            await prisma.$transaction(async (tx) => {
+              await mergeUserAccounts(tx, targetUser.id, placeholder.id);
+            }, { maxWait: 20000, timeout: 60000 });
+          } catch (err: any) {
+            console.error(`[BOT AUTH] Auto-merge failed for placeholder ${placeholder.id}:`, err?.message);
+          }
+        }
+        user = await prisma.user.findUnique({ where: { id: targetUser.id } });
+      } else {
+        matchingUsers.sort(sortTelegramAccounts);
+        user = matchingUsers[0];
+      }
+    } else if (matchingUsers.length === 1) {
+      user = matchingUsers[0];
+    }
+
     if (user) {
       ctx.state.user = user;
       ctx.state.lang = (user as any).language || 'ru';
