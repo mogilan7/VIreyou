@@ -517,6 +517,7 @@ model ActivityLog {
   User            User     @relation(fields: [user_id], references: [id])
 
   @@index([user_id, date])
+  @@index([user_id, created_at])
   @@schema("public")
 }
 
@@ -610,6 +611,7 @@ model HabitLog {
   User       User     @relation(fields: [user_id], references: [id])
 
   @@index([user_id, date])
+  @@index([user_id, created_at])
   @@schema("public")
 }
 
@@ -667,6 +669,7 @@ model HydrationLog {
   User       User     @relation(fields: [user_id], references: [id])
 
   @@index([user_id, date])
+  @@index([user_id, created_at])
   @@schema("public")
 }
 
@@ -738,6 +741,7 @@ model NutritionLog {
   User              User      @relation(fields: [user_id], references: [id])
 
   @@index([user_id, date])
+  @@index([user_id, created_at])
   @@schema("public")
   plants            String[]  @default([])
 }
@@ -760,6 +764,7 @@ model SleepLog {
   User               User      @relation(fields: [user_id], references: [id])
 
   @@index([user_id, date])
+  @@index([user_id, created_at])
   @@schema("public")
 }
 

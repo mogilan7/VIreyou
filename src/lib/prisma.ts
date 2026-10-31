@@ -1,15 +1,25 @@
 import { PrismaClient } from '@prisma/client';
 
 const prismaClientSingleton = () => {
-    let url = process.env.DATABASE_URL || '';
+    let url = (process.env.DATABASE_URL || '').trim();
+    if (url) {
+        if (!url.includes('connection_limit=')) {
+            url = url + (url.includes('?') ? '&' : '?') + 'connection_limit=5';
+        }
+        if (!url.includes('pool_timeout=')) {
+            url = url + (url.includes('?') ? '&' : '?') + 'pool_timeout=20';
+        }
+        if (!url.includes('pgbouncer=true') && (url.includes(':6543') || url.includes('pooler.supabase.com'))) {
+            url = url + (url.includes('?') ? '&' : '?') + 'pgbouncer=true';
+        }
+    }
     if (typeof window === 'undefined') {
-        url = url.trim();
         const host = url.split('@')[1]?.split(':')[0] || 'unknown';
         const port = url.split(':')[3]?.split('/')[0] || 'unknown';
         console.log(`[PRISMA INIT] Database Host: ${host}, Port: ${port}`);
     }
     return new PrismaClient({
-        datasourceUrl: url.trim(),
+        datasourceUrl: url,
     });
 };
 

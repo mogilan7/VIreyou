@@ -234,6 +234,7 @@ export default async function LifestylePage({
             />
         );
     } catch (err: any) {
-        return <div className="p-8 text-center text-red-500">Ошибка: {err.message}</div>;
+        console.error('[LIFESTYLE_PAGE_ERROR] Failed to load lifestyle dashboard:', err);
+        return <div className="p-8 text-center text-red-500">Не удалось загрузить данные, обновите страницу через минуту</div>;
     }
 }
