@@ -1,9 +1,9 @@
 #!/bin/bash
 # Smart watchdog for VIReyou weekly export
-# Primary export is executed by Hetzner VPS (cron every Sunday 16:00 UTC).
+# Primary export is executed by Hetzner VPS (cron every Sunday 16:00 UTC = 22:30 Myanmar).
 # This Mac script acts as a backup fallback:
-# If files for the latest Sunday cycle are already on Google Drive (uploaded by Hetzner VPS), it does nothing.
-# If files are missing, it runs the export on Mac and saves them to Google Drive.
+# 1. Files on Google Drive are considered fresh if modified no earlier than Sunday 20:00 local time.
+# 2. Mac fallback runs ONLY if current time is later than Sunday 23:00 + 3 hours (Monday 02:00) AND fresh files do NOT exist on Drive.
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
@@ -19,7 +19,7 @@ const fs = require("fs");
 const path = require("path");
 const file = process.argv[1];
 
-function getLastSundayCutoff(now = new Date()) {
+function getSundayBounds(now = new Date()) {
     const d = new Date(now);
     const day = d.getDay(); // 0 is Sunday, 1 is Monday...
     const hours = d.getHours();
@@ -27,56 +27,66 @@ function getLastSundayCutoff(now = new Date()) {
     if (day === 0 && hours < 23) {
         daysBack = 7;
     }
-    // Sunday 23:00 in local system time
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate() - daysBack, 23, 0, 0, 0);
+    // Sunday 20:00 local time
+    const sunday20 = new Date(d.getFullYear(), d.getMonth(), d.getDate() - daysBack, 20, 0, 0, 0);
+    // Sunday 23:00 + 3 hours = Monday 02:00 local time
+    const cutoffRun = new Date(d.getFullYear(), d.getMonth(), d.getDate() - daysBack, 26, 0, 0, 0);
+    return { sunday20, cutoffRun };
 }
 
-const cutoff = getLastSundayCutoff();
-let shouldRun = false;
+const { sunday20, cutoffRun } = getSundayBounds();
+const now = new Date();
 
-// Check if Sunday export already exists on Google Drive (uploaded by Hetzner VPS)
+// Check 1: Do NOT run if current time is earlier than Sunday 23:00 + 3 hours (Monday 02:00)
+if (now < cutoffRun) {
+    console.log("NO");
+    process.exit(0);
+}
+
+// Check 2: Check if fresh files (>= Sunday 20:00) already exist on Google Drive (uploaded by Hetzner VPS)
 const gdriveDir = "/Users/mogilevandrei/Library/CloudStorage/GoogleDrive-mogilev.andrey@gmail.com/Мой диск/VIReyou/VIReyou_Аналитика";
-let alreadyOnDrive = false;
+let freshFilesOnDrive = false;
 
 if (fs.existsSync(gdriveDir)) {
     try {
         const files = fs.readdirSync(gdriveDir);
-        alreadyOnDrive = files.some(f => {
+        freshFilesOnDrive = files.some(f => {
             if (!f.endsWith(".csv")) return false;
             try {
                 const stat = fs.statSync(path.join(gdriveDir, f));
-                return stat.mtime >= cutoff;
+                return stat.mtime >= sunday20;
             } catch {
                 return false;
             }
         });
     } catch {
-        alreadyOnDrive = false;
+        freshFilesOnDrive = false;
     }
 }
 
-if (alreadyOnDrive) {
-    // Primary export from server already exists on Drive
-    shouldRun = false;
-} else if (!fs.existsSync(file)) {
-    shouldRun = true;
-} else {
+if (freshFilesOnDrive) {
+    // Fresh files already on Drive from server
+    console.log("NO");
+    process.exit(0);
+}
+
+// Check 3: Check if Mac has already executed for this cycle
+let alreadyRanLocally = false;
+if (fs.existsSync(file)) {
     try {
         const lastStr = fs.readFileSync(file, "utf8").trim();
         const lastDate = new Date(lastStr);
-        if (isNaN(lastDate.getTime()) || lastDate < cutoff) {
-            shouldRun = true;
+        if (!isNaN(lastDate.getTime()) && lastDate >= sunday20) {
+            alreadyRanLocally = true;
         }
-    } catch {
-        shouldRun = true;
-    }
+    } catch {}
 }
 
-console.log(shouldRun ? "YES" : "NO");
+console.log(alreadyRanLocally ? "NO" : "YES");
 ' "$LAST_SUCCESS_FILE")
 
 if [ "$SHOULD_RUN" = "YES" ]; then
-    echo "[WATCHDOG $(date '+%Y-%m-%d %H:%M:%S')] Export missing on Drive for latest Sunday cycle. Running Mac fallback..."
+    echo "[WATCHDOG $(date '+%Y-%m-%d %H:%M:%S')] Fresh files missing on Drive after Sunday 23:00 + 3h. Running Mac fallback..."
     if "$PROJECT_DIR/scripts/run-export.sh"; then
         node -e 'const fs = require("fs"); fs.writeFileSync(process.argv[1], new Date().toISOString(), "utf8");' "$LAST_SUCCESS_FILE"
         echo "[WATCHDOG $(date '+%Y-%m-%d %H:%M:%S')] ✅ Fallback export finished successfully. Timestamp updated."
@@ -84,6 +94,6 @@ if [ "$SHOULD_RUN" = "YES" ]; then
         echo "[WATCHDOG $(date '+%Y-%m-%d %H:%M:%S')] ❌ Export exited with error. Timestamp NOT updated (will retry next check)."
     fi
 else
-    # Already on Drive or already ran for current cycle
+    # Fresh on Drive or already ran for current cycle or too early
     exit 0
 fi

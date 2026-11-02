@@ -135,8 +135,11 @@ async function exportTelegramChannel() {
     try {
         html = await fetchChannelHtml(channelUrl);
     } catch (e: any) {
-        console.error(`[TELEGRAM EXPORT] Не удалось загрузить ${channelUrl}:`, e?.message || e);
-        return null;
+        throw new Error(`Не удалось загрузить ${channelUrl}: ${e?.message || e}`);
+    }
+
+    if (!html || html.length < 500) {
+        throw new Error(`Пустой или некорректный HTML от ${channelUrl}`);
     }
 
     // 1. Извлечение подписчиков
@@ -256,7 +259,7 @@ if (require.main === module) {
     exportTelegramChannel()
         .then(() => process.exit(0))
         .catch(err => {
-            console.error('[TELEGRAM EXPORT] Ошибка:', err);
+            console.error('[TELEGRAM EXPORT] [ERROR]:', err?.message || err);
             process.exit(1);
         });
 }

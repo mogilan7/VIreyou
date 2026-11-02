@@ -83,17 +83,7 @@ async function exportInstagramMetrics() {
     console.log('[INSTAGRAM EXPORT] Запуск выгрузки Instagram Graph API...');
 
     if (!token || !igAccountId) {
-        console.warn(`
-[INSTAGRAM EXPORT] ⚠️ Ключи Instagram не настроены в .env.local.
-Требуются:
-  META_APP_ID
-  META_APP_SECRET
-  INSTAGRAM_ACCOUNT_ID
-  INSTAGRAM_LONG_LIVED_TOKEN
-
-Для настройки запустите: npx tsx scripts/auth-instagram.ts
-`);
-        return null;
+        throw new Error('Instagram keys not configured in .env.local (INSTAGRAM_LONG_LIVED_TOKEN, INSTAGRAM_ACCOUNT_ID)');
     }
 
     await refreshTokenIfNeeded();
@@ -110,13 +100,17 @@ async function exportInstagramMetrics() {
         const infoRes = await fetch(infoUrl);
         const infoData = await infoRes.json();
 
+        if (infoData.error) {
+            throw new Error(`Instagram API Error: ${infoData.error.message || 'unknown error'} (code: ${infoData.error.code})`);
+        }
         if (infoData.followers_count !== undefined) {
             csvLines.push(['Количество подписчиков (Followers)', infoData.followers_count, 'Всего на текущий момент'].map(escapeCsv).join(';'));
             csvLines.push(['Всего публикаций (Media Count)', infoData.media_count, ''].map(escapeCsv).join(';'));
+        } else {
+            throw new Error('Instagram API returned invalid profile response');
         }
     } catch (e: any) {
-        console.warn('[INSTAGRAM EXPORT] Ошибка получения профиля:', e?.message || e);
-        csvLines.push(['Количество подписчиков', '', 'Ошибка получения'].map(escapeCsv).join(';'));
+        throw e;
     }
 
     // Account Insights
@@ -303,7 +297,7 @@ if (require.main === module) {
     exportInstagramMetrics()
         .then(() => process.exit(0))
         .catch(err => {
-            console.error('[INSTAGRAM EXPORT] Ошибка:', err);
+            console.error('[INSTAGRAM EXPORT] [ERROR]:', err?.message || err);
             process.exit(1);
         });
 }

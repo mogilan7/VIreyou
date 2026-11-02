@@ -39,6 +39,13 @@ const escapeCsv = (val: any) => {
     return s;
 };
 
+function checkFatalAuthError(err: any) {
+    const msg = err?.message || err?.toString() || '';
+    if (msg.includes('invalid_grant') || err?.code === 401 || err?.response?.data?.error === 'invalid_grant') {
+        throw new Error('invalid_grant: Google OAuth token expired or revoked');
+    }
+}
+
 async function exportYouTubeMetrics() {
     console.log('[YOUTUBE EXPORT] Запуск выгрузки YouTube Analytics...');
 
@@ -91,6 +98,7 @@ async function exportYouTubeMetrics() {
             channelTotalSubs = Number(chStats.subscriberCount) || 0;
         }
     } catch (e: any) {
+        checkFatalAuthError(e);
         console.warn('[YOUTUBE EXPORT] Предупреждение: не удалось получить статистику канала:', e?.message || e);
     }
 
@@ -147,6 +155,7 @@ async function exportYouTubeMetrics() {
         watchHours365Long = Number((longMinutes / 60).toFixed(1));
         watchHours365Shorts = Number((shortMinutes / 60).toFixed(1));
     } catch (err: any) {
+        checkFatalAuthError(err);
         console.warn('[YOUTUBE EXPORT] Предупреждение: ошибка расчета 365-дневных часов:', err?.message || err);
     }
 
@@ -220,6 +229,7 @@ async function exportYouTubeMetrics() {
         ].map(escapeCsv).join(';'));
 
     } catch (e: any) {
+        checkFatalAuthError(e);
         console.warn('[YOUTUBE EXPORT] Предупреждение: не удалось получить сводку канала:', e?.message || e);
         csvLines.push(['Сводка канала', 'Недоступно', 'Недоступно', '-'].map(escapeCsv).join(';'));
     }
@@ -329,6 +339,7 @@ async function exportYouTubeMetrics() {
             ].map(escapeCsv).join(';'));
         }
     } catch (e: any) {
+        checkFatalAuthError(e);
         console.warn('[YOUTUBE EXPORT] Предупреждение: Ошибка запроса статистики видео за 7 дней:', e?.message || e);
         csvLines.push(['-', 'Данные временно недоступны', '-', '', '', '', '', '', '', '', '', '', ''].map(escapeCsv).join(';'));
     }
@@ -413,6 +424,7 @@ async function exportYouTubeMetrics() {
             ].map(escapeCsv).join(';'));
         }
     } catch (e: any) {
+        checkFatalAuthError(e);
         console.warn('[YOUTUBE EXPORT] Предупреждение: Ошибка запроса статистики видео за всё время:', e?.message || e);
         csvLines.push(['-', 'Данные недоступны', '', '', '', '', '', '', '', ''].map(escapeCsv).join(';'));
     }
@@ -444,6 +456,11 @@ async function exportYouTubeMetrics() {
         csvLines.push(['Данные недоступны', '', ''].map(escapeCsv).join(';'));
     }
 
+        // Ensure we fetched at least some valid metrics before saving
+    if (channelTotalSubs === 0 && (!videoMetaMap || videoMetaMap.size === 0) && csvLines.length <= 15) {
+        throw new Error('YouTube API: failed to fetch channel or video metrics, aborting CSV generation');
+    }
+
     // Save CSV
     const csvContent = '\uFEFF' + csvLines.join('\r\n');
     const dateStr = getFormattedDate(0);
@@ -473,7 +490,7 @@ if (require.main === module) {
     exportYouTubeMetrics()
         .then(() => process.exit(0))
         .catch(err => {
-            console.error('[YOUTUBE EXPORT] Ошибка:', err);
+            console.error('[YOUTUBE EXPORT] [ERROR]:', err?.message || err);
             process.exit(1);
         });
 }
