@@ -100,9 +100,6 @@ export default async function DiagnosticsPage({ params }: { params: Promise<{ lo
                                 <div className="w-10 h-10 bg-[#E8F1EB] rounded-full flex items-center justify-center mb-6">
                                     <ShieldCheck size={18} className="text-brand-leaf" />
                                 </div>
-                                <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E8F1EB] text-brand-forest mb-3 w-fit">
-                                    {t("proteinBadge")}
-                                </div>
                                 <h3 className="font-bold text-xl text-brand-text mb-3">{t("proteinTitle")}</h3>
                                 <p className="text-brand-gray text-sm mb-8 leading-relaxed pr-8">
                                     {t("proteinSubtitle")}

@@ -35,15 +35,23 @@ export default function ProteinCalculatorPage() {
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-    // Form inputs
+    // Form inputs (stored as strings to allow empty states and natural typing)
     const [gender, setGender] = useState<Sex>('female');
-    const [age, setAge] = useState<number>(35);
-    const [weight, setWeight] = useState<number>(65);
-    const [height, setHeight] = useState<number>(170);
+    const [ageStr, setAgeStr] = useState<string>('35');
+    const [weightStr, setWeightStr] = useState<string>('65');
+    const [heightStr, setHeightStr] = useState<string>('170');
     const [activity, setActivity] = useState<Activity>('moderate');
     const [goal, setGoal] = useState<Goal>('maintain');
     const [kidneyDisease, setKidneyDisease] = useState<Kidney>('no');
-    const [meals, setMeals] = useState<number>(3);
+    const [mealsStr, setMealsStr] = useState<string>('3');
+
+    // Field-level error messages
+    const [fieldErrors, setFieldErrors] = useState<{
+        age?: string;
+        weight?: string;
+        height?: string;
+        meals?: string;
+    }>({});
 
     // Calculation & UI state
     const [result, setResult] = useState<ProteinResult | null>(null);
@@ -56,8 +64,8 @@ export default function ProteinCalculatorPage() {
 
     // Track if form changed since last calculation
     const currentSnapshot = useMemo(() => {
-        return JSON.stringify({ gender, age, weight, height, activity, goal, kidneyDisease, meals });
-    }, [gender, age, weight, height, activity, goal, kidneyDisease, meals]);
+        return JSON.stringify({ gender, ageStr, weightStr, heightStr, activity, goal, kidneyDisease, mealsStr });
+    }, [gender, ageStr, weightStr, heightStr, activity, goal, kidneyDisease, mealsStr]);
 
     const isDirty = useMemo(() => {
         if (!hasCalculated) return true;
@@ -78,13 +86,13 @@ export default function ProteinCalculatorPage() {
                     if (bio) {
                         if (bio.gender === 'male' || bio.gender === 'female') setGender(bio.gender);
                         if (bio.age && bio.age >= PROTEIN_COEFFICIENTS.MIN_AGE && bio.age <= PROTEIN_COEFFICIENTS.MAX_AGE) {
-                            setAge(bio.age);
+                            setAgeStr(String(bio.age));
                         }
                         if (bio.weight && bio.weight >= PROTEIN_COEFFICIENTS.MIN_WEIGHT && bio.weight <= PROTEIN_COEFFICIENTS.MAX_WEIGHT) {
-                            setWeight(Math.round(bio.weight));
+                            setWeightStr(String(Math.round(bio.weight)));
                         }
                         if (bio.height && bio.height >= PROTEIN_COEFFICIENTS.MIN_HEIGHT && bio.height <= PROTEIN_COEFFICIENTS.MAX_HEIGHT) {
-                            setHeight(Math.round(bio.height));
+                            setHeightStr(String(Math.round(bio.height)));
                         }
                     }
                 } catch (e) {
@@ -109,31 +117,45 @@ export default function ProteinCalculatorPage() {
         onFormInteraction();
         setValidationError(null);
 
-        // Validation
-        if (age < PROTEIN_COEFFICIENTS.MIN_AGE || age > PROTEIN_COEFFICIENTS.MAX_AGE || isNaN(age)) {
-            setValidationError(t('errors.age'));
-            return;
+        const newFieldErrors: { age?: string; weight?: string; height?: string; meals?: string } = {};
+
+        // Parse and validate age
+        const parsedAge = ageStr.trim() === '' ? NaN : Number(ageStr);
+        if (isNaN(parsedAge) || parsedAge < PROTEIN_COEFFICIENTS.MIN_AGE || parsedAge > PROTEIN_COEFFICIENTS.MAX_AGE) {
+            newFieldErrors.age = t('errors.age');
         }
-        if (weight < PROTEIN_COEFFICIENTS.MIN_WEIGHT || weight > PROTEIN_COEFFICIENTS.MAX_WEIGHT || isNaN(weight)) {
-            setValidationError(t('errors.weight'));
-            return;
+
+        // Parse and validate weight (accepts comma and dot)
+        const normalizedWeightStr = weightStr.trim().replace(',', '.');
+        const parsedWeight = normalizedWeightStr === '' ? NaN : Number(normalizedWeightStr);
+        if (isNaN(parsedWeight) || parsedWeight < PROTEIN_COEFFICIENTS.MIN_WEIGHT || parsedWeight > PROTEIN_COEFFICIENTS.MAX_WEIGHT) {
+            newFieldErrors.weight = t('errors.weight');
         }
-        if (height < PROTEIN_COEFFICIENTS.MIN_HEIGHT || height > PROTEIN_COEFFICIENTS.MAX_HEIGHT || isNaN(height)) {
-            setValidationError(t('errors.height'));
-            return;
+
+        // Parse and validate height
+        const parsedHeight = heightStr.trim() === '' ? NaN : Number(heightStr);
+        if (isNaN(parsedHeight) || parsedHeight < PROTEIN_COEFFICIENTS.MIN_HEIGHT || parsedHeight > PROTEIN_COEFFICIENTS.MAX_HEIGHT) {
+            newFieldErrors.height = t('errors.height');
         }
-        const parsedMeals = Math.round(Number(meals) || PROTEIN_COEFFICIENTS.DEFAULT_MEALS);
-        if (parsedMeals < PROTEIN_COEFFICIENTS.MIN_MEALS || parsedMeals > PROTEIN_COEFFICIENTS.MAX_MEALS) {
-            setValidationError(t('errors.meals'));
+
+        // Parse and validate meals
+        const parsedMeals = mealsStr.trim() === '' ? PROTEIN_COEFFICIENTS.DEFAULT_MEALS : Number(mealsStr);
+        if (isNaN(parsedMeals) || parsedMeals < PROTEIN_COEFFICIENTS.MIN_MEALS || parsedMeals > PROTEIN_COEFFICIENTS.MAX_MEALS || !Number.isInteger(parsedMeals)) {
+            newFieldErrors.meals = t('errors.meals');
+        }
+
+        setFieldErrors(newFieldErrors);
+
+        if (Object.keys(newFieldErrors).length > 0) {
             return;
         }
 
         try {
             const input: ProteinInput = {
                 sex: gender,
-                age: Number(age),
-                weightKg: Number(weight),
-                heightCm: Number(height),
+                age: parsedAge,
+                weightKg: parsedWeight,
+                heightCm: parsedHeight,
                 activity,
                 goal,
                 kidneyDisease,
@@ -147,7 +169,7 @@ export default function ProteinCalculatorPage() {
             setSaveStatus('idle');
 
             // Send test_complete analytics event (without raw weight/height)
-            const ageGroup = age < 40 ? '<40' : (age <= 64 ? '40–64' : '65+');
+            const ageGroup = parsedAge < 40 ? '<40' : (parsedAge <= 64 ? '40–64' : '65+');
             const utmCampaign = getCookie('vireyou_utm_campaign') || null;
             const utmContent = getCookie('vireyou_utm_content') || null;
 
@@ -327,55 +349,85 @@ export default function ProteinCalculatorPage() {
                                 </div>
                             </div>
 
-                            {/* Age, Weight, Height Grid with single-line labels */}
-                            <div className="grid grid-cols-3 gap-3">
-                                <div>
-                                    <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest whitespace-nowrap mb-1.5 truncate">
-                                        {t('ageLabel')}
-                                    </label>
-                                    <input 
-                                        type="number" 
-                                        min={PROTEIN_COEFFICIENTS.MIN_AGE} 
-                                        max={PROTEIN_COEFFICIENTS.MAX_AGE} 
-                                        value={age} 
-                                        onChange={(e) => { onFormInteraction(); setAge(Number(e.target.value)); }} 
-                                        className="w-full h-11 px-3 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text" 
-                                    />
+                            {/* Age, Weight, Height Grid with single-line labels and field-level errors */}
+                            <div>
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest whitespace-nowrap mb-1.5 truncate">
+                                            {t('ageLabel')}
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            value={ageStr} 
+                                            onChange={(e) => {
+                                                onFormInteraction();
+                                                const val = e.target.value.replace(/[^0-9]/g, '');
+                                                setAgeStr(val);
+                                                if (fieldErrors.age) setFieldErrors(prev => ({ ...prev, age: undefined }));
+                                            }} 
+                                            className={`w-full h-11 px-3 bg-[#FAFAFA] border rounded-xl focus:ring-1 outline-none transition-all text-sm font-semibold text-brand-text ${
+                                                fieldErrors.age ? 'border-red-400 focus:ring-red-400' : 'border-brand-sage/50 focus:ring-brand-leaf'
+                                            }`} 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest whitespace-nowrap mb-1.5 truncate">
+                                            {t('weightLabel')}
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            inputMode="decimal"
+                                            value={weightStr} 
+                                            onChange={(e) => {
+                                                onFormInteraction();
+                                                // Allow digits, dot, comma
+                                                const val = e.target.value.replace(/[^0-9.,]/g, '');
+                                                setWeightStr(val);
+                                                if (fieldErrors.weight) setFieldErrors(prev => ({ ...prev, weight: undefined }));
+                                            }} 
+                                            className={`w-full h-11 px-3 bg-[#FAFAFA] border rounded-xl focus:ring-1 outline-none transition-all text-sm font-semibold text-brand-text ${
+                                                fieldErrors.weight ? 'border-red-400 focus:ring-red-400' : 'border-brand-sage/50 focus:ring-brand-leaf'
+                                            }`} 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest whitespace-nowrap mb-1.5 truncate">
+                                            {t('heightLabel')}
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            value={heightStr} 
+                                            onChange={(e) => {
+                                                onFormInteraction();
+                                                const val = e.target.value.replace(/[^0-9]/g, '');
+                                                setHeightStr(val);
+                                                if (fieldErrors.height) setFieldErrors(prev => ({ ...prev, height: undefined }));
+                                            }} 
+                                            className={`w-full h-11 px-3 bg-[#FAFAFA] border rounded-xl focus:ring-1 outline-none transition-all text-sm font-semibold text-brand-text ${
+                                                fieldErrors.height ? 'border-red-400 focus:ring-red-400' : 'border-brand-sage/50 focus:ring-brand-leaf'
+                                            }`} 
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest whitespace-nowrap mb-1.5 truncate">
-                                        {t('weightLabel')}
-                                    </label>
-                                    <input 
-                                        type="number" 
-                                        min={PROTEIN_COEFFICIENTS.MIN_WEIGHT} 
-                                        max={PROTEIN_COEFFICIENTS.MAX_WEIGHT} 
-                                        value={weight} 
-                                        onChange={(e) => { onFormInteraction(); setWeight(Number(e.target.value)); }} 
-                                        className="w-full h-11 px-3 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text" 
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest whitespace-nowrap mb-1.5 truncate">
-                                        {t('heightLabel')}
-                                    </label>
-                                    <input 
-                                        type="number" 
-                                        min={PROTEIN_COEFFICIENTS.MIN_HEIGHT} 
-                                        max={PROTEIN_COEFFICIENTS.MAX_HEIGHT} 
-                                        value={height} 
-                                        onChange={(e) => { onFormInteraction(); setHeight(Number(e.target.value)); }} 
-                                        className="w-full h-11 px-3 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text" 
-                                    />
-                                </div>
+                                {(fieldErrors.age || fieldErrors.weight || fieldErrors.height) && (
+                                    <div className="mt-2 space-y-1">
+                                        {fieldErrors.age && <p className="text-[11px] text-red-600 font-medium leading-tight">• {fieldErrors.age}</p>}
+                                        {fieldErrors.weight && <p className="text-[11px] text-red-600 font-medium leading-tight">• {fieldErrors.weight}</p>}
+                                        {fieldErrors.height && <p className="text-[11px] text-red-600 font-medium leading-tight">• {fieldErrors.height}</p>}
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Activity Cards (2x2 grid matching goal style) */}
+                            {/* Activity Cards (2x2 grid on mobile and desktop) */}
                             <div>
                                 <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest mb-2">
                                     {t('activity')}
                                 </label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 gap-2">
                                     {[
                                         { key: 'low', titleKey: 'act_low_title', descKey: 'act_low_desc' },
                                         { key: 'moderate', titleKey: 'act_mod_title', descKey: 'act_mod_desc' },
@@ -457,15 +509,26 @@ export default function ProteinCalculatorPage() {
                                     {t('meals')}
                                 </label>
                                 <input 
-                                    type="number" 
-                                    min={PROTEIN_COEFFICIENTS.MIN_MEALS} 
-                                    max={PROTEIN_COEFFICIENTS.MAX_MEALS} 
-                                    value={meals} 
-                                    onChange={(e) => { onFormInteraction(); setMeals(Number(e.target.value)); }} 
+                                    type="text" 
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    value={mealsStr} 
+                                    onChange={(e) => {
+                                        onFormInteraction();
+                                        const val = e.target.value.replace(/[^0-9]/g, '');
+                                        setMealsStr(val);
+                                        if (fieldErrors.meals) setFieldErrors(prev => ({ ...prev, meals: undefined }));
+                                    }} 
                                     placeholder="3"
-                                    className="w-full h-11 px-3 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text" 
+                                    className={`w-full h-11 px-3 bg-[#FAFAFA] border rounded-xl focus:ring-1 outline-none transition-all text-sm font-semibold text-brand-text ${
+                                        fieldErrors.meals ? 'border-red-400 focus:ring-red-400' : 'border-brand-sage/50 focus:ring-brand-leaf'
+                                    }`} 
                                 />
-                                <div className="text-[11px] text-brand-gray/70 mt-1">{t('mealsHint')}</div>
+                                {fieldErrors.meals ? (
+                                    <p className="text-[11px] text-red-600 font-medium leading-tight mt-1">{fieldErrors.meals}</p>
+                                ) : (
+                                    <div className="text-[11px] text-brand-gray/70 mt-1">{t('mealsHint')}</div>
+                                )}
                             </div>
 
                             {validationError && (
@@ -554,7 +617,7 @@ export default function ProteinCalculatorPage() {
                                         <Utensils size={20} />
                                     </div>
                                     <div className="text-sm md:text-base text-brand-forest font-semibold">
-                                        {formatMealsText(meals, result.perMealLow, result.perMealHigh)}
+                                        {formatMealsText(result.mealsPerDay || 3, result.perMealLow, result.perMealHigh)}
                                     </div>
                                 </div>
 

@@ -43,6 +43,7 @@ export interface ProteinResult {
   gPerKgHigh?: number;
   perMealLow?: number;     // г за приём
   perMealHigh?: number;
+  mealsPerDay?: number;
   referenceWeightKg?: number;
   usedAdjustedWeight?: boolean;
   bmi?: number;
@@ -204,6 +205,7 @@ export function calcProteinShield(input: ProteinInput): ProteinResult {
     gPerKgHigh: round1(high),
     perMealLow: round5(gramsLow / meals),
     perMealHigh: round5(gramsHigh / meals),
+    mealsPerDay: meals,
     referenceWeightKg: Math.round(refWeight),
     usedAdjustedWeight,
     bmi: round1(bmi),
