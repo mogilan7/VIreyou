@@ -90,9 +90,41 @@ export async function saveTestResult({
         }
     }
 
+    // 4b. If protein test, update biometrics (gender, age, weight, height)
+    if (testType === 'protein' && rawData) {
+        try {
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    ...(rawData.gender ? { gender: rawData.gender } : {}),
+                    ...(rawData.age ? { age: Number(rawData.age) } : {}),
+                    ...(rawData.weight ? { weight: Number(rawData.weight) } : {}),
+                    ...(rawData.height ? { height: Number(rawData.height) } : {})
+                }
+            });
+        } catch (updateError) {
+            console.error('Failed to update user profile with protein results:', updateError);
+        }
+    }
+
     // 5. Revalidate the cabinet page so the new result shows up
     revalidatePath('/[locale]/cabinet', 'page')
     revalidatePath('/[locale]/cabinet/results', 'page')
 
     return { success: true }
+}
+
+export async function getUserBiometrics() {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        const u = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { gender: true, age: true, weight: true, height: true }
+        });
+        return u;
+    } catch (e) {
+        return null;
+    }
 }

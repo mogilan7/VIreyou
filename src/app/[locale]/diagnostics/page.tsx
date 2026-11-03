@@ -1,7 +1,7 @@
 import PublicNavbar from "@/components/layout/PublicNavbar";
 import PublicFooter from "@/components/layout/PublicFooter";
 import {
-    Zap, Hourglass, Activity,
+    Zap, Hourglass, Activity, ShieldCheck,
     Moon,
     Brain,
     HeartPulse,
@@ -73,7 +73,7 @@ export default async function DiagnosticsPage({ params }: { params: Promise<{ lo
                         {t('freeTitle')}
                     </h2>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <Link href="/diagnostics/energy" className="block outline-none">
                             <div className="bg-white rounded-3xl p-8 border border-brand-sage/40 hover:shadow-md transition-shadow relative overflow-hidden group h-full flex flex-col">
                                 <div className="absolute -right-8 -top-8 text-brand-sage/20 group-hover:text-brand-sage transition-colors">
@@ -88,6 +88,27 @@ export default async function DiagnosticsPage({ params }: { params: Promise<{ lo
                                 </p>
                                 <div className="text-brand-leaf text-sm font-bold w-fit flex items-center gap-2 group-hover:text-brand-forest transition-colors mt-auto">
                                     {t('btnT1')} <span className="text-lg leading-none">&rarr;</span>
+                                </div>
+                            </div>
+                        </Link>
+
+                        <Link href="/diagnostics/protein" className="block outline-none">
+                            <div className="bg-white rounded-3xl p-8 border border-brand-sage/40 hover:shadow-md transition-shadow relative overflow-hidden group h-full flex flex-col">
+                                <div className="absolute -right-8 -top-8 text-brand-sage/20 group-hover:text-brand-sage transition-colors">
+                                    <ShieldCheck size={120} strokeWidth={1} />
+                                </div>
+                                <div className="w-10 h-10 bg-[#E8F1EB] rounded-full flex items-center justify-center mb-6">
+                                    <ShieldCheck size={18} className="text-brand-leaf" />
+                                </div>
+                                <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E8F1EB] text-brand-forest mb-3 w-fit">
+                                    {t("proteinBadge")}
+                                </div>
+                                <h3 className="font-bold text-xl text-brand-text mb-3">{t("proteinTitle")}</h3>
+                                <p className="text-brand-gray text-sm mb-8 leading-relaxed pr-8">
+                                    {t("proteinSubtitle")}
+                                </p>
+                                <div className="text-brand-leaf text-sm font-bold w-fit flex items-center gap-2 group-hover:text-brand-forest transition-colors mt-auto">
+                                    {t("btnProtein")} <span className="text-lg leading-none">&rarr;</span>
                                 </div>
                             </div>
                         </Link>

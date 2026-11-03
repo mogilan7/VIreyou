@@ -82,6 +82,8 @@ interface FunnelRow {
     event_start_circadian: number;
     event_start_insomnia: number;
     event_start_sarc_f: number;
+    test_protein?: number;
+    event_start_protein?: number;
     activated_users_24h: number;
     event_first_meals_logged: number;
     d7_cohort_size: number;
@@ -145,6 +147,51 @@ async function exportWeeklyMetrics() {
         `;
     } catch (e) {
         console.warn('[METRICS EXPORT] Warning: Failed to query top campaigns:', e);
+    }
+
+    // 2b. Query protein metrics (fallback if weekly_funnel view not migrated yet)
+    let proteinLastStarts = Number((last as any).event_start_protein || 0);
+    let proteinLastSaves = Number((last as any).test_protein || 0);
+    let proteinPrevStarts = Number((prev as any).event_start_protein || 0);
+    let proteinPrevSaves = Number((prev as any).test_protein || 0);
+
+    if (!("test_protein" in last)) {
+        try {
+            const [ls, lsv, ps, psv] = await Promise.all([
+                prisma.analyticsEvent.count({
+                    where: {
+                        event: "test_start",
+                        meta: { path: ["testType"], equals: "protein" },
+                        created_at: { gte: new Date(last.period_start), lt: new Date(last.period_end) }
+                    }
+                }),
+                prisma.test_results.count({
+                    where: {
+                        test_type: "protein",
+                        created_at: { gte: new Date(last.period_start), lt: new Date(last.period_end) }
+                    }
+                }),
+                prisma.analyticsEvent.count({
+                    where: {
+                        event: "test_start",
+                        meta: { path: ["testType"], equals: "protein" },
+                        created_at: { gte: new Date(prev.period_start), lt: new Date(prev.period_end) }
+                    }
+                }),
+                prisma.test_results.count({
+                    where: {
+                        test_type: "protein",
+                        created_at: { gte: new Date(prev.period_start), lt: new Date(prev.period_end) }
+                    }
+                })
+            ]);
+            proteinLastStarts = ls;
+            proteinLastSaves = lsv;
+            proteinPrevStarts = ps;
+            proteinPrevSaves = psv;
+        } catch (e) {
+            console.warn("[METRICS EXPORT] Warning: Failed to query fallback protein counts:", e);
+        }
     }
 
     // 3. Assemble main funnel metrics
@@ -360,6 +407,15 @@ async function exportWeeklyMetrics() {
             last: `${last.event_start_sarc_f || 0} / ${last.test_sarc_f}`,
             prev: `${prev.event_start_sarc_f || 0} / ${prev.test_sarc_f}`,
             change: calcChange(Number(last.test_sarc_f), Number(prev.test_sarc_f)),
+            status: 'Активно',
+            note: 'Старты в событиях / Сохраненные в test_results'
+        },
+        {
+            category: '2.1. Детализация тестов',
+            metric: 'Белковый щит (protein) [старт / сохр]',
+            last: `${proteinLastStarts} / ${proteinLastSaves}`,
+            prev: `${proteinPrevStarts} / ${proteinPrevSaves}`,
+            change: calcChange(Number(proteinLastSaves), Number(proteinPrevSaves)),
             status: 'Активно',
             note: 'Старты в событиях / Сохраненные в test_results'
         },

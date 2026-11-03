@@ -177,7 +177,11 @@
     "functionalAgeTitle": "Functional Age (4 checks)",
     "functionalAgeDesc": "No gadgets: walking speed, balance and muscle strength.",
     "functionalReserveTitle": "Functional Reserve Profile",
-    "functionalReserveDesc": "Fitness Age (HUNT), SPPB, grip strength, PhenoAge: domain scores, percentiles and a clinician PDF report."
+    "functionalReserveDesc": "Fitness Age (HUNT), SPPB, grip strength, PhenoAge: domain scores, percentiles and a clinician PDF report.",
+    "proteinTitle": "Protein Shield",
+    "proteinSubtitle": "How much protein your muscles need as you age",
+    "proteinBadge": "free, 1 minute",
+    "btnProtein": "Calculate target"
   },
   "EnergyCalculator": {
     "title": "Interactive Energy Expenditure Calculator",
@@ -1846,6 +1850,56 @@
         "no": "No",
         "basedOn": "This check has two zones, without a middle — as it was evaluated in the study. Based on: in a study of 1,702 people aged 51–75, those who could not stand for 10 seconds were more likely to die in the next 7 years. The risk was 84% higher adjusting for age, sex, and disease (Araujo et al., British Journal of Sports Medicine, 2022). This is an observation, not a cause: balance rather reflects the overall condition of the organism."
       }
+    }
+  },
+  "ProteinShield": {
+    "title": "Protein Shield",
+    "subtitle": "How much protein your muscles need as you age",
+    "badge": "free, 1 minute",
+    "back": "Back to diagnostics",
+    "paramsTitle": "Your Parameters",
+    "gender": "Sex",
+    "female": "Female",
+    "male": "Male",
+    "age": "Age (years)",
+    "weight": "Weight, kg",
+    "height": "Height, cm",
+    "activity": "Activity Level",
+    "activity_low": "Sedentary (low activity)",
+    "activity_moderate": "Walking, cardio",
+    "activity_strength": "Strength training 2+ times/week",
+    "activity_heavy": "Heavy physical labor or intense sport",
+    "goal": "Goal",
+    "goal_maintain": "Maintain fitness",
+    "goal_lose": "Lose weight",
+    "goal_gain_muscle": "Build muscle",
+    "kidney": "Any kidney diseases?",
+    "kidney_no": "No",
+    "kidney_yes": "Yes",
+    "kidney_unknown": "Don't know",
+    "meals": "Meals per day (optional)",
+    "mealsHint": "Default 3 (from 1 to 6)",
+    "calculateBtn": "Calculate target",
+    "recalculateBtn": "Edit parameters",
+    "resultTitle": "Your Protein Target",
+    "gProteinPerDay": "g of protein per day",
+    "gPerKg": "g per kg of weight",
+    "sourcesTitle": "Sources & Evidence",
+    "disclaimer": "This is a research-based reference guide, not a medical diagnosis or prescription.",
+    "botButton": "Calculate protein on my plate",
+    "saveBtn": "Save to Medical Archive",
+    "saving": "Saving...",
+    "saved": "Saved to Medical Archive",
+    "saveError": "Save error",
+    "seeDoctorTitle": "Doctor Consultation Recommended",
+    "backBtn": "Return to diagnostics",
+    "authModalTitle": "Save to Medical Archive",
+    "authModalDesc": "Sign in to save your diagnostic results and track health trends over time.",
+    "errors": {
+      "age": "Enter age between 18 and 110 years",
+      "weight": "Enter weight between 30 and 300 kg",
+      "height": "Enter height between 120 and 230 cm",
+      "meals": "Number of meals must be between 1 and 6"
     }
   }
 }

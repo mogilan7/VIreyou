@@ -746,7 +746,7 @@ bot.command('start', async (ctx: any) => {
   await logBotEvent('bot_start', {
       userId: ctx.state?.user?.id || null,
       sessionId: tgId ? `tg_${tgId}` : "tg_unknown",
-      utmSource: payload?.startsWith("yt_") ? "youtube" : (payload || null),
+      utmSource: payload?.startsWith("yt_") ? "youtube" : (payload?.startsWith("web_") ? "web" : (payload || null)),
       utmCampaign: payload || null,
       meta: {
           payload,
@@ -814,7 +814,7 @@ bot.command('start', async (ctx: any) => {
   
   if (payload && payload.startsWith('link_')) {
       linkUserId = payload.replace('link_', '');
-  } else if (payload && !refId && !squadId && payload !== 'marathon' && !payload.startsWith('yt_')) {
+  } else if (payload && !refId && !squadId && payload !== 'marathon' && !payload.startsWith('yt_') && !payload.startsWith('web_')) {
       let candidate = payload;
       try {
           const decoded = Buffer.from(payload, 'base64').toString('utf8');
@@ -843,8 +843,8 @@ bot.command('start', async (ctx: any) => {
           // Создаем Telegram-first пользователя
           const userLang = detectTimezoneFromLang(ctx.from?.language_code) === 'Europe/Moscow' ? 'ru' : 'en';
           const userTz = detectTimezoneFromLang(ctx.from?.language_code);
-          const utmSrc = payload?.startsWith("yt_") ? "youtube" : (payload || null);
-          const utmCamp = payload || null;
+          const utmSrc = payload?.startsWith("yt_") ? "youtube" : (payload?.startsWith("web_") ? "web" : (payload || null));
+          const utmCamp = payload?.startsWith("web_") ? (payload.replace(/^web_protein_?/, "") || "protein") : (payload || null);
 
           userRecord = await prisma.user.create({
               data: {
@@ -883,6 +883,29 @@ bot.command('start', async (ctx: any) => {
 
           await joinSquadIfNeeded(userRecord);
 
+          if (payload?.startsWith("web_protein")) {
+              let proteinTargetStr = "";
+              try {
+                  const latestProtein = await prisma.test_results.findFirst({
+                      where: { user_id: userRecord.id, test_type: "protein" },
+                      orderBy: { created_at: "desc" }
+                  });
+                  if (latestProtein?.raw_data) {
+                      const raw = latestProtein.raw_data as any;
+                      if (raw.gramsLow && raw.gramsHigh) {
+                          proteinTargetStr = ctx.state.lang === "en"
+                              ? ` Your target from the portal: ${raw.gramsLow}–${raw.gramsHigh} g per day.`
+                              : ` Ваш ориентир с портала: ${raw.gramsLow}–${raw.gramsHigh} г в день.`;
+                      }
+                  }
+              } catch (e) {}
+
+              const greeting = ctx.state.lang === "en"
+                  ? `📸 Take a photo of your plate — I will show how much protein is in it.${proteinTargetStr}`
+                  : `📸 Сфотографируйте тарелку — покажу, сколько в ней белка.${proteinTargetStr}`;
+              return ctx.reply(greeting, getPersistentKeyboard(ctx.state.lang));
+          }
+
           // Первое сообщение: короткое приветствие и сразу призыв отправить еду
           const welcomeMsg = ctx.state.lang === 'en'
               ? "👋 Hello! I am your longevity and nutrition assistant VIReYou.\n💬 Write or speak in your own words — food, water, sleep, activity. For example: «1 liter of water», «30 minute walk», «7 hours sleep».\n\nSend a photo of your plate or use voice to tell me what you ate — I will analyze almost 30 nutrients."
@@ -896,7 +919,8 @@ bot.command('start', async (ctx: any) => {
                   where: { id: userRecord.id },
                   data: {
                       start_param: payload,
-                      ...(payload.startsWith("yt_") ? { utm_source: "youtube", utm_campaign: payload } : {})
+                      ...(payload.startsWith("yt_") ? { utm_source: "youtube", utm_campaign: payload } : {}),
+                      ...(payload.startsWith("web_") ? { utm_source: "web", utm_campaign: (payload.replace(/^web_protein_?/, "") || "protein") } : {})
                   }
               });
           }
@@ -911,6 +935,29 @@ bot.command('start', async (ctx: any) => {
           ctx.state.lang = userRecord.language || 'ru';
 
           await joinSquadIfNeeded(userRecord);
+          if (payload?.startsWith("web_protein")) {
+              let proteinTargetStr = "";
+              try {
+                  const latestProtein = await prisma.test_results.findFirst({
+                      where: { user_id: userRecord.id, test_type: "protein" },
+                      orderBy: { created_at: "desc" }
+                  });
+                  if (latestProtein?.raw_data) {
+                      const raw = latestProtein.raw_data as any;
+                      if (raw.gramsLow && raw.gramsHigh) {
+                          proteinTargetStr = ctx.state.lang === "en"
+                              ? ` Ваш ориентир с портала: ${raw.gramsLow}–${raw.gramsHigh} g per day.`
+                              : ` Ваш ориентир с портала: ${raw.gramsLow}–${raw.gramsHigh} г в день.`;
+                      }
+                  }
+              } catch (e) {}
+
+              const greeting = ctx.state.lang === "en"
+                  ? `📸 Take a photo of your plate — I will show how much protein is in it.${proteinTargetStr}`
+                  : `📸 Сфотографируйте тарелку — покажу, сколько в ней белка.${proteinTargetStr}`;
+              return ctx.reply(greeting, getPersistentKeyboard(ctx.state.lang));
+          }
+
           return sendWelcomeMenu(ctx, userRecord);
       }
   }
