@@ -5,7 +5,7 @@ import { trackEvent, getCookie } from '@/lib/analytics';
 import { 
     ShieldCheck, User, Scale, Ruler, Utensils, 
     ArrowLeft, Save, Loader2, CheckCircle, AlertCircle, 
-    Send, BookOpen, AlertTriangle, RotateCcw, Activity as ActivityIcon, Target, HeartPulse
+    Send, BookOpen, AlertTriangle, RotateCcw, Activity as ActivityIcon, Target, ChevronDown
 } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { Link } from '@/i18n/routing';
@@ -19,7 +19,7 @@ import {
     Activity, 
     Goal, 
     Kidney,
-    SOURCES,
+    SOURCES_DETAIL,
     PROTEIN_COEFFICIENTS
 } from '@/lib/nutrition/proteinShield';
 
@@ -49,10 +49,20 @@ export default function ProteinCalculatorPage() {
     const [result, setResult] = useState<ProteinResult | null>(null);
     const [validationError, setValidationError] = useState<string | null>(null);
     const [hasCalculated, setHasCalculated] = useState(false);
+    const [lastCalculatedSnapshot, setLastCalculatedSnapshot] = useState<string>('');
 
     // Analytics tracking refs
     const hasStartedRef = useRef(false);
-    const lastCalculatedParamsRef = useRef<string>('');
+
+    // Track if form changed since last calculation
+    const currentSnapshot = useMemo(() => {
+        return JSON.stringify({ gender, age, weight, height, activity, goal, kidneyDisease, meals });
+    }, [gender, age, weight, height, activity, goal, kidneyDisease, meals]);
+
+    const isDirty = useMemo(() => {
+        if (!hasCalculated) return true;
+        return currentSnapshot !== lastCalculatedSnapshot;
+    }, [hasCalculated, currentSnapshot, lastCalculatedSnapshot]);
 
     // Load initial biometrics if user is logged in
     useEffect(() => {
@@ -133,33 +143,29 @@ export default function ProteinCalculatorPage() {
             const res = calcProteinShield(input);
             setResult(res);
             setHasCalculated(true);
+            setLastCalculatedSnapshot(currentSnapshot);
             setSaveStatus('idle');
 
             // Send test_complete analytics event (without raw weight/height)
-            const paramsKey = `${gender}_${age}_${activity}_${goal}_${kidneyDisease}_${parsedMeals}`;
-            if (lastCalculatedParamsRef.current !== paramsKey) {
-                lastCalculatedParamsRef.current = paramsKey;
+            const ageGroup = age < 40 ? '<40' : (age <= 64 ? '40–64' : '65+');
+            const utmCampaign = getCookie('vireyou_utm_campaign') || null;
+            const utmContent = getCookie('vireyou_utm_content') || null;
 
-                const ageGroup = age < 40 ? '<40' : (age <= 64 ? '40–64' : '65+');
-                const utmCampaign = getCookie('vireyou_utm_campaign') || null;
-                const utmContent = getCookie('vireyou_utm_content') || null;
+            trackEvent('test_complete', {
+                testType: 'protein',
+                slug: 'protein',
+                status: res.status,
+                age_group: ageGroup,
+                goal,
+                activity,
+                utm_campaign: utmCampaign,
+                utm_content: utmContent,
+                score: res.gramsLow && res.gramsHigh ? Math.round((res.gramsLow + res.gramsHigh) / 2) : null,
+                interpretation: res.status === 'ok' ? `${res.gramsLow}–${res.gramsHigh} g/day` : 'see_doctor',
+                is_anonymous: !isAuthenticated
+            });
 
-                trackEvent('test_complete', {
-                    testType: 'protein',
-                    slug: 'protein',
-                    status: res.status,
-                    age_group: ageGroup,
-                    goal,
-                    activity,
-                    utm_campaign: utmCampaign,
-                    utm_content: utmContent,
-                    score: res.gramsLow && res.gramsHigh ? Math.round((res.gramsLow + res.gramsHigh) / 2) : null,
-                    interpretation: res.status === 'ok' ? `${res.gramsLow}–${res.gramsHigh} g/day` : 'see_doctor',
-                    is_anonymous: !isAuthenticated
-                });
-            }
-
-            // Scroll to results smoothly on mobile
+            // Scroll to results on mobile
             if (typeof window !== 'undefined' && window.innerWidth < 1024) {
                 setTimeout(() => {
                     document.getElementById('protein-results-section')?.scrollIntoView({ behavior: 'smooth' });
@@ -169,12 +175,6 @@ export default function ProteinCalculatorPage() {
             setValidationError(err.message || 'Ошибка расчёта');
         }
     };
-
-    // Calculate automatically once on initial load (defaults)
-    useEffect(() => {
-        handleCalculate();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // Save test result handler
     const handleSave = async () => {
@@ -234,12 +234,25 @@ export default function ProteinCalculatorPage() {
         trackEvent('bot_click', { testType: 'protein', slug: 'protein' });
     };
 
+    // Format numbers with comma for Russian locale
+    const formatNumberLocale = (val?: number) => {
+        if (val === undefined || isNaN(val)) return '0';
+        const str = val.toFixed(1);
+        return isRu ? str.replace('.', ',') : str;
+    };
+
     // Russian pluralization for meals
-    const getMealWord = (n: number) => {
-        if (!isRu) return n === 1 ? t('mealWord_1') : t('mealWord_2_4');
-        if (n === 1) return t('mealWord_1');
-        if (n >= 2 && n <= 4) return t('mealWord_2_4');
-        return t('mealWord_5_6');
+    const formatMealsText = (mealsCount: number, low?: number, high?: number) => {
+        const l = low || 0;
+        const h = high || 0;
+        if (!isRu) {
+            const mealWord = mealsCount === 1 ? 'meal' : 'meals';
+            return `For ${mealsCount} ${mealWord} — about ${l}–${h} g per meal`;
+        }
+        let mealWord = 'приёмов пищи';
+        if (mealsCount === 1) mealWord = 'приём пищи';
+        else if (mealsCount >= 2 && mealsCount <= 4) mealWord = 'приёма пищи';
+        return `На ${mealsCount} ${mealWord} — примерно ${l}–${h} г за раз`;
     };
 
     return (
@@ -285,11 +298,11 @@ export default function ProteinCalculatorPage() {
 
                             {/* Gender */}
                             <div>
-                                <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest mb-2.5">
+                                <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest mb-2">
                                     {t('gender')}
                                 </label>
                                 <div className="flex space-x-3">
-                                    <label className={`flex-1 flex items-center justify-center py-3 px-4 border rounded-xl cursor-pointer transition-colors text-sm font-semibold ${gender === 'female' ? 'bg-[#E8F1EB] border-brand-leaf text-brand-forest' : 'border-brand-sage/50 hover:bg-[#FAFAFA] text-brand-text'}`}>
+                                    <label className={`flex-1 flex items-center justify-center py-2.5 px-4 border rounded-xl cursor-pointer transition-colors text-sm font-semibold h-11 ${gender === 'female' ? 'bg-[#E8F1EB] border-brand-leaf text-brand-forest' : 'border-brand-sage/50 hover:bg-[#FAFAFA] text-brand-text'}`}>
                                         <input 
                                             type="radio" 
                                             name="gender" 
@@ -300,7 +313,7 @@ export default function ProteinCalculatorPage() {
                                         />
                                         {t('female')}
                                     </label>
-                                    <label className={`flex-1 flex items-center justify-center py-3 px-4 border rounded-xl cursor-pointer transition-colors text-sm font-semibold ${gender === 'male' ? 'bg-[#E8F1EB] border-brand-leaf text-brand-forest' : 'border-brand-sage/50 hover:bg-[#FAFAFA] text-brand-text'}`}>
+                                    <label className={`flex-1 flex items-center justify-center py-2.5 px-4 border rounded-xl cursor-pointer transition-colors text-sm font-semibold h-11 ${gender === 'male' ? 'bg-[#E8F1EB] border-brand-leaf text-brand-forest' : 'border-brand-sage/50 hover:bg-[#FAFAFA] text-brand-text'}`}>
                                         <input 
                                             type="radio" 
                                             name="gender" 
@@ -314,11 +327,11 @@ export default function ProteinCalculatorPage() {
                                 </div>
                             </div>
 
-                            {/* Age, Weight, Height Grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {/* Age, Weight, Height Grid with single-line labels */}
+                            <div className="grid grid-cols-3 gap-3">
                                 <div>
-                                    <label className="flex items-center text-xs font-bold text-brand-gray uppercase tracking-widest mb-1.5">
-                                        <User size={12} className="mr-1" /> {t('age')}
+                                    <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest whitespace-nowrap mb-1.5 truncate">
+                                        {t('ageLabel')}
                                     </label>
                                     <input 
                                         type="number" 
@@ -326,12 +339,12 @@ export default function ProteinCalculatorPage() {
                                         max={PROTEIN_COEFFICIENTS.MAX_AGE} 
                                         value={age} 
                                         onChange={(e) => { onFormInteraction(); setAge(Number(e.target.value)); }} 
-                                        className="w-full p-2.5 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text" 
+                                        className="w-full h-11 px-3 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text" 
                                     />
                                 </div>
                                 <div>
-                                    <label className="flex items-center text-xs font-bold text-brand-gray uppercase tracking-widest mb-1.5">
-                                        <Scale size={12} className="mr-1" /> {t('weight')}
+                                    <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest whitespace-nowrap mb-1.5 truncate">
+                                        {t('weightLabel')}
                                     </label>
                                     <input 
                                         type="number" 
@@ -339,12 +352,12 @@ export default function ProteinCalculatorPage() {
                                         max={PROTEIN_COEFFICIENTS.MAX_WEIGHT} 
                                         value={weight} 
                                         onChange={(e) => { onFormInteraction(); setWeight(Number(e.target.value)); }} 
-                                        className="w-full p-2.5 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text" 
+                                        className="w-full h-11 px-3 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text" 
                                     />
                                 </div>
                                 <div>
-                                    <label className="flex items-center text-xs font-bold text-brand-gray uppercase tracking-widest mb-1.5">
-                                        <Ruler size={12} className="mr-1" /> {t('height')}
+                                    <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest whitespace-nowrap mb-1.5 truncate">
+                                        {t('heightLabel')}
                                     </label>
                                     <input 
                                         type="number" 
@@ -352,38 +365,52 @@ export default function ProteinCalculatorPage() {
                                         max={PROTEIN_COEFFICIENTS.MAX_HEIGHT} 
                                         value={height} 
                                         onChange={(e) => { onFormInteraction(); setHeight(Number(e.target.value)); }} 
-                                        className="w-full p-2.5 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text" 
+                                        className="w-full h-11 px-3 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text" 
                                     />
                                 </div>
                             </div>
 
-                            {/* Activity */}
+                            {/* Activity Cards (2x2 grid matching goal style) */}
                             <div>
-                                <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest mb-1.5">
+                                <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest mb-2">
                                     {t('activity')}
                                 </label>
-                                <select 
-                                    value={activity} 
-                                    onChange={(e) => { onFormInteraction(); setActivity(e.target.value as Activity); }}
-                                    className="w-full p-3 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text cursor-pointer"
-                                >
-                                    <option value="low">{t('activity_low')}</option>
-                                    <option value="moderate">{t('activity_moderate')}</option>
-                                    <option value="strength">{t('activity_strength')}</option>
-                                    <option value="heavy">{t('activity_heavy')}</option>
-                                </select>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {[
+                                        { key: 'low', titleKey: 'act_low_title', descKey: 'act_low_desc' },
+                                        { key: 'moderate', titleKey: 'act_mod_title', descKey: 'act_mod_desc' },
+                                        { key: 'strength', titleKey: 'act_str_title', descKey: 'act_str_desc' },
+                                        { key: 'heavy', titleKey: 'act_hvy_title', descKey: 'act_hvy_desc' }
+                                    ].map(({ key, titleKey, descKey }) => (
+                                        <label 
+                                            key={key}
+                                            className={`flex flex-col justify-center p-2.5 border rounded-xl cursor-pointer transition-colors min-h-[3.25rem] ${activity === key ? 'bg-[#E8F1EB] border-brand-leaf text-brand-forest' : 'border-brand-sage/50 hover:bg-[#FAFAFA] text-brand-text'}`}
+                                        >
+                                            <input 
+                                                type="radio" 
+                                                name="activity" 
+                                                value={key} 
+                                                checked={activity === key} 
+                                                onChange={() => { onFormInteraction(); setActivity(key as Activity); }} 
+                                                className="hidden" 
+                                            />
+                                            <div className="font-semibold text-xs leading-tight">{t(titleKey)}</div>
+                                            <div className="text-[10px] text-brand-gray/80 mt-0.5 leading-tight">{t(descKey)}</div>
+                                        </label>
+                                    ))}
+                                </div>
                             </div>
 
-                            {/* Goal */}
+                            {/* Goal (3 equal height buttons) */}
                             <div>
                                 <label className="flex items-center text-xs font-bold text-brand-gray uppercase tracking-widest mb-2">
                                     <Target size={12} className="mr-1" /> {t('goal')}
                                 </label>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <div className="grid grid-cols-3 gap-2">
                                     {(['maintain', 'lose', 'gain_muscle'] as Goal[]).map((g) => (
                                         <label 
                                             key={g}
-                                            className={`flex flex-col items-center justify-center p-2.5 border rounded-xl cursor-pointer transition-colors text-center text-xs font-semibold leading-tight ${goal === g ? 'bg-[#E8F1EB] border-brand-leaf text-brand-forest' : 'border-brand-sage/50 hover:bg-[#FAFAFA] text-brand-text'}`}
+                                            className={`flex flex-col items-center justify-center p-2 border rounded-xl cursor-pointer transition-colors text-center text-xs font-semibold h-14 ${goal === g ? 'bg-[#E8F1EB] border-brand-leaf text-brand-forest' : 'border-brand-sage/50 hover:bg-[#FAFAFA] text-brand-text'}`}
                                         >
                                             <input 
                                                 type="radio" 
@@ -393,7 +420,7 @@ export default function ProteinCalculatorPage() {
                                                 onChange={() => { onFormInteraction(); setGoal(g); }} 
                                                 className="hidden" 
                                             />
-                                            {t(`goal_${g}`)}
+                                            <span className="leading-tight">{t(`goal_${g}`)}</span>
                                         </label>
                                     ))}
                                 </div>
@@ -408,7 +435,7 @@ export default function ProteinCalculatorPage() {
                                     {(['no', 'yes', 'unknown'] as Kidney[]).map((k) => (
                                         <label 
                                             key={k}
-                                            className={`flex items-center justify-center p-2.5 border rounded-xl cursor-pointer transition-colors text-center text-xs font-semibold ${kidneyDisease === k ? 'bg-[#E8F1EB] border-brand-leaf text-brand-forest' : 'border-brand-sage/50 hover:bg-[#FAFAFA] text-brand-text'}`}
+                                            className={`flex items-center justify-center p-2.5 border rounded-xl cursor-pointer transition-colors text-center text-xs font-semibold h-11 ${kidneyDisease === k ? 'bg-[#E8F1EB] border-brand-leaf text-brand-forest' : 'border-brand-sage/50 hover:bg-[#FAFAFA] text-brand-text'}`}
                                         >
                                             <input 
                                                 type="radio" 
@@ -426,7 +453,7 @@ export default function ProteinCalculatorPage() {
 
                             {/* Meals per day (optional) */}
                             <div>
-                                <label className="flex items-center justify-between text-xs font-bold text-brand-gray uppercase tracking-widest mb-1.5">
+                                <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest mb-1.5">
                                     <span className="flex items-center">
                                         <Utensils size={12} className="mr-1" /> {t('meals')}
                                     </span>
@@ -438,7 +465,7 @@ export default function ProteinCalculatorPage() {
                                     value={meals} 
                                     onChange={(e) => { onFormInteraction(); setMeals(Number(e.target.value)); }} 
                                     placeholder="3"
-                                    className="w-full p-2.5 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text" 
+                                    className="w-full h-11 px-3 bg-[#FAFAFA] border border-brand-sage/50 rounded-xl focus:ring-1 focus:ring-brand-leaf outline-none transition-all text-sm font-semibold text-brand-text" 
                                 />
                                 <div className="text-[11px] text-brand-gray/70 mt-1">{t('mealsHint')}</div>
                             </div>
@@ -450,13 +477,19 @@ export default function ProteinCalculatorPage() {
                                 </div>
                             )}
 
+                            {/* Calculate / Recalculate button */}
                             <button 
                                 type="submit" 
                                 id="btn-calculate-protein"
-                                className="w-full bg-brand-forest hover:bg-brand-leaf text-white py-3.5 px-6 rounded-xl font-bold transition-all text-center shadow-md hover:shadow-lg flex items-center justify-center gap-2 mt-4 cursor-pointer"
+                                disabled={hasCalculated && !isDirty}
+                                className={`w-full py-3.5 px-6 rounded-xl font-bold transition-all text-center flex items-center justify-center gap-2 mt-4 ${
+                                    hasCalculated && !isDirty
+                                        ? 'bg-brand-sage/40 text-brand-gray cursor-not-allowed border border-brand-sage/60'
+                                        : 'bg-brand-forest hover:bg-brand-leaf text-white shadow-md hover:shadow-lg cursor-pointer'
+                                }`}
                             >
                                 <ShieldCheck size={18} />
-                                {hasCalculated ? t('recalculateBtn') : t('calculateBtn')}
+                                <span>{hasCalculated ? t('recalculateBtn') : t('calculateBtn')}</span>
                             </button>
                         </form>
                     </div>
@@ -464,7 +497,23 @@ export default function ProteinCalculatorPage() {
                     {/* Results Section */}
                     <div id="protein-results-section" className="lg:col-span-7 space-y-6">
 
-                        {result && result.status === 'ok' && (
+                        {/* Placeholder before calculation */}
+                        {!hasCalculated && (
+                            <div className="bg-white p-8 md:p-12 rounded-[2rem] shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-brand-sage/40 min-h-[520px] flex flex-col items-center justify-center text-center space-y-4">
+                                <div className="w-16 h-16 bg-[#E8F1EB] rounded-2xl flex items-center justify-center text-brand-leaf shadow-sm">
+                                    <ShieldCheck size={32} />
+                                </div>
+                                <h3 className="text-xl md:text-2xl font-serif font-bold text-brand-forest max-w-md">
+                                    {t('placeholderTitle')}
+                                </h3>
+                                <p className="text-sm text-brand-gray max-w-md leading-relaxed">
+                                    {t('placeholderDesc')}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Result OK */}
+                        {hasCalculated && result && result.status === 'ok' && (
                             <div className="bg-white p-6 md:p-10 rounded-[2rem] shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-brand-sage/40 relative overflow-hidden flex flex-col space-y-6">
                                 <div className="absolute top-0 right-0 p-8 opacity-[0.03] text-brand-leaf pointer-events-none">
                                     <ShieldCheck size={200} />
@@ -479,60 +528,77 @@ export default function ProteinCalculatorPage() {
                                         {result.gramsLow}–{result.gramsHigh} <span className="text-xl md:text-2xl font-sans font-medium text-brand-gray">{t('gProteinPerDay')}</span>
                                     </div>
                                     <div className="text-sm md:text-base text-brand-leaf font-semibold mt-2">
-                                        {result.gPerKgLow}–{result.gPerKgHigh} {t('gPerKg')}
-                                        {result.usedAdjustedWeight && (
-                                            <span className="text-brand-gray font-normal text-xs ml-2">
-                                                (скорр. вес {result.referenceWeightKg} кг)
-                                            </span>
+                                        {isRu ? (
+                                            `${formatNumberLocale(result.gPerKgLow)}–${formatNumberLocale(result.gPerKgHigh)} г на каждый килограмм веса`
+                                        ) : (
+                                            `${result.gPerKgLow}–${result.gPerKgHigh} g per kg of body weight`
                                         )}
                                     </div>
+
+                                    {/* Fired rule reason string */}
+                                    {result.ruleReasonKey && (
+                                        <div className="mt-3.5 p-3 bg-brand-sage/20 border border-brand-sage/50 rounded-xl text-xs md:text-sm text-brand-forest/90 leading-relaxed">
+                                            {t(`ruleReasons.${result.ruleReasonKey}`)}
+                                            {result.usedAdjustedWeight && (
+                                                <div className="mt-1 text-xs text-brand-gray font-medium">
+                                                    {isRu 
+                                                        ? `• ${t('bmiAdjustedBadge', { weight: result.referenceWeightKg ?? 0 })}`
+                                                        : `• ${t('bmiAdjustedBadge', { weight: result.referenceWeightKg ?? 0 })}`}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Per meal block */}
+                                {/* Per meal block with clean pluralization */}
                                 <div className="bg-[#E8F1EB] p-4 md:p-5 rounded-2xl border border-brand-leaf/30 flex items-center gap-4">
                                     <div className="w-10 h-10 bg-brand-leaf/20 rounded-xl flex items-center justify-center text-brand-forest flex-shrink-0">
                                         <Utensils size={20} />
                                     </div>
                                     <div className="text-sm md:text-base text-brand-forest font-semibold">
-                                        {isRu ? (
-                                            <>
-                                                На {meals} {getMealWord(meals)} — примерно{' '}
-                                                <span className="font-bold">{result.perMealLow}–{result.perMealHigh} г</span> за раз
-                                            </>
-                                        ) : (
-                                            <>
-                                                For {meals} {getMealWord(meals)} — about{' '}
-                                                <span className="font-bold">{result.perMealLow}–{result.perMealHigh} g</span> per meal
-                                            </>
-                                        )}
+                                        {formatMealsText(meals, result.perMealLow, result.perMealHigh)}
                                     </div>
                                 </div>
 
-                                {/* Notes */}
-                                <div className="space-y-2.5">
-                                    {result.notes.slice(2).map((note, idx) => (
-                                        <div key={idx} className="flex items-start gap-2.5 text-xs md:text-sm text-brand-text/80 leading-relaxed">
-                                            <span className="text-brand-leaf font-bold leading-none mt-1">•</span>
-                                            <span>{note}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                                {/* Additional contextual notes (if any) */}
+                                {result.notes && result.notes.length > 0 && (
+                                    <div className="space-y-2">
+                                        {result.notes.map((note, idx) => (
+                                            <div key={idx} className="flex items-start gap-2.5 text-xs md:text-sm text-brand-text/80 leading-relaxed">
+                                                <span className="text-brand-leaf font-bold leading-none mt-1">•</span>
+                                                <span>{note}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
 
-                                {/* Sources block */}
+                                {/* Sources block with expandable citations */}
                                 {result.sources && result.sources.length > 0 && (
                                     <div className="bg-[#FAFAFA] p-5 rounded-2xl border border-brand-sage/40 space-y-3">
                                         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-brand-gray">
                                             <BookOpen size={14} className="text-brand-leaf" />
                                             {t('sourcesTitle')}
                                         </div>
-                                        <ul className="space-y-2 text-xs text-brand-gray/80 leading-relaxed list-none pl-0">
-                                            {result.sources.map((srcKey) => (
-                                                <li key={srcKey} className="flex items-start gap-2">
-                                                    <span className="text-brand-leaf font-bold">•</span>
-                                                    <span>{SOURCES[srcKey] || srcKey}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
+                                        <div className="space-y-2">
+                                            {result.sources.map((srcKey) => {
+                                                const meta = SOURCES_DETAIL[srcKey];
+                                                if (!meta) return null;
+                                                return (
+                                                    <details key={srcKey} className="group bg-white rounded-xl border border-brand-sage/30 p-2.5 transition-colors">
+                                                        <summary className="flex items-center justify-between text-xs font-semibold text-brand-text cursor-pointer list-none select-none">
+                                                            <span className="flex items-center gap-2">
+                                                                <span className="text-brand-leaf font-bold">•</span>
+                                                                <span>{meta.shortTitle}</span>
+                                                            </span>
+                                                            <ChevronDown size={14} className="text-brand-gray group-open:rotate-180 transition-transform duration-200" />
+                                                        </summary>
+                                                        <div className="mt-2 pt-2 border-t border-brand-sage/20 text-[11px] text-brand-gray/90 leading-relaxed pl-3.5">
+                                                            {meta.fullCitation}
+                                                        </div>
+                                                    </details>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 )}
 
@@ -598,7 +664,7 @@ export default function ProteinCalculatorPage() {
                         )}
 
                         {/* Status see_doctor */}
-                        {result && result.status === 'see_doctor' && (
+                        {hasCalculated && result && result.status === 'see_doctor' && (
                             <div className="bg-white p-6 md:p-10 rounded-[2rem] shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-amber-200 space-y-6">
                                 <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-700 mb-2">
                                     <AlertTriangle size={28} />
@@ -619,7 +685,7 @@ export default function ProteinCalculatorPage() {
                                         {t('sourcesTitle')}
                                     </div>
                                     <p className="text-xs text-brand-gray/80 leading-relaxed">
-                                        {SOURCES.protage}
+                                        {SOURCES_DETAIL.protage.fullCitation}
                                     </p>
                                 </div>
 

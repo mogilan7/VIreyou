@@ -1879,8 +1879,8 @@
     "kidney_unknown": "Don't know",
     "meals": "Meals per day (optional)",
     "mealsHint": "Default 3 (from 1 to 6)",
-    "calculateBtn": "Calculate target",
-    "recalculateBtn": "Edit parameters",
+    "calculateBtn": "Calculate",
+    "recalculateBtn": "Recalculate",
     "resultTitle": "Your Protein Target",
     "gProteinPerDay": "g of protein per day",
     "gPerKg": "g per kg of weight",
@@ -1900,6 +1900,27 @@
       "weight": "Enter weight between 30 and 300 kg",
       "height": "Enter height between 120 and 230 cm",
       "meals": "Number of meals must be between 1 and 6"
-    }
+    },
+    "ageLabel": "Age",
+    "weightLabel": "Weight, kg",
+    "heightLabel": "Height, cm",
+    "gPerKgFormat": "{low}–{high} g per kg of body weight",
+    "placeholderTitle": "Protein Target Guide",
+    "placeholderDesc": "Enter your parameters on the left and click «Calculate» to find your daily protein target and per-meal portion.",
+    "act_low_title": "Low activity",
+    "act_low_desc": "Sedentary lifestyle",
+    "act_mod_title": "Walking, cardio",
+    "act_mod_desc": "Moderate activity",
+    "act_str_title": "Strength training",
+    "act_str_desc": "2+ times per week",
+    "act_hvy_title": "Heavy labor",
+    "act_hvy_desc": "Intense sports",
+    "ruleReasons": {
+      "active_muscle": "Elevated intake: regular strength training or muscle gain goal requires more protein for muscle protein synthesis.",
+      "weight_loss": "Elevated intake: calorie deficit requires higher protein intake to preserve lean muscle mass while losing fat.",
+      "senior": "Age-adjusted intake: after age 65, anabolic resistance increases, requiring more protein per kilogram of body weight.",
+      "base": "Baseline physiological intake: optimal for maintaining healthy muscle mass and metabolic balance."
+    },
+    "bmiAdjustedBadge": "Adjusted weight {weight} kg (for BMI > 30 calculated from BMI 25 reference)"
   }
 }

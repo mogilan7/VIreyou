@@ -913,10 +913,11 @@ bot.command('start', async (ctx: any) => {
           return ctx.reply(welcomeMsg, getPersistentKeyboard(ctx.state.lang));
       } else {
           // Пользователь уже существует
-          userRecord = await handleUserReferral(userRecord, refId);
-          if (payload && !userRecord.start_param) {
-              userRecord = await prisma.user.update({
-                  where: { id: userRecord.id },
+          let existingUser = userRecord;
+          existingUser = await handleUserReferral(existingUser, refId);
+          if (payload && !existingUser.start_param) {
+              existingUser = await prisma.user.update({
+                  where: { id: existingUser.id },
                   data: {
                       start_param: payload,
                       ...(payload.startsWith("yt_") ? { utm_source: "youtube", utm_campaign: payload } : {}),
@@ -924,22 +925,22 @@ bot.command('start', async (ctx: any) => {
                   }
               });
           }
-          if (ctx.from?.username && userRecord.telegram_username !== ctx.from.username) {
-              await prisma.user.update({
-                  where: { id: userRecord.id },
+          if (ctx.from?.username && existingUser.telegram_username !== ctx.from.username) {
+              existingUser = await prisma.user.update({
+                  where: { id: existingUser.id },
                   data: { telegram_username: ctx.from.username }
               });
           }
 
-          ctx.state.user = userRecord;
-          ctx.state.lang = userRecord.language || 'ru';
+          ctx.state.user = existingUser;
+          ctx.state.lang = existingUser.language || 'ru';
 
-          await joinSquadIfNeeded(userRecord);
+          await joinSquadIfNeeded(existingUser);
           if (payload?.startsWith("web_protein")) {
               let proteinTargetStr = "";
               try {
                   const latestProtein = await prisma.test_results.findFirst({
-                      where: { user_id: userRecord.id, test_type: "protein" },
+                      where: { user_id: existingUser.id, test_type: "protein" },
                       orderBy: { created_at: "desc" }
                   });
                   if (latestProtein?.raw_data) {
@@ -958,7 +959,7 @@ bot.command('start', async (ctx: any) => {
               return ctx.reply(greeting, getPersistentKeyboard(ctx.state.lang));
           }
 
-          return sendWelcomeMenu(ctx, userRecord);
+          return sendWelcomeMenu(ctx, existingUser);
       }
   }
 
@@ -986,6 +987,9 @@ bot.command('start', async (ctx: any) => {
   }
 
   try {
+    if (!email) {
+      return ctx.reply(t(ctx.state.lang, 'Auth.userNotFound'));
+    }
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return ctx.reply(t(ctx.state.lang, 'Auth.userNotFound'));

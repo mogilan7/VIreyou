@@ -20,9 +20,9 @@
 
 export type Sex = 'female' | 'male';
 export type Activity = 'low' | 'moderate' | 'strength' | 'heavy';
-// low — мало движения; moderate — прогулки/кардио; strength — силовые 2+ раза в неделю; heavy — тяжёлый труд / спорт
 export type Goal = 'maintain' | 'lose' | 'gain_muscle';
 export type Kidney = 'no' | 'yes' | 'unknown';
+export type ProteinReasonKey = 'active_muscle' | 'weight_loss' | 'senior' | 'base';
 
 export interface ProteinInput {
   sex: Sex;
@@ -46,19 +46,48 @@ export interface ProteinResult {
   referenceWeightKg?: number;
   usedAdjustedWeight?: boolean;
   bmi?: number;
+  ruleReasonKey?: ProteinReasonKey;
   notes: string[];         // пояснения для экрана результата
   sources: string[];       // ключи источников, см. SOURCES
 }
 
-export const SOURCES: Record<string, string> = {
-  rda: 'Национальные академии США (IOM), Dietary Reference Intakes, 2005: RDA белка 0,8 г/кг в день для взрослых',
-  protage: 'Bauer J. et al. Evidence-based recommendations for optimal dietary protein intake in older people: a position paper from the PROT-AGE Study Group. JAMDA, 2013',
-  espen: 'Volkert D. et al. ESPEN guideline on clinical nutrition and hydration in geriatrics. Clinical Nutrition, 2019',
-  acsm: 'Thomas D.T. et al. Position of the Academy of Nutrition and Dietetics, Dietitians of Canada, and the American College of Sports Medicine: Nutrition and Athletic Performance, 2016',
-  deficit: 'Экспертная практика: повышенный белок (1,2–1,6 г/кг) при снижении веса для сохранения мышечной массы — по обзорам и РКИ, единого гайдлайна нет',
+export interface SourceMeta {
+  shortTitle: string;
+  fullCitation: string;
+}
+
+export const SOURCES_DETAIL: Record<string, SourceMeta> = {
+  rda: {
+    shortTitle: 'RDA (США) — Норма для взрослых',
+    fullCitation: 'Национальные академии США (IOM), Dietary Reference Intakes, 2005: RDA белка 0,8 г/кг в день для взрослых',
+  },
+  protage: {
+    shortTitle: 'PROT-AGE (2013) — Норма в зрелом возрасте',
+    fullCitation: 'Bauer J. et al. Evidence-based recommendations for optimal dietary protein intake in older people: a position paper from the PROT-AGE Study Group. JAMDA, 2013',
+  },
+  espen: {
+    shortTitle: 'ESPEN (2019) — Клиническое питание в гериатрии',
+    fullCitation: 'Volkert D. et al. ESPEN guideline on clinical nutrition and hydration in geriatrics. Clinical Nutrition, 2019',
+  },
+  acsm: {
+    shortTitle: 'ACSM / AND (2016) — Питание при спортивных нагрузках',
+    fullCitation: 'Thomas D.T. et al. Position of the Academy of Nutrition and Dietetics, Dietitians of Canada, and the American College of Sports Medicine: Nutrition and Athletic Performance, 2016',
+  },
+  deficit: {
+    shortTitle: 'Экспертная практика — Защита мышц при похудении',
+    fullCitation: 'Повышенный белок (1,2–1,6 г/кг) при снижении веса для сохранения мышечной массы — по данным обзоров и РКИ, Международное общество спортивного питания (ISSN)',
+  },
 };
 
-// Именованные константы коэффициентов (для согласования с экспертами)
+export const SOURCES: Record<string, string> = {
+  rda: SOURCES_DETAIL.rda.fullCitation,
+  protage: SOURCES_DETAIL.protage.fullCitation,
+  espen: SOURCES_DETAIL.espen.fullCitation,
+  acsm: SOURCES_DETAIL.acsm.fullCitation,
+  deficit: SOURCES_DETAIL.deficit.fullCitation,
+};
+
+// Именованные константы коэффициентов
 export const PROTEIN_COEFFICIENTS = {
   AGE_THRESHOLD_SENIOR: 65,
   BASE_LOW_UNDER_65: 0.8,
@@ -85,7 +114,6 @@ export const PROTEIN_COEFFICIENTS = {
 
 export const round5 = (x: number) => Math.round(x / 5) * 5;
 export const round1 = (x: number) => Math.round(x * 10) / 10;
-const ruNum = (x: number) => round1(x).toLocaleString('ru-RU');
 
 export function calcProteinShield(input: ProteinInput): ProteinResult {
   const { age, weightKg, heightCm, activity, goal, kidneyDisease } = input;
@@ -121,6 +149,7 @@ export function calcProteinShield(input: ProteinInput): ProteinResult {
   const sources = new Set<string>(['rda']);
   let low: number;
   let high: number;
+  let ruleReasonKey: ProteinReasonKey = 'base';
 
   // 1. База по возрасту
   if (age >= PROTEIN_COEFFICIENTS.AGE_THRESHOLD_SENIOR) {
@@ -128,23 +157,27 @@ export function calcProteinShield(input: ProteinInput): ProteinResult {
     high = PROTEIN_COEFFICIENTS.BASE_HIGH_SENIOR;
     sources.add('protage');
     sources.add('espen');
+    ruleReasonKey = 'senior';
   } else {
     low = PROTEIN_COEFFICIENTS.BASE_LOW_UNDER_65;
     high = PROTEIN_COEFFICIENTS.BASE_HIGH_UNDER_65;
+    ruleReasonKey = 'base';
   }
 
-  // 2. Активность и цель «нарастить мышцы»
-  if (activity === 'strength' || activity === 'heavy' || goal === 'gain_muscle') {
-    low = Math.max(low, PROTEIN_COEFFICIENTS.ACTIVE_OR_MUSCLE_LOW);
-    high = Math.max(high, PROTEIN_COEFFICIENTS.ACTIVE_OR_MUSCLE_HIGH);
-    sources.add(age >= PROTEIN_COEFFICIENTS.AGE_THRESHOLD_SENIOR ? 'protage' : 'acsm');
-  }
-
-  // 3. Снижение веса — защищаем мышцы
+  // 2. Снижение веса — защищаем мышцы
   if (goal === 'lose') {
     low = Math.max(low, PROTEIN_COEFFICIENTS.WEIGHT_LOSS_LOW);
     high = Math.max(high, PROTEIN_COEFFICIENTS.WEIGHT_LOSS_HIGH);
     sources.add('deficit');
+    ruleReasonKey = 'weight_loss';
+  }
+
+  // 3. Активность и цель «нарастить мышцы»
+  if (activity === 'strength' || activity === 'heavy' || goal === 'gain_muscle') {
+    low = Math.max(low, PROTEIN_COEFFICIENTS.ACTIVE_OR_MUSCLE_LOW);
+    high = Math.max(high, PROTEIN_COEFFICIENTS.ACTIVE_OR_MUSCLE_HIGH);
+    sources.add(age >= PROTEIN_COEFFICIENTS.AGE_THRESHOLD_SENIOR ? 'protage' : 'acsm');
+    ruleReasonKey = 'active_muscle';
   }
 
   high = Math.min(high, PROTEIN_COEFFICIENTS.CAP_G_PER_KG);
@@ -152,10 +185,7 @@ export function calcProteinShield(input: ProteinInput): ProteinResult {
   const gramsLow = round5(low * refWeight);
   const gramsHigh = round5(high * refWeight);
 
-  const notes: string[] = [
-    `Ориентир: ${gramsLow}–${gramsHigh} г белка в день (${ruNum(low)}–${ruNum(high)} г на кг веса).`,
-    `На ${meals} приёма пищи — примерно ${round5(gramsLow / meals)}–${round5(gramsHigh / meals)} г за раз.`,
-  ];
+  const notes: string[] = [];
   if (age >= PROTEIN_COEFFICIENTS.AGE_THRESHOLD_SENIOR) {
     notes.push('С возрастом мышцам в среднем нужно больше белка на килограмм веса, чем в молодости. Ориентир PROT-AGE — 25–30 г белка за приём пищи.');
   }
@@ -165,8 +195,6 @@ export function calcProteinShield(input: ProteinInput): ProteinResult {
   if (kidneyDisease === 'unknown') {
     notes.push('Если есть заболевания почек, норму белка лучше согласовать с врачом.');
   }
-  notes.push('Это ориентир по исследованиям, не диагноз и не назначение.');
-  notes.push('Сколько белка на самом деле в вашей тарелке, покажет бот VIReyou по фото.');
 
   return {
     status: 'ok',
@@ -179,6 +207,7 @@ export function calcProteinShield(input: ProteinInput): ProteinResult {
     referenceWeightKg: Math.round(refWeight),
     usedAdjustedWeight,
     bmi: round1(bmi),
+    ruleReasonKey,
     notes,
     sources: Array.from(sources),
   };
