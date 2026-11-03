@@ -947,7 +947,7 @@ bot.command('start', async (ctx: any) => {
                       const raw = latestProtein.raw_data as any;
                       if (raw.gramsLow && raw.gramsHigh) {
                           proteinTargetStr = ctx.state.lang === "en"
-                              ? ` Ваш ориентир с портала: ${raw.gramsLow}–${raw.gramsHigh} g per day.`
+                              ? ` Your target from the portal: ${raw.gramsLow}–${raw.gramsHigh} g per day.`
                               : ` Ваш ориентир с портала: ${raw.gramsLow}–${raw.gramsHigh} г в день.`;
                       }
                   }
