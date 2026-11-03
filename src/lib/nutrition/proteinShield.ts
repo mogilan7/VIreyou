@@ -58,23 +58,23 @@ export interface SourceMeta {
 
 export const SOURCES_DETAIL: Record<string, SourceMeta> = {
   rda: {
-    shortTitle: 'RDA (США) — Норма для взрослых',
+    shortTitle: 'Национальные академии США, 2005 — минимальная норма 0,8 г/кг',
     fullCitation: 'Национальные академии США (IOM), Dietary Reference Intakes, 2005: RDA белка 0,8 г/кг в день для взрослых',
   },
   protage: {
-    shortTitle: 'PROT-AGE (2013) — Норма в зрелом возрасте',
+    shortTitle: 'Рекомендации PROT-AGE, 2013 — белок после 65',
     fullCitation: 'Bauer J. et al. Evidence-based recommendations for optimal dietary protein intake in older people: a position paper from the PROT-AGE Study Group. JAMDA, 2013',
   },
   espen: {
-    shortTitle: 'ESPEN (2019) — Клиническое питание в гериатрии',
+    shortTitle: 'ESPEN, 2019 — питание пожилых',
     fullCitation: 'Volkert D. et al. ESPEN guideline on clinical nutrition and hydration in geriatrics. Clinical Nutrition, 2019',
   },
   acsm: {
-    shortTitle: 'ACSM / AND (2016) — Питание при спортивных нагрузках',
+    shortTitle: 'Американский колледж спортивной медицины и др., 2016 — питание при тренировках',
     fullCitation: 'Thomas D.T. et al. Position of the Academy of Nutrition and Dietetics, Dietitians of Canada, and the American College of Sports Medicine: Nutrition and Athletic Performance, 2016',
   },
   deficit: {
-    shortTitle: 'Экспертная практика — Защита мышц при похудении',
+    shortTitle: 'Обзоры исследований — белок при снижении веса',
     fullCitation: 'Повышенный белок (1,2–1,6 г/кг) при снижении веса для сохранения мышечной массы — по данным обзоров и РКИ, Международное общество спортивного питания (ISSN)',
   },
 };

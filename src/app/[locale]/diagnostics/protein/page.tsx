@@ -403,8 +403,8 @@ export default function ProteinCalculatorPage() {
 
                             {/* Goal (3 equal height buttons) */}
                             <div>
-                                <label className="flex items-center text-xs font-bold text-brand-gray uppercase tracking-widest mb-2">
-                                    <Target size={12} className="mr-1" /> {t('goal')}
+                                <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest mb-2">
+                                    {t('goal')}
                                 </label>
                                 <div className="grid grid-cols-3 gap-2">
                                     {(['maintain', 'lose', 'gain_muscle'] as Goal[]).map((g) => (
@@ -454,9 +454,7 @@ export default function ProteinCalculatorPage() {
                             {/* Meals per day (optional) */}
                             <div>
                                 <label className="block text-xs font-bold text-brand-gray uppercase tracking-widest mb-1.5">
-                                    <span className="flex items-center">
-                                        <Utensils size={12} className="mr-1" /> {t('meals')}
-                                    </span>
+                                    {t('meals')}
                                 </label>
                                 <input 
                                     type="number" 
@@ -515,8 +513,8 @@ export default function ProteinCalculatorPage() {
                         {/* Result OK */}
                         {hasCalculated && result && result.status === 'ok' && (
                             <div className="bg-white p-6 md:p-10 rounded-[2rem] shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-brand-sage/40 relative overflow-hidden flex flex-col space-y-6">
-                                <div className="absolute top-0 right-0 p-8 opacity-[0.03] text-brand-leaf pointer-events-none">
-                                    <ShieldCheck size={200} />
+                                <div className="absolute -top-10 -right-10 p-4 opacity-[0.025] text-brand-leaf pointer-events-none select-none">
+                                    <ShieldCheck size={260} />
                                 </div>
 
                                 {/* Main Highlight */}
@@ -679,19 +677,31 @@ export default function ProteinCalculatorPage() {
                                     ))}
                                 </div>
 
-                                <div className="bg-[#FAFAFA] p-5 rounded-2xl border border-brand-sage/40 space-y-2">
+                                <div className="bg-[#FAFAFA] p-5 rounded-2xl border border-brand-sage/40 space-y-3">
                                     <div className="text-xs font-bold uppercase tracking-widest text-brand-gray flex items-center gap-2">
                                         <BookOpen size={14} className="text-brand-leaf" />
                                         {t('sourcesTitle')}
                                     </div>
-                                    <p className="text-xs text-brand-gray/80 leading-relaxed">
-                                        {SOURCES_DETAIL.protage.fullCitation}
-                                    </p>
-                                </div>
-
-                                <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-xl text-amber-900 text-xs flex items-start gap-3 leading-relaxed">
-                                    <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                                    <span>{t('disclaimer')}</span>
+                                    <div className="space-y-2">
+                                        {(result.sources && result.sources.length > 0 ? result.sources : ['protage']).map((srcKey) => {
+                                            const meta = SOURCES_DETAIL[srcKey];
+                                            if (!meta) return null;
+                                            return (
+                                                <details key={srcKey} className="group bg-white rounded-xl border border-brand-sage/30 p-2.5 transition-colors">
+                                                    <summary className="flex items-center justify-between text-xs font-semibold text-brand-text cursor-pointer list-none select-none">
+                                                        <span className="flex items-center gap-2">
+                                                            <span className="text-brand-leaf font-bold">•</span>
+                                                            <span>{meta.shortTitle}</span>
+                                                        </span>
+                                                        <ChevronDown size={14} className="text-brand-gray group-open:rotate-180 transition-transform duration-200" />
+                                                    </summary>
+                                                    <div className="mt-2 pt-2 border-t border-brand-sage/20 text-[11px] text-brand-gray/90 leading-relaxed pl-3.5">
+                                                        {meta.fullCitation}
+                                                    </div>
+                                                </details>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
 
                                 <div className="pt-2">

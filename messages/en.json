@@ -1891,7 +1891,7 @@
     "saving": "Saving...",
     "saved": "Saved to Medical Archive",
     "saveError": "Save error",
-    "seeDoctorTitle": "Doctor Consultation Recommended",
+    "seeDoctorTitle": "Protein Target is Best Discussed with a Doctor",
     "backBtn": "Return to diagnostics",
     "authModalTitle": "Save to Medical Archive",
     "authModalDesc": "Sign in to save your diagnostic results and track health trends over time.",
@@ -1916,10 +1916,10 @@
     "act_hvy_title": "Heavy labor",
     "act_hvy_desc": "Intense sports",
     "ruleReasons": {
-      "active_muscle": "Elevated intake: regular strength training or muscle gain goal requires more protein for muscle protein synthesis.",
-      "weight_loss": "Elevated intake: calorie deficit requires higher protein intake to preserve lean muscle mass while losing fat.",
-      "senior": "Age-adjusted intake: after age 65, anabolic resistance increases, requiring more protein per kilogram of body weight.",
-      "base": "Baseline physiological intake: optimal for maintaining healthy muscle mass and metabolic balance."
+      "active_muscle": "For strength training or muscle gain, experts recommend 1.2–1.6 g per kg: training signals muscles to grow, and protein provides the building blocks.",
+      "weight_loss": "During weight loss, higher protein intake helps preserve muscle mass: 1.2–1.6 g per kg guideline.",
+      "senior": "After age 65, PROT-AGE and ESPEN experts recommend 1.0–1.2 g per kg: aging muscles require more protein.",
+      "base": "Baseline intake for a healthy adult: starting from the minimum of 0.8 g per kg."
     },
     "bmiAdjustedBadge": "Adjusted weight {weight} kg (for BMI > 30 calculated from BMI 25 reference)"
   }
