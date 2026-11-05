@@ -377,7 +377,7 @@ ${mode === 'ask' ? `ВОПРОС ЧЕЛОВЕКА: "${userQuery}"` : `ЗАДАЧ
     const numbersContract = {
       ...context.metricsSummary,
       ...context.anonymizedProfile,
-      userQuery: context.userQuery || userQuery,
+      userQuery: userQuery || '',
       relevantCards: cards
         .filter(c => usedCardIds.includes(c.id) || usedCardIds.length === 0)
         .map(c => ({
