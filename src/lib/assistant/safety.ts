@@ -1,3 +1,5 @@
+import { CRISIS_CONTACTS } from './config';
+
 export interface SafetyResult {
   isSafe: boolean;
   violations: string[];
@@ -15,18 +17,18 @@ export interface SafetyGateResult {
  * Emergency pattern detection (Pre-check)
  */
 const EMERGENCY_PATTERNS = [
-  { reason: 'CHEST_PAIN', regex: /(?<![а-яёa-z0-9])(?:бол[ьи]\s+в\s+груди|давит\s+в\s+груди|жжет\s+в\s+груди|приступ|инфаркт|инсульт)(?![а-яёa-z0-9])/iu },
-  { reason: 'BREATHING_DIFFICULTY', regex: /(?<![а-яёa-z0-9])(?:одышк[а-яё]*\s+в\s+покое|задыхаю[а-яё]*|тяжело\s+дышать)(?![а-яёa-z0-9])/iu },
-  { reason: 'LOSS_OF_CONSCIOUSNESS', regex: /(?<![а-яёa-z0-9])(?:теря[юлла]*\s+сознани[ея]|обморок[а-яё]*)(?![а-яёa-z0-9])/iu },
-  { reason: 'HEAVY_BLEEDING', regex: /(?<![а-яёa-z0-9])кровотечен[а-яё]*(?![а-яёa-z0-9])/iu }
+  { reason: 'CHEST_PAIN', regex: /(?<![а-яёa-z0-9])(?:бол[ьи]\s+в\s+груди|давит\s+в\s+груди|жжет\s+в\s+груди|приступ|инфаркт|инсульт|chest\s+pain|heart\s+attack|stroke)(?![а-яёa-z0-9])/iu },
+  { reason: 'BREATHING_DIFFICULTY', regex: /(?<![а-яёa-z0-9])(?:одышк[а-яё]*\s+в\s+покое|задыхаю[а-яё]*|тяжело\s+дышать|shortness\s+of\s+breath|cannot\s+breathe|hard\s+to\s+breathe)(?![а-яёa-z0-9])/iu },
+  { reason: 'LOSS_OF_CONSCIOUSNESS', regex: /(?<![а-яёa-z0-9])(?:теря[юлла]*\s+сознани[ея]|обморок[а-яё]*|faint(?:ed|ing)?|lost\s+consciousness|passing\s+out)(?![а-яёa-z0-9])/iu },
+  { reason: 'HEAVY_BLEEDING', regex: /(?<![а-яёa-z0-9])(?:кровотечен[а-яё]*|severe\s+bleeding|heavy\s+bleeding)(?![а-яёa-z0-9])/iu }
 ];
 
 const CRISIS_PATTERNS = [
-  /(?<![а-яёa-z0-9])(?:суицид[а-яё]*|не\s+хочу\s+жить|покончить\s+с\s+собой|навредить\s+себе|самоповрежден[а-яё]*)(?![а-яёa-z0-9])/iu
+  /(?<![а-яёa-z0-9])(?:суицид[а-яё]*|не\s+хочу\s+жить|покончить\s+с\s+собой|навредить\s+себе|самоповрежден[а-яё]*|suicid[a-z]*|kill\s+myself|want\s+to\s+die|self-harm|end\s+my\s+life)(?![а-яёa-z0-9])/iu
 ];
 
 const ED_PATTERNS = [
-  /(?<![а-яёa-z0-9])(?:булими[а-яё]*|анорекси[а-яё]*|вызыва[ют]*\s+рвоту|панический\s+страх\s+еды)(?![а-яёa-z0-9])/iu
+  /(?<![а-яёa-z0-9])(?:булими[а-яё]*|анорекси[а-яё]*|вызыва[ют]*\s+рвоту|панический\s+страх\s+еды|bulimi[a-z]*|anorexi[a-z]*|purging|fear\s+of\s+eating)(?![а-яёa-z0-9])/iu
 ];
 
 /**
@@ -37,10 +39,12 @@ export function safetyGate(ctx?: any, textOrLang?: string, explicitText?: string
   const lang = (ctx?.user?.lang || (typeof textOrLang === 'string' && textOrLang.length <= 5 ? textOrLang : 'ru')) || 'ru';
   const isEn = lang === 'en';
 
+  const contacts = isEn ? CRISIS_CONTACTS.en : CRISIS_CONTACTS.ru;
+
   // 1. Emergency Red Flags
   for (const item of EMERGENCY_PATTERNS) {
     if (item.regex.test(inputText)) {
-      const emergencyNum = isEn ? '911 / 112' : '112 / 103';
+      const emergencyNum = contacts.emergency;
       return {
         block: true,
         reason: item.reason,
@@ -59,8 +63,8 @@ export function safetyGate(ctx?: any, textOrLang?: string, explicitText?: string
         block: true,
         reason: 'CRISIS_SUPPORT',
         message: isEn
-          ? `If you are feeling overwhelmed or having thoughts of self-harm, please know that you are not alone. Please reach out to a crisis helpline: in the US/Canada call or text 988, in the UK call 111, in international areas visit findahelpline.com.`
-          : `Если вы переживаете тяжёлый момент или думаете о причинении себе вреда, пожалуйста, не оставайтесь наедине с этим. Обратитесь на бесплатную горячую линию психологической помощи: 8-800-200-01-22 или 8-800-200-47-03 (круглосуточно).`
+          ? `If you are feeling overwhelmed or having thoughts of self-harm, please know that you are not alone. Please reach out to ${contacts.crisisDescription}.`
+          : `Если вы переживаете тяжёлый момент или думаете о причинении себе вреда, пожалуйста, не оставайтесь наедине с этим. ${contacts.crisisDescription} (круглосуточно).`
       };
     }
   }

@@ -25,3 +25,16 @@ export const CONFIG = {
   SYNC_GRACE_HOURS: 3,
   MAX_REPORT_ITEMS: 5,
 };
+
+export const CRISIS_CONTACTS = {
+  ru: {
+    emergency: '112 / 103',
+    crisisPhone: '8-800-333-44-34',
+    crisisDescription: 'Бесплатная кризисная линия доверия по России: 8-800-333-44-34'
+  },
+  en: {
+    emergency: '112 or your local emergency number',
+    crisisPhone: '988 / 111',
+    crisisDescription: 'Crisis helplines: call/text 988 (US/Canada), 111 (UK), or visit findahelpline.com'
+  }
+};

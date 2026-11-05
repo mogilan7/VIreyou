@@ -152,20 +152,36 @@ describe('Safety Gate Tests (Pre-Check)', () => {
     expect(result.reason).toBe('BREATHING_DIFFICULTY');
   });
 
-  it('22. should block crisis and self-harm thoughts with helpline', () => {
+  it('22. should block crisis and self-harm thoughts with adult helpline', () => {
     const result = safetyGate({}, 'Мне очень плохо, не хочу жить');
     expect(result.block).toBe(true);
     expect(result.reason).toBe('CRISIS_SUPPORT');
-    expect(result.message).toContain('8-800-200-01-22');
+    expect(result.message).toContain('8-800-333-44-34');
   });
 
-  it('23. should block eating disorder triggers gently', () => {
+  it('23. should provide international emergency number for EN users without RU numbers', () => {
+    const result = safetyGate({ user: { lang: 'en' } }, 'Severe crushing chest pain');
+    expect(result.block).toBe(true);
+    expect(result.reason).toBe('CHEST_PAIN');
+    expect(result.message).toContain('112 or your local emergency number');
+    expect(result.message).not.toContain('103');
+  });
+
+  it('24. should provide international crisis helpline for EN users without RU numbers', () => {
+    const result = safetyGate({ user: { lang: 'en' } }, 'I cannot go on, thoughts of suicide');
+    expect(result.block).toBe(true);
+    expect(result.reason).toBe('CRISIS_SUPPORT');
+    expect(result.message).toContain('988');
+    expect(result.message).not.toContain('8-800');
+  });
+
+  it('25. should block eating disorder triggers gently', () => {
     const result = safetyGate({}, 'У меня панический страх еды и вызываю рвоту после ужина');
     expect(result.block).toBe(true);
     expect(result.reason).toBe('EATING_DISORDER_FLAG');
   });
 
-  it('24. should pass safe questions about sleep and activity', () => {
+  it('26. should pass safe questions about sleep and activity', () => {
     const result = safetyGate({}, 'Как мне улучшить глубокий сон и восстановить силы?');
     expect(result.block).toBe(false);
   });
