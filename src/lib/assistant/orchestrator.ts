@@ -296,6 +296,10 @@ Related: ${c.related_content || 'None'}`
    - Составьте ответ по формуле: Наблюдение -> Механизм одной фразой -> Одно маленькое действие.
    - В самом конце отдельной строкой укажите идентификаторы использованных карточек:
      [USED_CARDS: id1, id2]
+5. Не начинайте ответ с пересказа вопроса (запрещены «Вы спрашиваете…», «Вы упомянули…», «Что касается вопроса…»). Первая фраза сразу по сути.
+6. Если в использованной карточке упомянут калькулятор или тест портала (например, «Белковый щит» или тест водного баланса), обязательно назовите его и приведите точную ссылку из поля Related карточки (например, «Белковый щит: https://vireyou.com/ru/diagnostics/protein»).
+7. Если у использованной карточки есть противопоказания (Contraindications), обязательно упомяните главное ограничение одной короткой нейтральной строкой (например, «при болезни почек норму белка определяет врач»).
+8. Если вопрос задан про определенный возраст или группу, а карточка относится к другой (например, вопрос про 60 лет, а данные карточки для 65+), прямо укажите, для кого приведены эти данные (например: «Для людей старше 65 лет эксперты рекомендуют...»).
 
 ---
 ДОСТУПНЫЕ КАРТОЧКИ БАЗЫ ЗНАНИЙ:
@@ -326,10 +330,14 @@ ${mode === 'ask' ? `ВОПРОС ЧЕЛОВЕКА: "${userQuery}"` : `ЗАДАЧ
       usedCardIds = usedCardsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
     }
 
-    // Clean bracket tags from user-facing message
+    // Clean bracket tags and any leading question restatement from user-facing message
     let cleanMessage = rawResponse
       .replace(/\[NO_MATCHING_CARD\]/gi, '')
       .replace(/\[USED_CARDS:[^\]]+\]/gi, '')
+      .trim();
+
+    cleanMessage = cleanMessage
+      .replace(/^(?:Вы спрашиваете[^\n.!?]*[?.!]\s*|Вы упомянули[^\n.!?]*[?.!]\s*|Что касается вашего вопроса[^\n.!?]*[?.!]\s*|Отвечая на ваш вопрос[^\n.!?]*[?.!]\s*)/iu, '')
       .trim();
 
     // Check if it's a knowledge gap
@@ -377,7 +385,6 @@ ${mode === 'ask' ? `ВОПРОС ЧЕЛОВЕКА: "${userQuery}"` : `ЗАДАЧ
     const numbersContract = {
       ...context.metricsSummary,
       ...context.anonymizedProfile,
-      userQuery: userQuery || '',
       relevantCards: cards
         .filter(c => usedCardIds.includes(c.id) || usedCardIds.length === 0)
         .map(c => ({

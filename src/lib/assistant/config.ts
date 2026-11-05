@@ -56,3 +56,71 @@ export const ASSISTANT_DOMAINS = [
 ] as const;
 
 export type AssistantDomain = typeof ASSISTANT_DOMAINS[number];
+
+/**
+ * Escapes characters for safe Telegram HTML parsing.
+ */
+export function escapeHtml(text?: string | null): string {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Formats evidence levels in Russian or English.
+ */
+export function formatEvidenceLevel(level?: string | null, lang: 'ru' | 'en' = 'ru'): string {
+  if (!level) return '';
+  if (lang === 'en') {
+    const map: Record<string, string> = {
+      guideline: 'clinical guideline',
+      meta_analysis: 'meta-analysis',
+      studies: 'studies',
+      hypothesis: 'hypothesis'
+    };
+    return map[level] || level;
+  }
+  const map: Record<string, string> = {
+    guideline: 'клиническое руководство',
+    meta_analysis: 'метаанализ',
+    studies: 'исследования',
+    hypothesis: 'гипотеза'
+  };
+  return map[level] || level;
+}
+
+/**
+ * Renders HTML for the "Details" (Подробнее) callback button with safe escaping.
+ */
+export function renderCardDetailsHtml(cards: Array<{
+  id: string;
+  source_title?: string | null;
+  source_url?: string | null;
+  related_content?: string | null;
+  evidence_level?: string | null;
+}>, lang: 'ru' | 'en' = 'ru'): string {
+  const header = lang === 'en'
+    ? '<b>📚 Sources used from knowledge base:</b>\n'
+    : '<b>📚 Использованные источники базы знаний:</b>\n';
+
+  const lines = [header];
+  cards.forEach((c, idx) => {
+    const title = escapeHtml(c.source_title || c.id);
+    const level = escapeHtml(formatEvidenceLevel(c.evidence_level, lang));
+    lines.push(`${idx + 1}. <b>${title}</b> [${level}]`);
+    if (c.source_url) {
+      lines.push(`🔗 Источник: ${escapeHtml(c.source_url)}`);
+    }
+    if (c.related_content) {
+      lines.push(`🎥 Материалы: ${escapeHtml(c.related_content)}`);
+    }
+    lines.push('');
+  });
+
+  return lines.join('\n').trim();
+}
+

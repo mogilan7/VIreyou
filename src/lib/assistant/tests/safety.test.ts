@@ -185,4 +185,81 @@ describe('Safety Gate Tests (Pre-Check)', () => {
     const result = safetyGate({}, 'Как мне улучшить глубокий сон и восстановить силы?');
     expect(result.block).toBe(false);
   });
+
+  describe('Prompt quality & Card details enhancements', () => {
+    it('27. (п. 1) should reject question restatement at the start of LLM output', () => {
+      const restatements = [
+        'Вы спрашиваете, сколько белка нужно организму после 60 лет.',
+        'Вы упомянули, что хотите наладить сон организма.',
+        'Что касается вашего вопроса, организму требуется отдых.',
+        'Отвечая на ваш вопрос, организм восстанавливается ночью.'
+      ];
+
+      for (const text of restatements) {
+        const res = validateLLMOutput(text);
+        expect(res.isSafe).toBe(false);
+        expect(res.violations).toContain('QUESTION_RESTATEMENT_FORBIDDEN');
+      }
+    });
+
+    it('28. (п. 1) should pass when response starts directly with the core message', () => {
+      const directText = 'Для людей старше 65 лет эксперты PROT-AGE называют не меньше 1,0–1,2 г белка на кг веса. Свою норму организму показывает калькулятор «Белковый щит».';
+      const res = validateLLMOutput(directText);
+      expect(res.isSafe).toBe(true);
+      expect(res.violations).not.toContain('QUESTION_RESTATEMENT_FORBIDDEN');
+    });
+
+    it('29. (п. 5) should translate evidence_level to Russian correctly', async () => {
+      const { formatEvidenceLevel } = await import('../config');
+      expect(formatEvidenceLevel('guideline', 'ru')).toBe('клиническое руководство');
+      expect(formatEvidenceLevel('meta_analysis', 'ru')).toBe('метаанализ');
+      expect(formatEvidenceLevel('studies', 'ru')).toBe('исследования');
+      expect(formatEvidenceLevel('hypothesis', 'ru')).toBe('гипотеза');
+    });
+
+    it('30. (п. 6) verifyNumbers should reject numbers from user query if not present in cards or metrics', async () => {
+      const { verifyNumbers } = await import('../safety');
+      const contract = {
+        relevantCards: [{
+          claim: '0,8 г белка на килограмм веса в день. Для людей старше 65 лет не меньше 1,0–1,2 г на кг.'
+        }],
+        metricsSummary: { avg_sleep_hrs: 7.5 }
+      };
+
+      // Number 60 was in user query ("после 60 лет"), but is absent from contract
+      const responseWithQueryNumber = 'В возрасте 60 лет организму требуется 1,2 г белка на кг.';
+      const check1 = verifyNumbers(responseWithQueryNumber, contract);
+      expect(check1.valid).toBe(false);
+      expect(check1.invalidNumbers).toContain(60);
+
+      // Number 65 is in the card claim
+      const responseWithCardNumber = 'Для людей старше 65 лет организму требуется 1,2 г белка на кг.';
+      const check2 = verifyNumbers(responseWithCardNumber, contract);
+      expect(check2.valid).toBe(true);
+      expect(check2.invalidNumbers).toHaveLength(0);
+    });
+
+    it('31. (Подробнее) renderCardDetailsHtml correctly formats Valtin water card with HTML escaping and Russian evidence level', async () => {
+      const { renderCardDetailsHtml } = await import('../config');
+      const valtinCard = {
+        id: 'sci_water_001',
+        source_title: 'Valtin H. "Drink at least eight glasses of water a day." Really? Is there scientific evidence for "8 x 8"? Am J Physiol Regul Integr Comp Physiol, 2002',
+        source_url: 'https://doi.org/10.1152/ajpregu.00365.2002',
+        related_content: 'https://youtu.be/Agme9TRY48g ; https://vireyou.com/ru/diagnostics/water',
+        evidence_level: 'studies'
+      };
+
+      const html = renderCardDetailsHtml([valtinCard], 'ru');
+
+      // Check title with escaped quotes
+      expect(html).toContain('<b>Valtin H. &quot;Drink at least eight glasses of water a day.&quot; Really? Is there scientific evidence for &quot;8 x 8&quot;? Am J Physiol Regul Integr Comp Physiol, 2002</b>');
+      // Check Russian evidence level
+      expect(html).toContain('[исследования]');
+      // Check source and related links
+      expect(html).toContain('🔗 Источник: https://doi.org/10.1152/ajpregu.00365.2002');
+      expect(html).toContain('🎥 Материалы: https://youtu.be/Agme9TRY48g ; https://vireyou.com/ru/diagnostics/water');
+      // Check that HTML does not contain raw unescaped quotes in title text
+      expect(html).not.toContain('"Drink at least eight');
+    });
+  });
 });

@@ -227,7 +227,7 @@ import { validateLLMOutput } from "../src/lib/assistant/safety";
 import { generateDailyReview, generateNutrientReview, recordTopicMentions } from "../src/lib/assistant/generate";
 import { calculateAllUserBaselines } from "../src/lib/assistant/baselines";
 import { generateDailyAction } from "../src/lib/assistant/daily_action";
-import { CONFIG } from "../src/lib/assistant/config";
+import { CONFIG, renderCardDetailsHtml } from "../src/lib/assistant/config";
 import { ASSISTANT_SCREENS, ASSISTANT_CURRENT_CONSENT_VERSION } from "../src/lib/assistant/assistant_screens";
 import { runAssistantOrchestrator } from "../src/lib/assistant/orchestrator";
 import { computeNextReviewUTC, isWithinQuietHours } from "../src/lib/assistant/reviewScheduler";
@@ -3463,47 +3463,66 @@ bot.action(/^ast_set_time_(\d{2}:\d{2})$/, async (ctx: any) => {
 });
 
 bot.action('ast_ask_more', async (ctx: any) => {
-    await ctx.answerCbQuery();
-    const user = ctx.state.user;
-    if (!user) return;
-    enterAssistantQuestionMode(ctx, user);
+    try {
+        await ctx.answerCbQuery().catch(() => {});
+        const user = ctx.state.user;
+        if (!user) return;
+        enterAssistantQuestionMode(ctx, user);
+    } catch (err: any) {
+        console.error('[ast_ask_more error]:', err);
+        const errType = err?.name || err?.constructor?.name || (err?.message ? err.message.split('\n')[0] : 'UnknownError');
+        try {
+            await bot.telegram.sendMessage('175269194', `[ASSISTANT ERROR] ast_ask_more: ${errType}`);
+        } catch (adminErr: any) {}
+    }
 });
 
 bot.action(/^ast_details_(.+)$/, async (ctx: any) => {
-    await ctx.answerCbQuery();
-    const messageId = ctx.match[1];
-    const msg = await prisma.assistantMessage.findUnique({
-        where: { id: messageId }
-    });
-    if (!msg || !msg.used_card_ids || msg.used_card_ids.length === 0) {
-        return ctx.reply('К этому ответу нет дополнительных источников.');
+    try {
+        await ctx.answerCbQuery().catch(() => {});
+        const messageId = ctx.match[1];
+        const msg = await prisma.assistantMessage.findUnique({
+            where: { id: messageId }
+        });
+        if (!msg || !msg.used_card_ids || msg.used_card_ids.length === 0) {
+            return ctx.reply('К этому ответу нет дополнительных источников.');
+        }
+
+        const cards = await prisma.knowledgeCard.findMany({
+            where: { id: { in: msg.used_card_ids } },
+            select: { id: true, source_title: true, source_url: true, related_content: true, evidence_level: true }
+        });
+
+        const lang = (ctx.state?.lang === 'en' ? 'en' : 'ru');
+        const text = renderCardDetailsHtml(cards, lang);
+        return ctx.reply(text, { parse_mode: 'HTML', disable_web_page_preview: true });
+    } catch (err: any) {
+        console.error('[ast_details error]:', err);
+        const errType = err?.name || err?.constructor?.name || (err?.message ? err.message.split('\n')[0] : 'UnknownError');
+        try {
+            await bot.telegram.sendMessage('175269194', `[ASSISTANT ERROR] ast_details: ${errType}`);
+        } catch (adminErr: any) {}
+        await ctx.reply('Не удалось загрузить подробности по источникам.');
     }
-
-    const cards = await prisma.knowledgeCard.findMany({
-        where: { id: { in: msg.used_card_ids } },
-        select: { id: true, source_title: true, source_url: true, related_content: true, evidence_level: true }
-    });
-
-    const lines = ['📚 **Использованные источники базы знаний:**\n'];
-    cards.forEach((c, idx) => {
-        lines.push(`${idx + 1}. *${c.source_title || c.id}* [${c.evidence_level}]`);
-        if (c.source_url) lines.push(`🔗 Источник: ${c.source_url}`);
-        if (c.related_content) lines.push(`🎥 Материалы: ${c.related_content}`);
-        lines.push('');
-    });
-
-    return ctx.reply(lines.join('\n'), { parse_mode: 'Markdown', disable_web_page_preview: true });
 });
 
 bot.action(/^ast_feedback_(.+)$/, async (ctx: any) => {
-    await ctx.answerCbQuery();
-    const messageId = ctx.match[1];
-    await prisma.assistantMessage.update({
-        where: { id: messageId },
-        data: { feedback: 'inaccurate' }
-    }).catch((e: any) => console.error('Feedback update error:', e.message));
+    try {
+        await ctx.answerCbQuery().catch(() => {});
+        const messageId = ctx.match[1];
+        await prisma.assistantMessage.update({
+            where: { id: messageId },
+            data: { feedback: 'inaccurate' }
+        }).catch((e: any) => console.error('Feedback update error:', e.message));
 
-    return ctx.reply(ASSISTANT_SCREENS.ASK_MODE.feedbackAcknowledged);
+        return ctx.reply(ASSISTANT_SCREENS.ASK_MODE.feedbackAcknowledged);
+    } catch (err: any) {
+        console.error('[ast_feedback error]:', err);
+        const errType = err?.name || err?.constructor?.name || (err?.message ? err.message.split('\n')[0] : 'UnknownError');
+        try {
+            await bot.telegram.sendMessage('175269194', `[ASSISTANT ERROR] ast_feedback: ${errType}`);
+        } catch (adminErr: any) {}
+    }
 });
 
 // ----------------------------------------------------

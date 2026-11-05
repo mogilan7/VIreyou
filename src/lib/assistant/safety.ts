@@ -115,6 +115,12 @@ export function validateLLMOutput(text: string, options?: { contract?: any }): S
     warnings.push('MISSING_MANDATORY_WORD_ORGANISM');
   }
 
+  // Question restatement check: response should not begin by recapping the user's question
+  const restatementRegex = /^(?:Вы спрашиваете|Вы упомянули|Что касается вашего вопроса|Отвечая на ваш вопрос)/iu;
+  if (restatementRegex.test(text.trim())) {
+    violations.push('QUESTION_RESTATEMENT_FORBIDDEN');
+  }
+
   // 2. Prohibited exact words / diet culture using Cyrillic-safe lookaround
   const prohibitedPatterns = [
     { key: 'ДИЕТА', regex: /(?<![а-яёa-z0-9])диет[а-яё]*(?![а-яёa-z0-9])/iu },
