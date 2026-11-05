@@ -27,9 +27,15 @@ const MISSING_CARD_RESPONSE_EN = 'Our knowledge base does not currently have ver
  */
 function loadBrandVoicePrompt(): string {
   try {
-    const promptPath = path.join(__dirname, 'prompts', 'brand_voice.md');
-    if (fs.existsSync(promptPath)) {
-      return fs.readFileSync(promptPath, 'utf8');
+    const candidatePaths = [
+      path.join(__dirname, 'prompts', 'brand_voice.md'),
+      path.join(process.cwd(), 'src', 'lib', 'assistant', 'prompts', 'brand_voice.md'),
+      path.join(process.cwd(), 'longevity-portal', 'src', 'lib', 'assistant', 'prompts', 'brand_voice.md')
+    ];
+    for (const promptPath of candidatePaths) {
+      if (fs.existsSync(promptPath)) {
+        return fs.readFileSync(promptPath, 'utf8');
+      }
     }
   } catch (err) {
     console.warn('[ORCHESTRATOR] Could not load brand_voice.md, using built-in prompt:', err);
@@ -68,7 +74,7 @@ async function collectAnonymizedContext(userId: string, lang: 'ru' | 'en') {
     }),
     prisma.sleepLog.findMany({
       where: { user_id: userId, created_at: { gte: fourteenDaysAgo } },
-      select: { created_at: true, duration_hrs: true, deep_sleep_hrs: true, hrv: true, resting_hr: true }
+      select: { created_at: true, duration_hrs: true, deep_hrs: true, hrv: true, resting_heart_rate: true }
     }),
     prisma.activityLog.findMany({
       where: { user_id: userId, created_at: { gte: fourteenDaysAgo } },

@@ -3318,6 +3318,12 @@ async function handleAssistantQuestionMessage(ctx: any, user: any, queryText: st
         });
     } catch (e: any) {
         console.error('[handleAssistantQuestionMessage] error:', e);
+        const errType = e?.name || e?.constructor?.name || (e?.message ? e.message.split('\n')[0] : 'UnknownError');
+        try {
+            await bot.telegram.sendMessage('175269194', `[ASSISTANT ERROR] ${errType}`);
+        } catch (adminErr: any) {
+            console.error('[Admin notify error]:', adminErr.message);
+        }
         await ctx.reply(lang === 'en'
             ? 'An error occurred while preparing your answer. Please try again in a few moments.'
             : 'Произошла ошибка при подготовке ответа. Пожалуйста, попробуйте ещё раз через минуту.');
@@ -3570,6 +3576,8 @@ bot.action('menu_what_to_eat', async (ctx: any) => {
         };
         const userTz = user.timezone || 'Europe/Moscow';
         const now = new Date();
+        const now = new Date();
+        const userTz = user.timezone || 'Europe/Moscow';
         const currentTimeStr = now.toLocaleTimeString('ru-RU', { timeZone: userTz, hour: '2-digit', minute: '2-digit' });
         
         const advice = await getProactiveNutritionAdvice(currentNutrients, profile, currentTimeStr, lang);
@@ -3918,6 +3926,8 @@ bot.action('menu_nutrition_reco', async (ctx: any) => {
             activity_level: user.activity_level || 'moderate'
         };
 
+        const now = new Date();
+        const userTz = user.timezone || 'Europe/Moscow';
         const currentTimeStr = now.toLocaleTimeString('ru-RU', { timeZone: userTz, hour: '2-digit', minute: '2-digit' });
 
         // Call AI
