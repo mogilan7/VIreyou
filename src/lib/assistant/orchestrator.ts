@@ -374,7 +374,17 @@ ${mode === 'ask' ? `ВОПРОС ЧЕЛОВЕКА: "${userQuery}"` : `ЗАДАЧ
 
     // 7. Post-model Safety Validation & Number Verification
     const safetyCheck = validateLLMOutput(cleanMessage);
-    const numbersContract = { ...context.metricsSummary, ...context.anonymizedProfile };
+    const numbersContract = {
+      ...context.metricsSummary,
+      ...context.anonymizedProfile,
+      userQuery: context.userQuery || userQuery,
+      relevantCards: cards
+        .filter(c => usedCardIds.includes(c.id) || usedCardIds.length === 0)
+        .map(c => ({
+          claim: c.claim,
+          contraindications: c.contraindications
+        }))
+    };
     const numbersCheck = verifyNumbers(cleanMessage, numbersContract);
 
     if (!safetyCheck.isSafe || !numbersCheck.valid) {
@@ -383,9 +393,13 @@ ${mode === 'ask' ? `ВОПРОС ЧЕЛОВЕКА: "${userQuery}"` : `ЗАДАЧ
         invalidNumbers: numbersCheck.invalidNumbers
       });
 
-      const fallbackMsg = isEn
-        ? 'Data saved for today. Let us look at your trends together tomorrow 💛'
-        : 'Сегодня без подробного разбора: данные дня сохранены, завтра посмотрим на них вместе 💛';
+      const fallbackMsg = mode === 'ask'
+        ? (isEn
+            ? 'I cannot provide this recommendation with sufficient confidence based on verified data 💛'
+            : 'Не могу дать точный ответ на основе проверенных данных базы 💛')
+        : (isEn
+            ? 'Data saved for today. Let us look at your trends together tomorrow 💛'
+            : 'Сегодня без подробного разбора: данные дня сохранены, завтра посмотрим на них вместе 💛');
 
       const saved = await prisma.assistantMessage.create({
         data: {
