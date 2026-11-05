@@ -1,0 +1,3 @@
+id,layer,domain,claim,evidence_level,source_title,source_url,source_year,contraindications,related_content,lang,reviewed_at,status
+test_sleep_001,science,sleep,"Регулярное время отхода ко сну повышает долю глубокого сна и стабильность ночной ВСР.",meta_analysis,"Sleep regularity and cardiovascular health",https://doi.org/10.1093/sleep/zsz065,2019,"Сменная работа, острые нарушения сна",https://vireyou.com/tests/circadian,ru,2026-11-01,approved
+test_sleep_002,science,sleep,"Употребление кофеина менее чем за 6 часов до сна снижает общее время сна на 1 час.",studies,"Caffeine effects on sleep",https://doi.org/10.5664/jcsm.3170,2013,,https://vireyou.com/tests/circadian,ru,2026-11-01,draft
