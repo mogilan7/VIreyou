@@ -5,13 +5,19 @@ dotenv.config();
 dotenv.config({ path: '.env.local', override: true });
 
 import { PrismaClient } from '@prisma/client';
+import { ASSISTANT_DOMAINS } from '../src/lib/assistant/config';
 
-interface CardRow {
+export const ALLOWED_LAYERS = ['science', 'product', 'content'] as const;
+export const ALLOWED_EVIDENCE_LEVELS = ['guideline', 'meta_analysis', 'studies', 'hypothesis'] as const;
+export const ALLOWED_STATUSES = ['approved', 'draft', 'rejected'] as const;
+export const ALLOWED_LANGS = ['ru', 'en'] as const;
+
+export interface CardRow {
   id: string;
   layer: string;
   domain: string;
   claim: string;
-  evidence_level?: string | null;
+  evidence_level: string;
   source_title?: string | null;
   source_url?: string | null;
   source_year?: number | null;
@@ -22,10 +28,29 @@ interface CardRow {
   status: string;
 }
 
+export interface ValidationError {
+  rowNumber: number;
+  id: string;
+  reason: string;
+}
+
+/**
+ * Normalizes related_content string by accepting ',' or ';' delimiters,
+ * trimming items, and joining them with ', '.
+ */
+export function normalizeRelatedContent(raw?: string | null): string | null {
+  if (!raw) return null;
+  const parts = raw
+    .split(/[,;]+/)
+    .map(p => p.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : null;
+}
+
 /**
  * Standard CSV parser handling quotes, commas, escapes, and multi-line cells.
  */
-function parseCSV(content: string): Record<string, string>[] {
+export function parseCSV(content: string): Record<string, string>[] {
   const rows: string[][] = [];
   let currentRow: string[] = [];
   let currentCell = '';
@@ -85,6 +110,81 @@ function parseCSV(content: string): Record<string, string>[] {
   return dataRows;
 }
 
+export function validateRow(record: Record<string, string>, rowNumber: number): { card?: CardRow; error?: ValidationError } {
+  const id = (record.id || record.card_id || '').trim();
+  if (!id) {
+    return { error: { rowNumber, id: '(empty)', reason: 'Missing ID' } };
+  }
+
+  const layer = (record.layer || 'science').trim().toLowerCase();
+  if (!ALLOWED_LAYERS.includes(layer as any)) {
+    return { error: { rowNumber, id, reason: `Invalid layer "${layer}". Expected one of: ${ALLOWED_LAYERS.join(', ')}` } };
+  }
+
+  const domain = (record.domain || '').trim().toLowerCase();
+  if (!ASSISTANT_DOMAINS.includes(domain as any)) {
+    return { error: { rowNumber, id, reason: `Invalid domain "${domain}". Expected one of: ${ASSISTANT_DOMAINS.join(', ')}` } };
+  }
+
+  const claim = (record.claim || '').trim();
+  if (!claim) {
+    return { error: { rowNumber, id, reason: 'Missing or empty claim' } };
+  }
+
+  const evidenceLevel = (record.evidence_level || '').trim().toLowerCase();
+  if (!ALLOWED_EVIDENCE_LEVELS.includes(evidenceLevel as any)) {
+    return { error: { rowNumber, id, reason: `Invalid evidence_level "${evidenceLevel}". Expected one of: ${ALLOWED_EVIDENCE_LEVELS.join(', ')}` } };
+  }
+
+  const status = (record.status || 'draft').trim().toLowerCase();
+  if (!ALLOWED_STATUSES.includes(status as any)) {
+    return { error: { rowNumber, id, reason: `Invalid status "${status}". Expected one of: ${ALLOWED_STATUSES.join(', ')}` } };
+  }
+
+  const lang = (record.lang || 'ru').trim().toLowerCase();
+  if (!ALLOWED_LANGS.includes(lang as any)) {
+    return { error: { rowNumber, id, reason: `Invalid lang "${lang}". Expected one of: ${ALLOWED_LANGS.join(', ')}` } };
+  }
+
+  let sourceYear: number | null = null;
+  if (record.source_year && record.source_year.trim()) {
+    const yr = parseInt(record.source_year.trim(), 10);
+    if (isNaN(yr) || yr < 1800 || yr > 2100) {
+      return { error: { rowNumber, id, reason: `Invalid source_year "${record.source_year}"` } };
+    }
+    sourceYear = yr;
+  }
+
+  let reviewedAt: Date | null = null;
+  if (record.reviewed_at && record.reviewed_at.trim()) {
+    const d = new Date(record.reviewed_at.trim());
+    if (isNaN(d.getTime())) {
+      return { error: { rowNumber, id, reason: `Invalid reviewed_at date "${record.reviewed_at}"` } };
+    }
+    reviewedAt = d;
+  }
+
+  const normalizedRelated = normalizeRelatedContent(record.related_content);
+
+  return {
+    card: {
+      id,
+      layer,
+      domain,
+      claim,
+      evidence_level: evidenceLevel,
+      source_title: record.source_title ? record.source_title.trim() : null,
+      source_url: record.source_url ? record.source_url.trim() : null,
+      source_year: sourceYear,
+      contraindications: record.contraindications ? record.contraindications.trim() : null,
+      related_content: normalizedRelated,
+      lang,
+      reviewed_at: reviewedAt,
+      status
+    }
+  };
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const isDryRun = args.includes('--dry-run');
@@ -93,9 +193,12 @@ async function main() {
 
   const filePath = args.find(a => !a.startsWith('--'));
 
-  const directUrl = (process.env.DIRECT_URL || process.env.DATABASE_URL || '').trim();
+  const directUrl = (process.env.DIRECT_URL || '').trim();
+  const dbUrl = (process.env.DATABASE_URL || '').trim();
+  const sessionUrl = dbUrl ? dbUrl.replace(':6543', ':5432').replace('?pgbouncer=true', '').replace('&pgbouncer=true', '') : '';
+
   const prisma = new PrismaClient({
-    datasourceUrl: directUrl,
+    datasourceUrl: sessionUrl || directUrl || dbUrl,
   });
 
   try {
@@ -130,66 +233,68 @@ async function main() {
 
     const approvedCards: CardRow[] = [];
     const inactiveCards: CardRow[] = [];
+    const skippedCards: { id: string; reason: string }[] = [];
+    const validationErrors: ValidationError[] = [];
     const touchedLayers = new Set<string>();
 
-    for (const r of records) {
-      const id = r.id || r.card_id;
-      if (!id) continue;
+    records.forEach((r, idx) => {
+      const rowNumber = idx + 2; // header is row 1
+      const validation = validateRow(r, rowNumber);
+
+      if (validation.error) {
+        validationErrors.push(validation.error);
+        skippedCards.push({ id: validation.error.id, reason: validation.error.reason });
+        return;
+      }
+
+      const card = validation.card!;
 
       // Filter test cards in prod unless explicitly asked
-      const isTestCard = id.startsWith('test_');
+      const isTestCard = card.id.startsWith('test_');
       if (isTestCard && !includeTest) {
-        console.log(`Skipping test card in standard run: ${id}`);
-        continue;
+        skippedCards.push({ id: card.id, reason: 'Test card excluded (pass --include-test to import)' });
+        return;
       }
 
-      const layer = (r.layer || 'science').trim().toLowerCase();
-      touchedLayers.add(layer);
+      touchedLayers.add(card.layer);
 
-      const status = (r.status || 'draft').trim().toLowerCase();
-      const year = r.source_year ? parseInt(r.source_year, 10) : null;
-      let reviewedAt: Date | null = null;
-      if (r.reviewed_at) {
-        const parsed = new Date(r.reviewed_at);
-        if (!isNaN(parsed.getTime())) {
-          reviewedAt = parsed;
-        }
-      }
-
-      const card: CardRow = {
-        id,
-        layer,
-        domain: (r.domain || '').trim().toLowerCase(),
-        claim: r.claim || '',
-        evidence_level: r.evidence_level || null,
-        source_title: r.source_title || null,
-        source_url: r.source_url || null,
-        source_year: isNaN(year as number) ? null : year,
-        contraindications: r.contraindications || null,
-        related_content: r.related_content || null,
-        lang: (r.lang || 'ru').trim().toLowerCase(),
-        reviewed_at: reviewedAt,
-        status
-      };
-
-      if (status === 'approved') {
+      if (card.status === 'approved') {
         approvedCards.push(card);
       } else {
         inactiveCards.push(card);
       }
+    });
+
+    console.log(`\n========================================`);
+    console.log(`Knowledge Cards Import Validation Summary`);
+    console.log(`========================================`);
+    console.log(`Total rows parsed:           ${records.length}`);
+    console.log(`Cards to create / activate:   ${approvedCards.length} (status: approved, is_active: true)`);
+    console.log(`Cards to keep / set inactive: ${inactiveCards.length} (status: draft/rejected, is_active: false)`);
+    console.log(`Cards skipped / errored:     ${skippedCards.length}`);
+    console.log(`Validation errors count:     ${validationErrors.length}`);
+
+    if (validationErrors.length > 0) {
+      console.log(`\n❌ Validation Errors (${validationErrors.length}):`);
+      validationErrors.forEach(err => {
+        console.log(`  - Row ${err.rowNumber} [ID: ${err.id}]: ${err.reason}`);
+      });
+    } else {
+      console.log(`\n✅ Zero validation errors found.`);
     }
 
-    console.log(`\nImport Summary:`);
-    console.log(`- Layers present in file: ${Array.from(touchedLayers).join(', ')}`);
-    console.log(`- Approved cards to upsert (is_active = true): ${approvedCards.length}`);
-    console.log(`- Non-approved cards to deactivate (is_active = false): ${inactiveCards.length}`);
-
     if (isDryRun) {
-      console.log('\n[DRY RUN] Finished without database modifications.');
+      console.log('\n🔍 [DRY RUN COMPLETE] No database modifications were performed.');
       return;
     }
 
+    if (validationErrors.length > 0) {
+      console.error('\n🛑 Import aborted due to validation errors.');
+      process.exit(1);
+    }
+
     // 1. Upsert approved cards as active
+    console.log(`\nApplying database upserts...`);
     for (const card of approvedCards) {
       await prisma.knowledgeCard.upsert({
         where: { id: card.id },
@@ -283,13 +388,41 @@ async function main() {
     console.log(`- Missing cards deactivated within touched layers: ${deactivationResult.count}`);
     console.log('✅ Knowledge cards import completed successfully.');
 
+    // 4. Output statistics of active cards per domain (lang = ru)
+    const activeCards = await prisma.knowledgeCard.groupBy({
+      by: ['domain'],
+      where: {
+        is_active: true,
+        lang: 'ru'
+      },
+      _count: {
+        id: true
+      },
+      orderBy: {
+        domain: 'asc'
+      }
+    });
+
+    console.log(`\n========================================`);
+    console.log(`Active Knowledge Cards by Domain (lang = ru):`);
+    console.log(`========================================`);
+    let totalActive = 0;
+    activeCards.forEach(item => {
+      console.log(`- ${item.domain}: ${item._count.id}`);
+      totalActive += item._count.id;
+    });
+    console.log(`----------------------------------------`);
+    console.log(`Total active cards: ${totalActive}`);
+    console.log(`========================================\n`);
+
   } finally {
     await prisma.$disconnect();
   }
 }
 
-main().catch(err => {
-  console.error('Import failed:', err);
-  process.exit(1);
-});
-
+if (require.main === module) {
+  main().catch(err => {
+    console.error('Import failed:', err);
+    process.exit(1);
+  });
+}

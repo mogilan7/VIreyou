@@ -41,3 +41,18 @@ export const CRISIS_CONTACTS = {
     crisisDescription: 'Crisis helplines: call/text 988 (US/Canada), 111 (UK), or visit findahelpline.com'
   }
 };
+
+export const ASSISTANT_DOMAINS = [
+  'sleep',
+  'nutrition',
+  'nutrition_protein',
+  'movement_muscle',
+  'stress_hrv',
+  'glucose',
+  'water',
+  'circadian',
+  'habits',
+  'aging'
+] as const;
+
+export type AssistantDomain = typeof ASSISTANT_DOMAINS[number];
