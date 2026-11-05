@@ -3574,8 +3574,6 @@ bot.action('menu_what_to_eat', async (ctx: any) => {
             target_fat: user.target_fat,
             target_carbs: user.target_carbs
         };
-        const userTz = user.timezone || 'Europe/Moscow';
-        const now = new Date();
         const now = new Date();
         const userTz = user.timezone || 'Europe/Moscow';
         const currentTimeStr = now.toLocaleTimeString('ru-RU', { timeZone: userTz, hour: '2-digit', minute: '2-digit' });
