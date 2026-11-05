@@ -276,7 +276,7 @@ export async function generateDailyReview(userId: string): Promise<{ text: strin
 
     if (!valid) {
         console.error("[Safety Checker] Failed 2 attempts. Using fallback template.");
-        finalOutput = "Сегодня обойдемся без деталей, но я записал ваши данные и продолжаю их анализировать. Помните про важность восстановления и активности, ваш организм обязательно на них откликнется!";
+        finalOutput = "Сегодня без подробного разбора: данные дня сохранены, завтра посмотрим на них вместе 💛";
     }
 
     return { text: finalOutput, contract };
