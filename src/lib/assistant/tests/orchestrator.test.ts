@@ -120,7 +120,7 @@ describe('Lifestyle Assistant Orchestrator (Stage 1)', () => {
     });
 
     expect(result.isKnowledgeGap).toBe(true);
-    expect(result.message).toBe('В базе пока нет проверенных данных по этому вопросу. Записал его — Валя посмотрит 💛');
+    expect(result.message).toBe('В базе пока нет проверенных данных по этому вопросу. Записал его — специалист посмотрит 💛');
     expect(prisma.knowledgeGap.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

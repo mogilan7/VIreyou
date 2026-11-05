@@ -19,7 +19,7 @@ export interface OrchestratorOutput {
   isKnowledgeGap?: boolean;
 }
 
-const MISSING_CARD_RESPONSE_RU = 'В базе пока нет проверенных данных по этому вопросу. Записал его — Валя посмотрит 💛';
+const MISSING_CARD_RESPONSE_RU = 'В базе пока нет проверенных данных по этому вопросу. Записал его — специалист посмотрит 💛';
 const MISSING_CARD_RESPONSE_EN = 'Our knowledge base does not currently have verified data on this question. I have saved it for our specialist to review 💛';
 
 /**

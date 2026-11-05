@@ -26,7 +26,7 @@ export const CONFIG = {
   MAX_REPORT_ITEMS: 5,
 
   // Feature Flags
-  FEATURE_ASSISTANT_BETA: false,
+  FEATURE_ASSISTANT_BETA: true,
 };
 
 export const CRISIS_CONTACTS = {

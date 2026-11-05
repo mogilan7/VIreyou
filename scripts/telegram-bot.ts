@@ -97,8 +97,14 @@ function getLocalDayBounds(timezone?: string, offsetDays: number = 0): { startOf
     return { startOfDay, endOfDay, targetDateStr };
 }
 
-function getPersistentKeyboard(lang: string = "ru") {
+function getPersistentKeyboard(lang: string = "ru", isBeta: boolean = false) {
     const isEn = lang === "en";
+    if (isBeta && CONFIG.FEATURE_ASSISTANT_BETA) {
+        return Markup.keyboard([
+            [isEn ? "💬 Ask Assistant" : "💬 Спросить ассистента", isEn ? "🍽 Log Food" : "🍽 Записать еду"],
+            [isEn ? "💧 Water +250 ml" : "💧 Вода +250 мл", isEn ? "📋 Menu" : "📋 Меню"]
+        ]).resize().persistent();
+    }
     return Markup.keyboard([
         [isEn ? "🍽 Log Food" : "🍽 Записать еду", isEn ? "💧 Water +250 ml" : "💧 Вода +250 мл"],
         [isEn ? "📋 Menu" : "📋 Меню", isEn ? "⭐ Subscription" : "⭐ Подписка"]
@@ -221,6 +227,10 @@ import { validateLLMOutput } from "../src/lib/assistant/safety";
 import { generateDailyReview, generateNutrientReview, recordTopicMentions } from "../src/lib/assistant/generate";
 import { calculateAllUserBaselines } from "../src/lib/assistant/baselines";
 import { generateDailyAction } from "../src/lib/assistant/daily_action";
+import { CONFIG } from "../src/lib/assistant/config";
+import { ASSISTANT_SCREENS, ASSISTANT_CURRENT_CONSENT_VERSION } from "../src/lib/assistant/assistant_screens";
+import { runAssistantOrchestrator } from "../src/lib/assistant/orchestrator";
+import { computeNextReviewUTC, isWithinQuietHours } from "../src/lib/assistant/reviewScheduler";
 
 const ruMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/ru.json'), 'utf8'));
 const enMessages = JSON.parse(fs.readFileSync(path.join(__dirname, '../messages/en.json'), 'utf8'));
@@ -358,6 +368,8 @@ async function fileToBase64(filePath: string): Promise<string> {
 // Временное хранилище для подтверждения (Питание, Сон, Активность)
 const tempLog: Record<string, any> = {};
 const userStates: Record<string, string> = {};
+const assistantQuestionTimeout: Record<string, NodeJS.Timeout> = {};
+const assistantTempSelectedGroups: Record<string, Set<string>> = {};
 
 const ONBOARDING_STATES = {
     NAME: 'ONBOARDING_NAME',
@@ -1275,6 +1287,25 @@ bot.command('review_test', async (ctx: any) => {
     const user = ctx.state.user;
     if (!user) return ctx.reply("Пользователь не найден.");
 
+    if (CONFIG.FEATURE_ASSISTANT_BETA && user.assistant_beta) {
+        try {
+            await ctx.reply("Запрашиваю вечерний разбор нового ИИ-ассистента...");
+            const review = await runAssistantOrchestrator({
+                userId: user.id,
+                mode: 'daily_review',
+                lang: (user.language === 'en' ? 'en' : 'ru')
+            });
+            const replyMarkup = Markup.inlineKeyboard([
+                [Markup.button.callback(user.language === 'en' ? '💬 Ask Assistant' : '💬 Спросить ассистента', 'menu_ask_assistant')],
+                ...(review.messageId ? [[Markup.button.callback(user.language === 'en' ? '⚠️ Inaccurate answer' : '⚠️ Ответ неточный', `ast_feedback_${review.messageId}`)]] : [])
+            ]);
+            return ctx.reply(review.message, { parse_mode: 'Markdown', ...replyMarkup });
+        } catch (err: any) {
+            console.error("Assistant review test error:", err);
+            return ctx.reply(`Ошибка разбора ассистента: ${err?.message || err}`);
+        }
+    }
+
     try {
         const { getLocalDate } = await import('../src/lib/assistant/ingest');
         const { generateDailyReview, recordTopicMentions } = await import('../src/lib/assistant/generate');
@@ -1766,13 +1797,19 @@ async function sendWelcomeMenu(ctx: any, user: any) {
 
   const dashboardUrl = getCabinetWebAppUrl(lang);
 
-  const menuButtons: any[][] = [
+  const menuButtons: any[][] = [];
+
+  if (CONFIG.FEATURE_ASSISTANT_BETA && user.assistant_beta) {
+      menuButtons.push([Markup.button.callback(lang === 'en' ? '💬 Ask Assistant' : '💬 Спросить ассистента', 'menu_ask_assistant')]);
+  }
+
+  menuButtons.push(
       [Markup.button.callback(t(lang, 'Menu.nutrition'), 'menu_nutrition')],
       [Markup.button.callback(t(lang, 'Menu.activity'), 'menu_activity')],
       [Markup.button.callback(t(lang, 'Menu.sleep'), 'menu_sleep')],
       [Markup.button.callback(t(lang, 'Menu.water'), 'menu_water')],
       [Markup.button.callback(t(lang, 'Menu.habits'), 'menu_habits')]
-  ];
+  );
 
   if (isPro || isTrial) {
       menuButtons.push([Markup.button.callback('✨ PRO', 'menu_pro')]);
@@ -1783,7 +1820,7 @@ async function sendWelcomeMenu(ctx: any, user: any) {
   menuButtons.push([Markup.button.callback(t(lang, 'Menu.settings'), 'menu_settings')]);
 
   try {
-      await ctx.reply(lang === 'en' ? "📋 Main Menu" : "📋 Главное меню", getPersistentKeyboard(lang));
+      await ctx.reply(lang === 'en' ? "📋 Main Menu" : "📋 Главное меню", getPersistentKeyboard(lang, !!user?.assistant_beta));
       if (fs.existsSync(imagePath)) {
           await ctx.replyWithPhoto({ source: fs.createReadStream(imagePath) }, {
               caption: caption,
@@ -2232,6 +2269,11 @@ bot.on('voice', async (ctx: any) => {
 
     const user = ctx.state.user;
 
+    // Если пользователь в режиме вопроса ИИ-ассистенту
+    if (user && userStates[user.id] === 'WAITING_FOR_ASSISTANT_QUESTION') {
+        return handleAssistantQuestionMessage(ctx, user, text);
+    }
+
     // Если пользователь в режиме правки — перенаправляем текст в LOG_EDIT обработчик
     if (user && userStates[user.id] === 'LOG_EDIT' && tempLog[user.id]) {
         console.log(`[VOICE] Redirecting to LOG_EDIT handler`);
@@ -2363,6 +2405,10 @@ bot.hears(['⭐ Подписка', '⭐ Subscription', '⭐️ Подписка'
     return showSubscriptionMenu(ctx);
 });
 
+bot.hears(['💬 Спросить ассистента', '💬 Ask Assistant', '/ask', '/assistant'], async (ctx: any) => {
+    await handleAskAssistantStart(ctx);
+});
+
 bot.hears(/^(\d+)\s*(мл|ml|миллилитров)$/i, async (ctx: any) => {
     const volume = parseInt(ctx.match[1]);
     const user = ctx.state.user;
@@ -2382,7 +2428,8 @@ bot.on('text', async (ctx: any) => {
         '💧 Вода +250 мл', '💧 Water +250 ml',
         '📋 Меню', '📋 Menu',
         '⭐ Подписка', '⭐ Subscription',
-        '⭐️ Подписка', '⭐️ Subscription'
+        '⭐️ Подписка', '⭐️ Subscription',
+        '💬 Спросить ассистента', '💬 Ask Assistant'
     ];
     if (persistentButtons.includes(text)) {
         return;
@@ -2403,6 +2450,11 @@ bot.on('text', async (ctx: any) => {
   const lang = ctx.state.lang || 'ru';
 
   if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
+
+  // Если пользователь в режиме вопроса ИИ-ассистенту
+  if (userStates[user.id] === 'WAITING_FOR_ASSISTANT_QUESTION') {
+      return handleAssistantQuestionMessage(ctx, user, text);
+  }
 
   // Настройка Канала Марафона (через Forward) - Перенесено выше в основной bot.on('message')
 
@@ -3112,6 +3164,342 @@ bot.action('edit_log_prompt', async (ctx: any) => {
     await ctx.reply(t(lang, 'Confirmation.editPrompt'));
 });
 
+// ====================================================
+// VIReYou Lifestyle Assistant (Этап 1: Beta)
+// ====================================================
+
+async function handleAskAssistantStart(ctx: any) {
+    const user = ctx.state.user;
+    const lang = ctx.state.lang || 'ru';
+    if (!user) return ctx.reply(t(lang, 'Auth.notLinked'));
+
+    if (!CONFIG.FEATURE_ASSISTANT_BETA || !user.assistant_beta) {
+        return ctx.reply(lang === 'en' 
+            ? 'The AI Assistant is currently in private beta testing.' 
+            : 'ИИ-ассистент сейчас находится на этапе закрытого бета-тестирования 💛');
+    }
+
+    if (!user.adult_confirmed_at) {
+        return sendAgeConfirmationScreen(ctx);
+    }
+
+    if (!user.health_consent_given_at) {
+        return sendHealthConsentScreen(ctx);
+    }
+
+    return enterAssistantQuestionMode(ctx, user);
+}
+
+async function sendAgeConfirmationScreen(ctx: any) {
+    const screen = ASSISTANT_SCREENS.AGE_CONFIRMATION;
+    const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback(screen.buttons.confirm, 'ast_age_confirm')],
+        [Markup.button.callback(screen.buttons.decline, 'ast_age_decline')]
+    ]);
+    return ctx.reply(screen.text, { parse_mode: 'Markdown', ...keyboard });
+}
+
+async function sendHealthConsentScreen(ctx: any) {
+    const screen = ASSISTANT_SCREENS.HEALTH_DATA_CONSENT;
+    const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback(screen.buttons.accept, 'ast_consent_accept')],
+        [Markup.button.callback(screen.buttons.decline, 'ast_consent_decline')]
+    ]);
+    return ctx.reply(screen.text, { parse_mode: 'Markdown', ...keyboard });
+}
+
+async function sendSpecialGroupsScreen(ctx: any, userId: string, messageIdToEdit?: number) {
+    const screen = ASSISTANT_SCREENS.SPECIAL_GROUPS;
+    if (!assistantTempSelectedGroups[userId]) {
+        assistantTempSelectedGroups[userId] = new Set<string>();
+    }
+    const selected = assistantTempSelectedGroups[userId];
+
+    const buttons = screen.items.map(item => {
+        const isChecked = selected.has(item.id);
+        const icon = isChecked ? '☑️' : '◻️';
+        return [Markup.button.callback(`${icon} ${item.label}`, `ast_sg_toggle_${item.id}`)];
+    });
+
+    buttons.push([Markup.button.callback(screen.buttons.none, 'ast_sg_none')]);
+    buttons.push([Markup.button.callback(screen.buttons.save, 'ast_sg_save')]);
+
+    const keyboard = Markup.inlineKeyboard(buttons);
+    if (messageIdToEdit && ctx.callbackQuery) {
+        try {
+            return await ctx.editMessageText(screen.text, { parse_mode: 'Markdown', ...keyboard });
+        } catch {
+            // ignore if unchanged
+        }
+    }
+    return ctx.reply(screen.text, { parse_mode: 'Markdown', ...keyboard });
+}
+
+async function sendReviewTimeScreen(ctx: any) {
+    const screen = ASSISTANT_SCREENS.REVIEW_TIME;
+    const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback(screen.buttons.keepDefault, 'ast_time_default')],
+        [Markup.button.callback(screen.buttons.change, 'ast_time_change')]
+    ]);
+    return ctx.reply(screen.text, { parse_mode: 'Markdown', ...keyboard });
+}
+
+async function sendOnboardingCompletedScreen(ctx: any) {
+    const screen = ASSISTANT_SCREENS.ONBOARDING_COMPLETED;
+    const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback('💬 Спросить ассистента', 'menu_ask_assistant')]
+    ]);
+    await ctx.reply(screen.text, { parse_mode: 'Markdown', ...keyboard });
+    const lang = ctx.state.lang || 'ru';
+    return ctx.reply('✨ Кнопка быстрого доступа активирована', getPersistentKeyboard(lang, true));
+}
+
+function enterAssistantQuestionMode(ctx: any, user: any) {
+    userStates[user.id] = 'WAITING_FOR_ASSISTANT_QUESTION';
+
+    if (assistantQuestionTimeout[user.id]) {
+        clearTimeout(assistantQuestionTimeout[user.id]);
+    }
+
+    assistantQuestionTimeout[user.id] = setTimeout(async () => {
+        if (userStates[user.id] === 'WAITING_FOR_ASSISTANT_QUESTION') {
+            userStates[user.id] = '';
+            try {
+                await bot.telegram.sendMessage(user.telegram_id.toString(), ASSISTANT_SCREENS.ASK_MODE.timeoutNotice);
+            } catch (err: any) {
+                console.error('[Assistant Timeout notice error]:', err.message);
+            }
+        }
+    }, 10 * 60 * 1000);
+
+    return ctx.reply(ASSISTANT_SCREENS.ASK_MODE.prompt, { parse_mode: 'Markdown' });
+}
+
+async function handleAssistantQuestionMessage(ctx: any, user: any, queryText: string) {
+    if (assistantQuestionTimeout[user.id]) {
+        clearTimeout(assistantQuestionTimeout[user.id]);
+    }
+    assistantQuestionTimeout[user.id] = setTimeout(async () => {
+        if (userStates[user.id] === 'WAITING_FOR_ASSISTANT_QUESTION') {
+            userStates[user.id] = '';
+            try {
+                await bot.telegram.sendMessage(user.telegram_id.toString(), ASSISTANT_SCREENS.ASK_MODE.timeoutNotice);
+            } catch (err: any) {
+                console.error('[Assistant Timeout notice error]:', err.message);
+            }
+        }
+    }, 10 * 60 * 1000);
+
+    const lang = ctx.state.lang || 'ru';
+    await ctx.sendChatAction('typing');
+
+    try {
+        const result = await runAssistantOrchestrator({
+            userId: user.id,
+            mode: 'ask',
+            userQuery: queryText,
+            lang: (lang === 'en' ? 'en' : 'ru')
+        });
+
+        const buttons: any[][] = [];
+        buttons.push([Markup.button.callback(ASSISTANT_SCREENS.ASK_MODE.buttons.askMore, 'ast_ask_more')]);
+
+        if (result.usedCardIds && result.usedCardIds.length > 0 && result.messageId) {
+            buttons.push([Markup.button.callback(ASSISTANT_SCREENS.ASK_MODE.buttons.details, `ast_details_${result.messageId}`)]);
+        }
+
+        if (result.messageId) {
+            buttons.push([Markup.button.callback(ASSISTANT_SCREENS.ASK_MODE.buttons.feedbackInaccurate, `ast_feedback_${result.messageId}`)]);
+        }
+
+        await ctx.reply(result.message, {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard(buttons)
+        });
+    } catch (e: any) {
+        console.error('[handleAssistantQuestionMessage] error:', e);
+        await ctx.reply(lang === 'en'
+            ? 'An error occurred while preparing your answer. Please try again in a few moments.'
+            : 'Произошла ошибка при подготовке ответа. Пожалуйста, попробуйте ещё раз через минуту.');
+    }
+}
+
+bot.action('menu_ask_assistant', async (ctx: any) => {
+    await ctx.answerCbQuery();
+    await handleAskAssistantStart(ctx);
+});
+
+bot.action('ast_age_confirm', async (ctx: any) => {
+    await ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    const now = new Date();
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { adult_confirmed_at: now }
+    });
+    user.adult_confirmed_at = now;
+    return sendHealthConsentScreen(ctx);
+});
+
+bot.action('ast_age_decline', async (ctx: any) => {
+    await ctx.answerCbQuery();
+    return ctx.reply(ASSISTANT_SCREENS.AGE_CONFIRMATION.underageNotice);
+});
+
+bot.action('ast_consent_accept', async (ctx: any) => {
+    await ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    const now = new Date();
+    await prisma.user.update({
+        where: { id: user.id },
+        data: {
+            health_consent_given_at: now,
+            health_consent_version: ASSISTANT_CURRENT_CONSENT_VERSION
+        }
+    });
+    user.health_consent_given_at = now;
+    user.health_consent_version = ASSISTANT_CURRENT_CONSENT_VERSION;
+    return sendSpecialGroupsScreen(ctx, user.id);
+});
+
+bot.action('ast_consent_decline', async (ctx: any) => {
+    await ctx.answerCbQuery();
+    return ctx.reply(ASSISTANT_SCREENS.HEALTH_DATA_CONSENT.declinedNotice);
+});
+
+bot.action(/^ast_sg_toggle_(.+)$/, async (ctx: any) => {
+    await ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    const groupId = ctx.match[1];
+    if (!assistantTempSelectedGroups[user.id]) {
+        assistantTempSelectedGroups[user.id] = new Set<string>();
+    }
+    if (assistantTempSelectedGroups[user.id].has(groupId)) {
+        assistantTempSelectedGroups[user.id].delete(groupId);
+    } else {
+        assistantTempSelectedGroups[user.id].add(groupId);
+    }
+    await sendSpecialGroupsScreen(ctx, user.id, ctx.callbackQuery?.message?.message_id);
+});
+
+bot.action('ast_sg_none', async (ctx: any) => {
+    await ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    assistantTempSelectedGroups[user.id] = new Set<string>();
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { special_groups: [] }
+    });
+    user.special_groups = [];
+    return sendReviewTimeScreen(ctx);
+});
+
+bot.action('ast_sg_save', async (ctx: any) => {
+    await ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    const groups = Array.from(assistantTempSelectedGroups[user.id] || []);
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { special_groups: groups }
+    });
+    user.special_groups = groups;
+    if (groups.length > 0) {
+        await ctx.reply(ASSISTANT_SCREENS.SPECIAL_GROUPS.conservativeNotice);
+    }
+    return sendReviewTimeScreen(ctx);
+});
+
+bot.action('ast_time_default', async (ctx: any) => {
+    await ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    const tz = user.timezone || 'Europe/Moscow';
+    const nextReview = computeNextReviewUTC(tz, '20:30');
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { review_time: '20:30', next_review_at: nextReview }
+    });
+    user.review_time = '20:30';
+    user.next_review_at = nextReview;
+    return sendOnboardingCompletedScreen(ctx);
+});
+
+bot.action('ast_time_change', async (ctx: any) => {
+    await ctx.answerCbQuery();
+    const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback('19:00', 'ast_set_time_19:00'), Markup.button.callback('19:30', 'ast_set_time_19:30')],
+        [Markup.button.callback('20:00', 'ast_set_time_20:00'), Markup.button.callback('20:30', 'ast_set_time_20:30')],
+        [Markup.button.callback('21:00', 'ast_set_time_21:00'), Markup.button.callback('21:30', 'ast_set_time_21:30')]
+    ]);
+    return ctx.reply('Выберите удобное время для вечернего разбора:', keyboard);
+});
+
+bot.action(/^ast_set_time_(\d{2}:\d{2})$/, async (ctx: any) => {
+    await ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    const chosenTime = ctx.match[1];
+    const tz = user.timezone || 'Europe/Moscow';
+    const nextReview = computeNextReviewUTC(tz, chosenTime);
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { review_time: chosenTime, next_review_at: nextReview }
+    });
+    user.review_time = chosenTime;
+    user.next_review_at = nextReview;
+    await ctx.reply(`Время вечернего разбора установлено на **${chosenTime}** ✅`, { parse_mode: 'Markdown' });
+    return sendOnboardingCompletedScreen(ctx);
+});
+
+bot.action('ast_ask_more', async (ctx: any) => {
+    await ctx.answerCbQuery();
+    const user = ctx.state.user;
+    if (!user) return;
+    enterAssistantQuestionMode(ctx, user);
+});
+
+bot.action(/^ast_details_(.+)$/, async (ctx: any) => {
+    await ctx.answerCbQuery();
+    const messageId = ctx.match[1];
+    const msg = await prisma.assistantMessage.findUnique({
+        where: { id: messageId }
+    });
+    if (!msg || !msg.used_card_ids || msg.used_card_ids.length === 0) {
+        return ctx.reply('К этому ответу нет дополнительных источников.');
+    }
+
+    const cards = await prisma.knowledgeCard.findMany({
+        where: { id: { in: msg.used_card_ids } },
+        select: { id: true, source_title: true, source_url: true, related_content: true, evidence_level: true }
+    });
+
+    const lines = ['📚 **Использованные источники базы знаний:**\n'];
+    cards.forEach((c, idx) => {
+        lines.push(`${idx + 1}. *${c.source_title || c.id}* [${c.evidence_level}]`);
+        if (c.source_url) lines.push(`🔗 Источник: ${c.source_url}`);
+        if (c.related_content) lines.push(`🎥 Материалы: ${c.related_content}`);
+        lines.push('');
+    });
+
+    return ctx.reply(lines.join('\n'), { parse_mode: 'Markdown', disable_web_page_preview: true });
+});
+
+bot.action(/^ast_feedback_(.+)$/, async (ctx: any) => {
+    await ctx.answerCbQuery();
+    const messageId = ctx.match[1];
+    await prisma.assistantMessage.update({
+        where: { id: messageId },
+        data: { feedback: 'inaccurate' }
+    }).catch((e: any) => console.error('Feedback update error:', e.message));
+
+    return ctx.reply(ASSISTANT_SCREENS.ASK_MODE.feedbackAcknowledged);
+});
+
 // ----------------------------------------------------
 // Чек-лист Рекомендаций и Утреннее напоминание
 // ----------------------------------------------------
@@ -3610,7 +3998,11 @@ cron.schedule('* * * * *', async () => {
         const { evaluateScheduler } = await import('../src/lib/assistant/scheduler');
         const { generateDailyReview } = await import('../src/lib/assistant/generate');
         const users = await prisma.user.findMany({
-            where: { dailyReviewEnabled: true, telegram_id: { not: null } },
+            where: {
+                dailyReviewEnabled: true,
+                telegram_id: { not: null },
+                assistant_beta: false
+            },
             include: { AssistantState: true }
         });
 
@@ -3696,6 +4088,69 @@ cron.schedule('* * * * *', async () => {
         }
     } catch (e) {
         console.error("[CRON] Daily Review error:", e);
+    }
+
+    // --- Lifestyle Assistant Beta Evening Review (Scheduled per user preference) ---
+    if (CONFIG.FEATURE_ASSISTANT_BETA) {
+        try {
+            const betaUsers = await prisma.user.findMany({
+                where: {
+                    assistant_beta: true,
+                    telegram_id: { not: null },
+                    adult_confirmed_at: { not: null },
+                    health_consent_given_at: { not: null }
+                }
+            });
+
+            for (const bu of betaUsers) {
+                try {
+                    const tz = bu.timezone || 'Europe/Moscow';
+                    let nextReview = bu.next_review_at;
+                    if (!nextReview) {
+                        nextReview = computeNextReviewUTC(tz, bu.review_time || '20:30', now);
+                        await prisma.user.update({
+                            where: { id: bu.id },
+                            data: { next_review_at: nextReview }
+                        });
+                    }
+
+                    if (now >= nextReview) {
+                        if (isWithinQuietHours(tz, now)) {
+                            continue;
+                        }
+
+                        console.log(`[CRON] Sending new Beta Evening Review to user ${bu.id}...`);
+                        const review = await runAssistantOrchestrator({
+                            userId: bu.id,
+                            mode: 'daily_review',
+                            lang: (bu.language === 'en' ? 'en' : 'ru')
+                        });
+
+                        const replyMarkup = Markup.inlineKeyboard([
+                            [Markup.button.callback(bu.language === 'en' ? '💬 Ask Assistant' : '💬 Спросить ассистента', 'menu_ask_assistant')],
+                            ...(review.messageId ? [[Markup.button.callback(bu.language === 'en' ? '⚠️ Inaccurate answer' : '⚠️ Ответ неточный', `ast_feedback_${review.messageId}`)]] : [])
+                        ]);
+
+                        await bot.telegram.sendMessage(bu.telegram_id!.toString(), review.message, {
+                            parse_mode: 'Markdown',
+                            ...replyMarkup
+                        });
+
+                        // Reschedule next review strictly in future (tomorrow)
+                        const tomorrowBase = new Date(now.getTime() + 60000);
+                        const nextScheduled = computeNextReviewUTC(tz, bu.review_time || '20:30', tomorrowBase);
+                        await prisma.user.update({
+                            where: { id: bu.id },
+                            data: { next_review_at: nextScheduled }
+                        });
+                    }
+                } catch (bErr: any) {
+                    console.error(`[CRON] Beta review failed for ${bu.id}:`, bErr.message);
+                }
+            }
+        } catch (e: any) {
+            console.error('[CRON] Beta review loop error:', e.message);
+        }
     }
 
     if (mskTime === '03:00') {
