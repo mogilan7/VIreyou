@@ -867,6 +867,12 @@ model User {
   dailyActionEnabled                            Boolean            @default(true)
   dailyReviewEnabled                            Boolean            @default(true)
   keyboard_version                              Int                @default(0)
+  assistant_beta                                Boolean            @default(false)
+  health_consent_version                        Int?
+  adult_confirmed_at                            DateTime?          @db.Timestamptz(6)
+  special_groups                                Json               @default("[]")
+  review_time                                   String?            @default("20:30")
+  next_review_at                                DateTime?          @db.Timestamptz(6)
   AccessPermission                              AccessPermission[]
   ActivityLog                                   ActivityLog[]
   BiomarkerResult                               BiomarkerResult[]
@@ -894,6 +900,7 @@ model User {
   ConsultantLog                                 ConsultantLog[]
   AssistantState                                AssistantState?
 
+  @@index([next_review_at])
   @@schema("public")
 }
 
@@ -1149,14 +1156,57 @@ enum target_platform {
 }
 
 model AssistantMessage {
-  id         String   @id @default(uuid())
-  user_id    String
-  message    String
-  feedback   String?
-  created_at DateTime @default(now())
-  User       User     @relation(fields: [user_id], references: [id])
+  id             String   @id @default(uuid())
+  user_id        String
+  message        String
+  feedback       String?
+  created_at     DateTime @default(now())
+  prompt_version String?
+  used_card_ids  String[] @default([])
+  model          String?
+  User           User     @relation(fields: [user_id], references: [id])
 
   @@index([user_id, created_at(sort: Desc)])
+  @@schema("public")
+}
+
+model KnowledgeCard {
+  id                String    @id
+  layer             String
+  domain            String
+  claim             String
+  evidence_level    String?
+  source_title      String?
+  source_url        String?
+  source_year       Int?
+  contraindications String?
+  related_content   String?
+  lang              String    @default("ru")
+  reviewed_at       DateTime?
+  status            String    @default("approved")
+  is_active         Boolean   @default(true)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([domain, lang, is_active])
+  @@index([layer, is_active])
+  @@map("knowledge_cards")
+  @@schema("public")
+}
+
+model KnowledgeGap {
+  id               String    @id @default(uuid())
+  user_id          String?
+  question         String
+  domain           String?
+  lang             String    @default("ru")
+  status           String    @default("new")
+  resolution_notes String?
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  resolved_at      DateTime? @db.Timestamptz(6)
+
+  @@index([status, created_at])
+  @@map("knowledge_gaps")
   @@schema("public")
 }
 

@@ -127,6 +127,17 @@ export async function mergeUserAccounts(
     const pCreated = new Date(placeholderUser.created_at).getTime();
     const earlierCreatedAt = new Date(Math.min(tCreated, pCreated));
 
+    // Merge special_groups
+    const tGroups = Array.isArray(targetUser.special_groups) ? (targetUser.special_groups as string[]) : [];
+    const pGroups = Array.isArray(placeholderUser.special_groups) ? (placeholderUser.special_groups as string[]) : [];
+    const mergedSpecialGroups = Array.from(new Set([...tGroups, ...pGroups]));
+
+    // Consent version (highest agreed version)
+    const maxConsent = Math.max(
+        Number(targetUser.health_consent_version || 0),
+        Number(placeholderUser.health_consent_version || 0)
+    );
+
     // 8. Update target user
     const updatedTargetUser = await tx.user.update({
         where: { id: targetUser.id },
@@ -139,7 +150,13 @@ export async function mergeUserAccounts(
             start_param: targetUser.start_param || placeholderUser.start_param,
             utm_source: targetUser.utm_source || placeholderUser.utm_source,
             utm_campaign: targetUser.utm_campaign || placeholderUser.utm_campaign,
-            referrer_id: targetUser.referrer_id || placeholderUser.referrer_id
+            referrer_id: targetUser.referrer_id || placeholderUser.referrer_id,
+            assistant_beta: Boolean(targetUser.assistant_beta || placeholderUser.assistant_beta),
+            health_consent_version: maxConsent > 0 ? maxConsent : null,
+            adult_confirmed_at: targetUser.adult_confirmed_at || placeholderUser.adult_confirmed_at || null,
+            special_groups: mergedSpecialGroups,
+            review_time: targetUser.review_time || placeholderUser.review_time || '20:30',
+            next_review_at: targetUser.next_review_at || placeholderUser.next_review_at || null
         }
     });
 
