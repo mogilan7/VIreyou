@@ -1,4 +1,4 @@
-import { verifyNumbers } from './safety';
+import { verifyNumbers, validateLLMOutput } from './safety';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import prisma from "../../lib/prisma";
 import type { LifestyleContext } from "./context";
@@ -258,19 +258,25 @@ export async function generateDailyReview(userId: string): Promise<{ text: strin
         ]);
         
         const output = result.response.text();
-        const check = verifyNumbers(output, contract);
+        const numberCheck = verifyNumbers(output, contract);
+        const safetyCheck = validateLLMOutput(output);
         
-        if (check.valid) {
+        if (numberCheck.valid && safetyCheck.isSafe) {
             finalOutput = output;
             valid = true;
         } else {
-            console.warn(`[Safety Checker] Attempt ${attempts} failed due to hallucinated numbers: ${check.invalidNumbers.join(', ')}`);
+            if (!numberCheck.valid) {
+                console.warn(`[Safety Checker] Attempt ${attempts} failed due to hallucinated numbers: ${numberCheck.invalidNumbers.join(', ')}`);
+            }
+            if (!safetyCheck.isSafe) {
+                console.warn(`[Safety Checker] Attempt ${attempts} failed safety validation: ${safetyCheck.violations.join(', ')}`);
+            }
         }
     }
 
     if (!valid) {
         console.error("[Safety Checker] Failed 2 attempts. Using fallback template.");
-        finalOutput = "Сегодня обойдемся без деталей, но я записал ваши данные и продолжаю их анализировать. Помните про важность восстановления и активности!";
+        finalOutput = "Сегодня обойдемся без деталей, но я записал ваши данные и продолжаю их анализировать. Помните про важность восстановления и активности, ваш организм обязательно на них откликнется!";
     }
 
     return { text: finalOutput, contract };
