@@ -121,18 +121,60 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
     const uniquePlantsCount = allPlants.size;
     const uniquePlantsList = Array.from(allPlants);
 
+    const getLogDay = (val: string | Date | null | undefined): string | null => {
+        if (!val) return null;
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return null;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    const nutritionDays = new Set<string>();
+    filteredNutrition.forEach((l: any) => {
+        const day = getLogDay(l.created_at || l.date);
+        if (day) nutritionDays.add(day);
+    });
+    const nutritionLoggedDays = nutritionDays.size;
+
+    const activityDays = new Set<string>();
+    filteredActivity.forEach((l: any) => {
+        const day = getLogDay(l.created_at || l.date);
+        if (day) activityDays.add(day);
+    });
+    const activityLoggedDays = activityDays.size;
+
+    const sleepDays = new Set<string>();
+    filteredSleep.forEach((l: any) => {
+        const day = getLogDay(l.created_at);
+        if (day) sleepDays.add(day);
+    });
+    const sleepLoggedDays = sleepDays.size;
+
+    const hydrationDays = new Set<string>();
+    filteredHydration.forEach((l: any) => {
+        const day = getLogDay(l.created_at);
+        if (day) hydrationDays.add(day);
+    });
+    const hydrationLoggedDays = hydrationDays.size;
+
+    const periodDays = denominator;
+    const nutritionCoveragePct = Math.round((nutritionLoggedDays / periodDays) * 100);
+    const activityCoveragePct = Math.round((activityLoggedDays / periodDays) * 100);
+    const sleepCoveragePct = Math.round((sleepLoggedDays / periodDays) * 100);
+    const hydrationCoveragePct = Math.round((hydrationLoggedDays / periodDays) * 100);
+
     const totalSteps = filteredActivity.reduce((sum: number, a: any) => sum + (a.steps || 0), 0);
-    const avgSteps = filteredActivity.length > 0 ? totalSteps / denominator : 0;
+    const avgSteps = activityLoggedDays > 0 ? totalSteps / activityLoggedDays : 0;
     const totalActiveMinutes = filteredActivity.reduce((sum: number, a: any) => sum + (a.active_minutes || 0), 0);
-    const avgActiveMinutes = filteredActivity.length > 0 ? totalActiveMinutes / denominator : 0;
+    const avgActiveMinutes = activityLoggedDays > 0 ? totalActiveMinutes / activityLoggedDays : 0;
     const totalCalBurned = filteredActivity.reduce((sum: number, a: any) => sum + (a.calories_burned || 0), 0);
 
-    const avgSleepDuration = filteredSleep.length > 0 
-        ? filteredSleep.reduce((sum: number, s: any) => sum + (s.duration_hrs || 0), 0) / denominator 
+    const avgSleepDuration = sleepLoggedDays > 0 
+        ? filteredSleep.reduce((sum: number, s: any) => sum + (s.duration_hrs || 0), 0) / sleepLoggedDays 
         : 0;
 
     const totalWater = filteredHydration.reduce((sum: number, h: any) => sum + (h.volume_ml || 0), 0);
-    const avgWater = totalWater / denominator;
+    const avgWater = hydrationLoggedDays > 0 ? totalWater / hydrationLoggedDays : 0;
+    const avgCalories = nutritionLoggedDays > 0 ? nutritionSum.calories / nutritionLoggedDays : 0;
 
     const habitCounts: Record<string, { completed: number, total: number }> = {};
     filteredHabits.forEach((h: any) => {
@@ -174,15 +216,18 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
     }
 
     markdown += `## 🏃‍♂️ ${isEn ? 'Activity and Sleep' : 'Активность и Сон'}\n`;
-    markdown += `• **${isEn ? 'Avg Steps/day' : 'Средние шаги/день'}**: ${avgSteps.toFixed(0)} ${isEn ? 'steps' : 'шагов'}\n`;
+    markdown += `• **${isEn ? 'Activity Coverage' : 'Покрытие активности'}**: ${activityLoggedDays} / ${periodDays} ${isEn ? 'days' : 'дн'} (${activityCoveragePct}%)\n`;
+    markdown += `• **${isEn ? 'Avg Steps (logged days)' : 'Средние шаги (за дни с данными)'}**: ${avgSteps.toFixed(0)} ${isEn ? 'steps' : 'шагов'}\n`;
     markdown += `• **${isEn ? 'Active Minutes' : 'Активные минуты'}**: ${totalActiveMinutes.toFixed(0)} ${isEn ? 'min' : 'мин'} *(${isEn ? 'avg' : 'ср'}: ${avgActiveMinutes.toFixed(0)} ${isEn ? 'min/day' : 'мин/день'})*\n`;
     markdown += `• **${isEn ? 'Total Burned' : 'Всего сожжено'}**: ${totalCalBurned.toFixed(0)} ${isEn ? 'kcal' : 'ккал'}\n`;
-    markdown += `• **${isEn ? 'Avg Sleep' : 'Средний сон'}**: ${avgSleepDuration.toFixed(1)} ${isEn ? 'h' : 'ч'}\n`;
-    markdown += `• **${isEn ? 'Hydration (avg/day)' : 'Гидратация (ср/день)'}**: ${avgWater.toFixed(0)} ${isEn ? 'ml' : 'мл'}\n\n`;
+    markdown += `• **${isEn ? 'Sleep Coverage' : 'Покрытие сна'}**: ${sleepLoggedDays} / ${periodDays} ${isEn ? 'days' : 'дн'} (${sleepCoveragePct}%)\n`;
+    markdown += `• **${isEn ? 'Avg Sleep (logged days)' : 'Средний сон (за дни с данными)'}**: ${avgSleepDuration.toFixed(1)} ${isEn ? 'h' : 'ч'}\n`;
+    markdown += `• **${isEn ? 'Hydration (logged days avg)' : 'Гидратация (ср/день за дни с записями)'}**: ${avgWater.toFixed(0)} ${isEn ? 'ml' : 'мл'}\n\n`;
 
     markdown += `## 🍎 ${isEn ? 'Nutrition and Micronutrients' : 'Питание и Микроэлементы'}\n`;
+    markdown += `• **${isEn ? 'Nutrition Coverage' : 'Покрытие записей питания'}**: ${nutritionLoggedDays} / ${periodDays} ${isEn ? 'days' : 'дн'} (${nutritionCoveragePct}%)\n`;
     markdown += `• **${isEn ? 'Total Calories' : 'Всего калорий'}**: ${nutritionSum.calories.toFixed(0)} ${isEn ? 'kcal' : 'ккал'}\n`;
-    markdown += `• **${isEn ? 'Avg Calories/day' : 'Средние калории/день'}**: ${(nutritionSum.calories / denominator).toFixed(0)} ${isEn ? 'kcal' : 'ккал'}\n`;
+    markdown += `• **${isEn ? 'Avg Calories (logged days)' : 'Средние калории (за дни с записями)'}**: ${avgCalories.toFixed(0)} ${isEn ? 'kcal' : 'ккал'}\n`;
     markdown += `• **${isEn ? 'Unique Plants Eaten (Fiber Diversity)' : 'Разнообразие растений (клетчатка)'}**: ${uniquePlantsCount} ${isEn ? 'types' : 'видов'}\n`;
     if (uniquePlantsCount > 0) {
         markdown += `  *(${uniquePlantsList.join(", ")})*\n`;
@@ -191,11 +236,12 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
         markdown += `\n`;
     }
 
-    markdown += `| ${isEn ? 'Element' : 'Элемент'} | ${isEn ? 'Total' : 'Всего'} | ${isEn ? 'Norm for' : 'Норма за'} ${days}${isEn ? 'd' : 'д'} | ${isEn ? '% of norm' : '% от нормы'} |\n`;
+    const normDays = nutritionLoggedDays > 0 ? nutritionLoggedDays : days;
+    markdown += `| ${isEn ? 'Element' : 'Элемент'} | ${isEn ? 'Total' : 'Всего'} | ${isEn ? 'Norm for' : 'Норма за'} ${normDays}${isEn ? 'd (logged)' : 'д (записи)'} | ${isEn ? '% of norm' : '% от нормы'} |\n`;
     markdown += `|---|---|---|---|\n`;
 
     for (const [key, config] of Object.entries(NUTRITION_NORMS) as any) {
-        const periodNorm = config.norm * days;
+        const periodNorm = config.norm * normDays;
         const pct = (nutritionSum[key] / periodNorm) * 100;
         let emoji = '🔴';
         if (pct >= 80) emoji = '🟢';
@@ -213,15 +259,23 @@ export async function generatePeriodicReport(userId: string, days: number = 7, c
         userName: user.full_name,
         periodDays: days,
         selectedDatesCount: selectedDates ? selectedDates.length : null,
+        coverage: {
+            periodDays,
+            nutrition: { loggedDays: nutritionLoggedDays, coveragePct: nutritionCoveragePct },
+            activity: { loggedDays: activityLoggedDays, coveragePct: activityCoveragePct },
+            sleep: { loggedDays: sleepLoggedDays, coveragePct: sleepCoveragePct },
+            hydration: { loggedDays: hydrationLoggedDays, coveragePct: hydrationCoveragePct }
+        },
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         metrics: {
-            activity: { totalSteps, avgSteps, totalActiveMinutes, avgActiveMinutes, totalCalBurned },
-            sleep: { avgDuration: avgSleepDuration },
-            hydration: { totalVolume: totalWater, avgVolume: avgWater },
+            activity: { totalSteps, avgSteps, totalActiveMinutes, avgActiveMinutes, totalCalBurned, loggedDays: activityLoggedDays },
+            sleep: { avgDuration: avgSleepDuration, loggedDays: sleepLoggedDays },
+            hydration: { totalVolume: totalWater, avgVolume: avgWater, loggedDays: hydrationLoggedDays },
             nutrition: {
                 totalCalories: nutritionSum.calories,
-                avgCalories: nutritionSum.calories / denominator,
+                avgCalories,
+                loggedDays: nutritionLoggedDays,
                 uniquePlantsCount,
                 uniquePlantsList,
                 totals: nutritionSum,
