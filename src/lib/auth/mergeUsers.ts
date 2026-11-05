@@ -29,6 +29,7 @@ export async function mergeUserAccounts(
     await tx.adviceLog.updateMany({ where: { userId: placeholderUser.id }, data: { userId: targetUser.id } });
     await tx.disclosureLog.updateMany({ where: { userId: placeholderUser.id }, data: { userId: targetUser.id } });
     await tx.consultantLog.updateMany({ where: { userId: placeholderUser.id }, data: { userId: targetUser.id } });
+    await tx.knowledgeGap.updateMany({ where: { user_id: placeholderUser.id }, data: { user_id: targetUser.id } });
 
     // 2. test_results (user_id is uuid in Postgres)
     await tx.$executeRaw`
@@ -132,11 +133,25 @@ export async function mergeUserAccounts(
     const pGroups = Array.isArray(placeholderUser.special_groups) ? (placeholderUser.special_groups as string[]) : [];
     const mergedSpecialGroups = Array.from(new Set([...tGroups, ...pGroups]));
 
-    // Consent version (highest agreed version)
-    const maxConsent = Math.max(
-        Number(targetUser.health_consent_version || 0),
-        Number(placeholderUser.health_consent_version || 0)
-    );
+    // Consent version and consent given date (take the later date and its version)
+    const tConsentTime = targetUser.health_consent_given_at ? new Date(targetUser.health_consent_given_at).getTime() : 0;
+    const pConsentTime = placeholderUser.health_consent_given_at ? new Date(placeholderUser.health_consent_given_at).getTime() : 0;
+
+    let finalConsentGivenAt: Date | null = null;
+    let finalConsentVersion: number | null = null;
+
+    if (pConsentTime > tConsentTime) {
+        finalConsentGivenAt = new Date(pConsentTime);
+        finalConsentVersion = placeholderUser.health_consent_version || null;
+    } else if (tConsentTime > 0) {
+        finalConsentGivenAt = new Date(tConsentTime);
+        finalConsentVersion = targetUser.health_consent_version || null;
+    } else {
+        finalConsentVersion = Math.max(
+            Number(targetUser.health_consent_version || 0),
+            Number(placeholderUser.health_consent_version || 0)
+        ) || null;
+    }
 
     // 8. Update target user
     const updatedTargetUser = await tx.user.update({
@@ -152,7 +167,8 @@ export async function mergeUserAccounts(
             utm_campaign: targetUser.utm_campaign || placeholderUser.utm_campaign,
             referrer_id: targetUser.referrer_id || placeholderUser.referrer_id,
             assistant_beta: Boolean(targetUser.assistant_beta || placeholderUser.assistant_beta),
-            health_consent_version: maxConsent > 0 ? maxConsent : null,
+            health_consent_version: finalConsentVersion,
+            health_consent_given_at: finalConsentGivenAt,
             adult_confirmed_at: targetUser.adult_confirmed_at || placeholderUser.adult_confirmed_at || null,
             special_groups: mergedSpecialGroups,
             review_time: targetUser.review_time || placeholderUser.review_time || '20:30',

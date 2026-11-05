@@ -38,3 +38,4 @@ describe('Beta Daily Review Scheduler', () => {
     expect(isWithinQuietHours('Europe/Moscow', day)).toBe(false);
   });
 });
+

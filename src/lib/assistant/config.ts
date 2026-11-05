@@ -24,6 +24,9 @@ export const CONFIG = {
   NUDGE_COOLDOWN: 3,
   SYNC_GRACE_HOURS: 3,
   MAX_REPORT_ITEMS: 5,
+
+  // Feature Flags
+  FEATURE_ASSISTANT_BETA: false,
 };
 
 export const CRISIS_CONTACTS = {

@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS "public"."knowledge_cards" (
     "layer" TEXT NOT NULL,
     "domain" TEXT NOT NULL,
     "claim" TEXT NOT NULL,
-    "evidence_level" TEXT,
+    "evidence_level" TEXT NOT NULL,
     "source_title" TEXT,
     "source_url" TEXT,
     "source_year" INTEGER,
@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS "public"."knowledge_cards" (
     "related_content" TEXT,
     "lang" TEXT NOT NULL DEFAULT 'ru',
     "reviewed_at" TIMESTAMPTZ(6),
-    "status" TEXT NOT NULL DEFAULT 'approved',
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "status" TEXT NOT NULL DEFAULT 'draft',
+    "is_active" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "knowledge_cards_pkey" PRIMARY KEY ("id")
@@ -57,6 +57,7 @@ ON "public"."knowledge_gaps" ("status", "created_at");
 ALTER TABLE "public"."User" 
     ADD COLUMN IF NOT EXISTS "assistant_beta" BOOLEAN NOT NULL DEFAULT false,
     ADD COLUMN IF NOT EXISTS "health_consent_version" INTEGER,
+    ADD COLUMN IF NOT EXISTS "health_consent_given_at" TIMESTAMPTZ(6),
     ADD COLUMN IF NOT EXISTS "adult_confirmed_at" TIMESTAMPTZ(6),
     ADD COLUMN IF NOT EXISTS "special_groups" JSONB NOT NULL DEFAULT '[]'::jsonb,
     ADD COLUMN IF NOT EXISTS "review_time" TEXT DEFAULT '20:30',
@@ -75,3 +76,4 @@ ALTER TABLE "public"."AssistantMessage"
 UPDATE "public"."User"
 SET "assistant_beta" = true
 WHERE "start_param" ILIKE '%test_val%';
+
