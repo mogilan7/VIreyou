@@ -3,17 +3,34 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getGeminiModel } from "@/lib/gemini";
 import { KNOWLEDGE_BASE } from "@/lib/knowledge-base";
+import { createClient } from "@/utils/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
     try {
+        // 0. Authorization: specialist or admin only
+        const supabase = await createClient();
+        const { data: { user: authSessionUser } } = await supabase.auth.getUser();
+
+        if (!authSessionUser) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const isAdmin = authSessionUser.email?.toLowerCase() === "mogilev.andrey@gmail.com";
+        const { data: profileCheck } = await supabase.from("profiles").select("role").eq("id", authSessionUser.id).single();
+        const isSpecialist = profileCheck?.role === "specialist" || profileCheck?.role === "admin";
+
+        if (!isAdmin && !isSpecialist) {
+            return NextResponse.json({ error: "Forbidden: specialist or admin role required" }, { status: 403 });
+        }
+
         const body = await req.json();
         const { userId } = body;
 
         if (!userId) {
             return NextResponse.json({ error: "userId is required" }, { status: 400 });
         }
-
-        // Removed OpenAI setup
 
         // 1. Fetch Client Profile (Ensures the client exists in specialist's list)
         const profile = await prisma.profiles.findUnique({
@@ -41,7 +58,7 @@ export async function POST(req: Request) {
         // 2. Fetch Latest Questionnaire Scores
         const testResults = await prisma.test_results.findMany({
             where: { user_id: userId },
-            orderBy: { created_at: 'desc' }
+            orderBy: { created_at: "desc" }
         });
 
         const latestScores: Record<string, number> = {};
@@ -57,7 +74,7 @@ export async function POST(req: Request) {
         const recentLogs = await prisma.nutritionLog.findMany({
             where: { user_id: userId },
             take: 7,
-            orderBy: { date: 'desc' }
+            orderBy: { date: "desc" }
         });
 
         const avgProtein = recentLogs.length > 0 
@@ -133,10 +150,9 @@ export async function POST(req: Request) {
             });
         }
 
-
+        return NextResponse.json({ error: "Failed to fetch response" }, { status: 500 });
     } catch (error: any) {
         console.error("suggest-labs error:", error);
         return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
     }
-    return NextResponse.json({ error: "Failed to fetch response" }, { status: 500 });
 }
