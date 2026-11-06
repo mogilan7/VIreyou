@@ -168,6 +168,7 @@ async function logWaterAndGetSummary(user: any, volumeMl: number, lang: string =
 async function setupBotCommands() {
     try {
         await bot.telegram.setMyCommands([
+            { command: "ask", description: "Спросить ассистента" },
             { command: "menu", description: "Главное меню" },
             { command: "water", description: "Записать воду" },
             { command: "subscribe", description: "Оформить подписку" },
@@ -176,6 +177,7 @@ async function setupBotCommands() {
         ], { language_code: "ru" });
 
         await bot.telegram.setMyCommands([
+            { command: "ask", description: "Ask assistant" },
             { command: "menu", description: "Main menu" },
             { command: "water", description: "Log water" },
             { command: "subscribe", description: "Get subscription" },
@@ -184,6 +186,7 @@ async function setupBotCommands() {
         ], { language_code: "en" });
 
         await bot.telegram.setMyCommands([
+            { command: "ask", description: "Спросить ассистента" },
             { command: "menu", description: "Главное меню" },
             { command: "water", description: "Записать воду" },
             { command: "subscribe", description: "Оформить подписку" },
@@ -3278,17 +3281,10 @@ function enterAssistantQuestionMode(ctx: any, user: any) {
 async function handleAssistantQuestionMessage(ctx: any, user: any, queryText: string) {
     if (assistantQuestionTimeout[user.id]) {
         clearTimeout(assistantQuestionTimeout[user.id]);
+        delete assistantQuestionTimeout[user.id];
     }
-    assistantQuestionTimeout[user.id] = setTimeout(async () => {
-        if (userStates[user.id] === 'WAITING_FOR_ASSISTANT_QUESTION') {
-            userStates[user.id] = '';
-            try {
-                await bot.telegram.sendMessage(user.telegram_id.toString(), ASSISTANT_SCREENS.ASK_MODE.timeoutNotice);
-            } catch (err: any) {
-                console.error('[Assistant Timeout notice error]:', err.message);
-            }
-        }
-    }, 10 * 60 * 1000);
+    // One message = one question. Immediately reset to normal logging mode
+    userStates[user.id] = '';
 
     const lang = ctx.state.lang || 'ru';
     await ctx.sendChatAction('typing');
@@ -3314,6 +3310,7 @@ async function handleAssistantQuestionMessage(ctx: any, user: any, queryText: st
 
         await ctx.reply(result.message, {
             parse_mode: 'Markdown',
+            link_preview_options: { is_disabled: true },
             ...Markup.inlineKeyboard(buttons)
         });
     } catch (e: any) {
@@ -3327,6 +3324,8 @@ async function handleAssistantQuestionMessage(ctx: any, user: any, queryText: st
         await ctx.reply(lang === 'en'
             ? 'An error occurred while preparing your answer. Please try again in a few moments.'
             : 'Произошла ошибка при подготовке ответа. Пожалуйста, попробуйте ещё раз через минуту.');
+    } finally {
+        userStates[user.id] = '';
     }
 }
 

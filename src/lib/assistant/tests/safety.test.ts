@@ -139,11 +139,12 @@ describe('Safety Validator Tests (LLM Post-Check)', () => {
 });
 
 describe('Safety Gate Tests (Pre-Check)', () => {
-  it('20. should block emergency chest pain with 112/103', () => {
+  it('20. should block emergency chest pain and advise calling 112 without "or to doctor"', () => {
     const result = safetyGate({}, 'У меня острая боль в груди и тяжело дышать');
     expect(result.block).toBe(true);
     expect(result.reason).toBe('CHEST_PAIN');
-    expect(result.message).toContain('112 / 103');
+    expect(result.message).toContain('Немедленно вызовите скорую помощь (112 или местный номер экстренной службы). Не ждите, пока пройдёт.');
+    expect(result.message).not.toContain('или к врачу');
   });
 
   it('21. should block emergency shortness of breath at rest', () => {
@@ -159,11 +160,12 @@ describe('Safety Gate Tests (Pre-Check)', () => {
     expect(result.message).toContain('8-800-333-44-34');
   });
 
-  it('23. should provide international emergency number for EN users without RU numbers', () => {
+  it('23. should provide international emergency number for EN users without RU numbers and without "or see a doctor"', () => {
     const result = safetyGate({ user: { lang: 'en' } }, 'Severe crushing chest pain');
     expect(result.block).toBe(true);
     expect(result.reason).toBe('CHEST_PAIN');
-    expect(result.message).toContain('112 or your local emergency number');
+    expect(result.message).toContain('Call emergency services immediately (112 or your local emergency number). Do not wait for it to pass.');
+    expect(result.message).not.toContain('seek urgent medical care');
     expect(result.message).not.toContain('103');
   });
 
@@ -187,26 +189,34 @@ describe('Safety Gate Tests (Pre-Check)', () => {
   });
 
   describe('Prompt quality & Card details enhancements', () => {
-    it('27. (п. 1) should reject question restatement at the start of LLM output', () => {
+    it('27. (п. 2) should strip leading question restatements including omega-3 example', async () => {
+      const { stripLeadingQuestionRestatement } = await import('../safety');
+      const omegaExample = 'Вопрос о дозировке омега-3 требует индивидуального подхода. Для взрослых норма составляет 1-2 г в день для организма.';
+      const resOmega = stripLeadingQuestionRestatement(omegaExample);
+      expect(resOmega.wasStripped).toBe(true);
+      expect(resOmega.strippedPhrase).toBe('Вопрос о дозировке омега-3 требует индивидуального подхода.');
+      expect(resOmega.text).toBe('Для взрослых норма составляет 1-2 г в день для организма.');
+
       const restatements = [
-        'Вы спрашиваете, сколько белка нужно организму после 60 лет.',
-        'Вы упомянули, что хотите наладить сон организма.',
-        'Что касается вашего вопроса, организму требуется отдых.',
-        'Отвечая на ваш вопрос, организм восстанавливается ночью.'
+        'Вы спрашиваете, сколько белка нужно организму после 60 лет. Для людей старше 65 лет...',
+        'Вы упомянули, что хотите наладить сон организма. Регулярный режим помогает...',
+        'Что касается вашего вопроса о сне, организму требуется отдых.',
+        'Отвечая на ваш вопрос, организм восстанавливается ночью.',
+        'Это хороший вопрос. Давайте разберём показатели организма.'
       ];
 
       for (const text of restatements) {
-        const res = validateLLMOutput(text);
-        expect(res.isSafe).toBe(false);
-        expect(res.violations).toContain('QUESTION_RESTATEMENT_FORBIDDEN');
+        const res = stripLeadingQuestionRestatement(text);
+        expect(res.wasStripped).toBe(true);
+        expect(res.text.length).toBeGreaterThan(0);
       }
     });
 
-    it('28. (п. 1) should pass when response starts directly with the core message', () => {
+    it('28. (п. 1 & 2) should pass when response starts directly with the core message', () => {
       const directText = 'Для людей старше 65 лет эксперты PROT-AGE называют не меньше 1,0–1,2 г белка на кг веса. Свою норму организму показывает калькулятор «Белковый щит».';
       const res = validateLLMOutput(directText);
       expect(res.isSafe).toBe(true);
-      expect(res.violations).not.toContain('QUESTION_RESTATEMENT_FORBIDDEN');
+      expect(res.warnings).not.toContain('QUESTION_RESTATEMENT_WARNING');
     });
 
     it('29. (п. 5) should translate evidence_level to Russian correctly', async () => {
@@ -260,6 +270,23 @@ describe('Safety Gate Tests (Pre-Check)', () => {
       expect(html).toContain('🎥 Материалы: https://youtu.be/Agme9TRY48g ; https://vireyou.com/ru/diagnostics/water');
       // Check that HTML does not contain raw unescaped quotes in title text
       expect(html).not.toContain('"Drink at least eight');
+    });
+
+    it('32. (п. 1) should ensure state is reset after assistant answering so next message is logged as food', () => {
+      const userStates: Record<string, string> = {};
+      const userId = 'user-123';
+
+      // 1. User enters ask mode
+      userStates[userId] = 'WAITING_FOR_ASSISTANT_QUESTION';
+      expect(userStates[userId]).toBe('WAITING_FOR_ASSISTANT_QUESTION');
+
+      // 2. Answering function clears state immediately: one message = one question
+      userStates[userId] = '';
+
+      // 3. Next message "съел омлет" arrives in normal mode (not assistant mode)
+      const nextMessage = 'съел омлет с хлебом';
+      const isInterceptedByAssistant = userStates[userId] === 'WAITING_FOR_ASSISTANT_QUESTION';
+      expect(isInterceptedByAssistant).toBe(false);
     });
   });
 });

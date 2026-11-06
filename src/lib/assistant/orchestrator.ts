@@ -2,13 +2,14 @@ import fs from 'fs';
 import path from 'path';
 import prisma from '../prisma';
 import { getGeminiModel } from '../gemini';
-import { safetyGate, validateLLMOutput, verifyNumbers, extractAllNumbers } from './safety';
+import { safetyGate, validateLLMOutput, verifyNumbers, extractAllNumbers, stripLeadingQuestionRestatement } from './safety';
 
 export interface OrchestratorInput {
   userId: string;
   mode: 'ask' | 'daily_review';
   userQuery?: string;
   lang?: 'ru' | 'en';
+  dryRun?: boolean;
 }
 
 export interface OrchestratorOutput {
@@ -229,24 +230,28 @@ export async function runAssistantOrchestrator(input: OrchestratorInput): Promis
     const gateCheck = safetyGate({ userText: userQuery, user: { lang } });
     if (gateCheck.block) {
       const fallbackMsg = gateCheck.message || (isEn
-        ? 'Please consult a medical professional or emergency services regarding these symptoms.'
-        : 'При данных симптомах, пожалуйста, обратитесь за медицинской или экстренной помощью.');
+        ? 'Please consult emergency services immediately regarding these symptoms.'
+        : 'При данных симптомах, пожалуйста, немедленно вызовите скорую помощь.');
 
-      const saved = await prisma.assistantMessage.create({
-        data: {
-          user_id: userId,
-          message: fallbackMsg,
-          prompt_version: 'v1.0-stage1-safety-gate',
-          used_card_ids: [],
-          model: 'safety-filter'
-        }
-      });
+      let messageId: string | undefined;
+      if (!input.dryRun) {
+        const saved = await prisma.assistantMessage.create({
+          data: {
+            user_id: userId,
+            message: fallbackMsg,
+            prompt_version: 'v1.0-stage1-safety-gate',
+            used_card_ids: [],
+            model: 'safety-filter'
+          }
+        });
+        messageId = saved.id;
+      }
 
       return {
         message: fallbackMsg,
         usedCardIds: [],
         isFallback: true,
-        messageId: saved.id
+        messageId
       };
     }
   }
@@ -336,9 +341,16 @@ ${mode === 'ask' ? `ВОПРОС ЧЕЛОВЕКА: "${userQuery}"` : `ЗАДАЧ
       .replace(/\[USED_CARDS:[^\]]+\]/gi, '')
       .trim();
 
-    cleanMessage = cleanMessage
-      .replace(/^(?:Вы спрашиваете[^\n.!?]*[?.!]\s*|Вы упомянули[^\n.!?]*[?.!]\s*|Что касается вашего вопроса[^\n.!?]*[?.!]\s*|Отвечая на ваш вопрос[^\n.!?]*[?.!]\s*)/iu, '')
-      .trim();
+    // Strip leading question restatements (e.g. "Вопрос о дозировке...", "Вы спрашиваете...", "Что касается...")
+    const stripResult = stripLeadingQuestionRestatement(cleanMessage);
+    if (stripResult.wasStripped) {
+      console.log(`[ORCHESTRATOR] Stripped question restatement: "${stripResult.strippedPhrase}"`);
+      if (stripResult.text.length >= 25) {
+        cleanMessage = stripResult.text;
+      } else {
+        console.warn('[ORCHESTRATOR] Trimmed message too short after restatement strip (<25 chars)');
+      }
+    }
 
     // Check if it's a knowledge gap
     const isMissing = noCardMatch || 
@@ -350,7 +362,7 @@ ${mode === 'ask' ? `ВОПРОС ЧЕЛОВЕКА: "${userQuery}"` : `ЗАДАЧ
       cleanMessage = isEn ? MISSING_CARD_RESPONSE_EN : MISSING_CARD_RESPONSE_RU;
       
       // Record gap to database for Valya
-      if (mode === 'ask' && userQuery) {
+      if (mode === 'ask' && userQuery && !input.dryRun) {
         await prisma.knowledgeGap.create({
           data: {
             user_id: userId,
@@ -361,22 +373,26 @@ ${mode === 'ask' ? `ВОПРОС ЧЕЛОВЕКА: "${userQuery}"` : `ЗАДАЧ
         }).catch(err => console.error('[ORCHESTRATOR] Error logging knowledge gap:', err));
       }
 
-      const saved = await prisma.assistantMessage.create({
-        data: {
-          user_id: userId,
-          message: cleanMessage,
-          prompt_version: 'v1.0-stage1',
-          used_card_ids: [],
-          model: 'gemini-2.5-flash'
-        }
-      });
+      let messageId: string | undefined;
+      if (!input.dryRun) {
+        const saved = await prisma.assistantMessage.create({
+          data: {
+            user_id: userId,
+            message: cleanMessage,
+            prompt_version: 'v1.0-stage1',
+            used_card_ids: [],
+            model: 'gemini-2.5-flash'
+          }
+        });
+        messageId = saved.id;
+      }
 
       return {
         message: cleanMessage,
         usedCardIds: [],
         isFallback: false,
         isKnowledgeGap: true,
-        messageId: saved.id
+        messageId
       };
     }
 
@@ -408,40 +424,48 @@ ${mode === 'ask' ? `ВОПРОС ЧЕЛОВЕКА: "${userQuery}"` : `ЗАДАЧ
             ? 'Data saved for today. Let us look at your trends together tomorrow 💛'
             : 'Сегодня без подробного разбора: данные дня сохранены, завтра посмотрим на них вместе 💛');
 
-      const saved = await prisma.assistantMessage.create({
-        data: {
-          user_id: userId,
-          message: fallbackMsg,
-          prompt_version: 'v1.0-stage1-fallback',
-          used_card_ids: usedCardIds,
-          model: 'gemini-2.5-flash'
-        }
-      });
+      let messageId: string | undefined;
+      if (!input.dryRun) {
+        const saved = await prisma.assistantMessage.create({
+          data: {
+            user_id: userId,
+            message: fallbackMsg,
+            prompt_version: 'v1.0-stage1-fallback',
+            used_card_ids: usedCardIds,
+            model: 'gemini-2.5-flash'
+          }
+        });
+        messageId = saved.id;
+      }
 
       return {
         message: fallbackMsg,
         usedCardIds,
         isFallback: true,
-        messageId: saved.id
+        messageId
       };
     }
 
     // 8. Save and return successful response
-    const saved = await prisma.assistantMessage.create({
-      data: {
-        user_id: userId,
-        message: cleanMessage,
-        prompt_version: 'v1.0-stage1',
-        used_card_ids: usedCardIds,
-        model: 'gemini-2.5-flash'
-      }
-    });
+    let messageId: string | undefined;
+    if (!input.dryRun) {
+      const saved = await prisma.assistantMessage.create({
+        data: {
+          user_id: userId,
+          message: cleanMessage,
+          prompt_version: 'v1.0-stage1',
+          used_card_ids: usedCardIds,
+          model: 'gemini-2.5-flash'
+        }
+      });
+      messageId = saved.id;
+    }
 
     return {
       message: cleanMessage,
       usedCardIds,
       isFallback: false,
-      messageId: saved.id
+      messageId
     };
 
   } catch (error) {
@@ -451,21 +475,25 @@ ${mode === 'ask' ? `ВОПРОС ЧЕЛОВЕКА: "${userQuery}"` : `ЗАДАЧ
       ? 'Data saved for today. Let us look at your trends together tomorrow 💛'
       : 'Сегодня без подробного разбора: данные дня сохранены, завтра посмотрим на них вместе 💛';
 
-    const saved = await prisma.assistantMessage.create({
-      data: {
-        user_id: userId,
-        message: fallbackMsg,
-        prompt_version: 'v1.0-stage1-error-fallback',
-        used_card_ids: [],
-        model: 'gemini-2.5-flash'
-      }
-    });
+    let messageId: string | undefined;
+    if (!input.dryRun) {
+      const saved = await prisma.assistantMessage.create({
+        data: {
+          user_id: userId,
+          message: fallbackMsg,
+          prompt_version: 'v1.0-stage1-error-fallback',
+          used_card_ids: [],
+          model: 'gemini-2.5-flash'
+        }
+      }).catch(() => null);
+      messageId = saved?.id;
+    }
 
     return {
       message: fallbackMsg,
       usedCardIds: [],
       isFallback: true,
-      messageId: saved.id
+      messageId
     };
   }
 }

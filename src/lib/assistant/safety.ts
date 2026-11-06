@@ -50,8 +50,8 @@ export function safetyGate(ctx?: any, textOrLang?: string, explicitText?: string
         reason: item.reason,
         emergencyNumber: emergencyNum,
         message: isEn
-          ? `These symptoms may require immediate medical assistance. Please contact emergency services right away (${emergencyNum}) or seek urgent medical care. I am an AI lifestyle assistant and cannot replace a medical professional.`
-          : `Судя по описанию, эти симптомы могут требовать неотложной помощи. Пожалуйста, немедленно обратитесь в службу экстренной помощи (${emergencyNum}) или к врачу. Я — ИИ-ассистент по образу жизни и не заменяю медицинскую помощь.`
+          ? `These symptoms may require immediate medical assistance. Call emergency services immediately (112 or your local emergency number). Do not wait for it to pass. I am an AI lifestyle assistant and cannot replace a medical professional.`
+          : `Судя по описанию, эти симптомы могут требовать неотложной помощи. Немедленно вызовите скорую помощь (112 или местный номер экстренной службы). Не ждите, пока пройдёт. Я — ИИ-ассистент по образу жизни и не заменяю медицинскую помощь.`
       };
     }
   }
@@ -103,6 +103,32 @@ export function safetyGate(ctx?: any, textOrLang?: string, explicitText?: string
 }
 
 /**
+ * Strips leading question restatements from LLM output.
+ * E.g. "Вопрос о дозировке омега-3 требует индивидуального подхода." -> stripped
+ * "Вы спрашиваете, сколько нужно пить воды..." -> stripped
+ * "Что касается вашего вопроса о сне..." -> stripped
+ */
+export function stripLeadingQuestionRestatement(text: string): { text: string; wasStripped: boolean; strippedPhrase?: string } {
+  if (!text) return { text: '', wasStripped: false };
+  const trimmed = text.trim();
+
+  const restatementRegex = /^(?:(?:вы\s+(?:спрашиваете|спросили|упомянули|интересуетесь|хотите\s+узнать)[^\n.!?,;:]*|что\s+касается\s+[^\n.!?,;:]+|отвечая\s+на\s+[^\n.!?,;:]+|вопрос\s+(?:о|об|про|[^\n.!?,;:]+)\s*(?:требует|заключается|состоит|является|важен)[^\n.!?,;:]*|вопрос\s+(?:о|об|про)[^\n.!?,;:]+|(?:это\s+)?(?:хороший|интересный|важный|отличный)\s+вопрос[^\n.!?,;:]*|regarding\s+(?:your\s+)?question[^\n.!?,;:]*|as\s+for\s+(?:your\s+)?question[^\n.!?,;:]*|you(?:'re|\s+are)?\s+asking[^\n.!?,;:]*|(?:this\s+is\s+a\s+)?good\s+question[^\n.!?,;:]*)[?.!:\n,]\s*)/iu;
+
+  const match = trimmed.match(restatementRegex);
+  if (match) {
+    const strippedPhrase = match[0].trim();
+    const restOfText = trimmed.slice(match[0].length).trim();
+    return {
+      text: restOfText,
+      wasStripped: true,
+      strippedPhrase
+    };
+  }
+
+  return { text: trimmed, wasStripped: false };
+}
+
+/**
  * Post-model safety filter. Verifies LLM output against safety guidelines and brand voice rules.
  */
 export function validateLLMOutput(text: string, options?: { contract?: any }): SafetyResult {
@@ -115,10 +141,10 @@ export function validateLLMOutput(text: string, options?: { contract?: any }): S
     warnings.push('MISSING_MANDATORY_WORD_ORGANISM');
   }
 
-  // Question restatement check: response should not begin by recapping the user's question
-  const restatementRegex = /^(?:Вы спрашиваете|Вы упомянули|Что касается вашего вопроса|Отвечая на ваш вопрос)/iu;
+  // Question restatement check: warning only, post-processing strips it
+  const restatementRegex = /^(?:(?:вы\s+(?:спрашиваете|спросили|упомянули|интересуетесь|хотите\s+узнать)[^\n.!?,;:]*|что\s+касается\s+[^\n.!?,;:]+|отвечая\s+на\s+[^\n.!?,;:]+|вопрос\s+(?:о|об|про|[^\n.!?,;:]+)\s*(?:требует|заключается|состоит|является|важен)[^\n.!?,;:]*|вопрос\s+(?:о|об|про)[^\n.!?,;:]+|(?:это\s+)?(?:хороший|интересный|важный|отличный)\s+вопрос[^\n.!?,;:]*|regarding\s+(?:your\s+)?question[^\n.!?,;:]*|as\s+for\s+(?:your\s+)?question[^\n.!?,;:]*|you(?:'re|\s+are)?\s+asking[^\n.!?,;:]*|(?:this\s+is\s+a\s+)?good\s+question[^\n.!?,;:]*)[?.!:\n,]\s*)/iu;
   if (restatementRegex.test(text.trim())) {
-    violations.push('QUESTION_RESTATEMENT_FORBIDDEN');
+    warnings.push('QUESTION_RESTATEMENT_WARNING');
   }
 
   // 2. Prohibited exact words / diet culture using Cyrillic-safe lookaround
