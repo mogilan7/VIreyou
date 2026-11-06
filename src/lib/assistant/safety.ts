@@ -118,8 +118,9 @@ export function stripLeadingQuestionRestatement(text: string): { text: string; w
   if (match) {
     const strippedPhrase = match[0].trim();
     const restOfText = trimmed.slice(match[0].length).trim();
+    const capitalized = restOfText ? restOfText.charAt(0).toUpperCase() + restOfText.slice(1) : '';
     return {
-      text: restOfText,
+      text: capitalized,
       wasStripped: true,
       strippedPhrase
     };

@@ -18,6 +18,7 @@ export interface OrchestratorOutput {
   isFallback: boolean;
   messageId?: string;
   isKnowledgeGap?: boolean;
+  redFlagCategory?: string;
 }
 
 const MISSING_CARD_RESPONSE_RU = 'В базе пока нет проверенных данных по этому вопросу. Записал его — специалист посмотрит 💛';
@@ -251,6 +252,8 @@ export async function runAssistantOrchestrator(input: OrchestratorInput): Promis
         message: fallbackMsg,
         usedCardIds: [],
         isFallback: true,
+        isKnowledgeGap: false,
+        redFlagCategory: gateCheck.reason,
         messageId
       };
     }
@@ -411,10 +414,12 @@ ${mode === 'ask' ? `ВОПРОС ЧЕЛОВЕКА: "${userQuery}"` : `ЗАДАЧ
     const numbersCheck = verifyNumbers(cleanMessage, numbersContract);
 
     if (!safetyCheck.isSafe || !numbersCheck.valid) {
-      console.warn('[ORCHESTRATOR] Safety/Numbers check failed:', {
-        violations: safetyCheck.violations,
-        invalidNumbers: numbersCheck.invalidNumbers
-      });
+      if (!safetyCheck.isSafe) {
+        console.warn(`[ORCHESTRATOR] Safety check failed: violations=${safetyCheck.violations.join(',')}`);
+      }
+      if (!numbersCheck.valid) {
+        console.warn(`[ORCHESTRATOR] Numbers check failed: reasonCode=UNVERIFIED_NUMBERS, unverifiedCount=${numbersCheck.invalidNumbers.length}`);
+      }
 
       const fallbackMsg = mode === 'ask'
         ? (isEn

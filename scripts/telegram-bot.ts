@@ -165,10 +165,26 @@ async function logWaterAndGetSummary(user: any, volumeMl: number, lang: string =
     }
 }
 
+async function setupBetaUserCommands(chatId: string | number, lang: string = "ru") {
+    try {
+        const isEn = lang === "en";
+        await bot.telegram.setMyCommands([
+            { command: "ask", description: isEn ? "Ask assistant" : "Спросить ассистента" },
+            { command: "menu", description: isEn ? "Main menu" : "Главное меню" },
+            { command: "water", description: isEn ? "Log water" : "Записать воду" },
+            { command: "subscribe", description: isEn ? "Get subscription" : "Оформить подписку" },
+            { command: "help", description: isEn ? "How to use" : "Как пользоваться ботом" },
+            { command: "start", description: isEn ? "Start over" : "Начать заново" }
+        ], { scope: { type: "chat", chat_id: Number(chatId) } as any });
+    } catch (e: any) {
+        console.warn(`[BOT] Failed to setMyCommands for beta user ${chatId}:`, e?.message || e);
+    }
+}
+
 async function setupBotCommands() {
     try {
+        // Global / default commands without /ask
         await bot.telegram.setMyCommands([
-            { command: "ask", description: "Спросить ассистента" },
             { command: "menu", description: "Главное меню" },
             { command: "water", description: "Записать воду" },
             { command: "subscribe", description: "Оформить подписку" },
@@ -177,7 +193,6 @@ async function setupBotCommands() {
         ], { language_code: "ru" });
 
         await bot.telegram.setMyCommands([
-            { command: "ask", description: "Ask assistant" },
             { command: "menu", description: "Main menu" },
             { command: "water", description: "Log water" },
             { command: "subscribe", description: "Get subscription" },
@@ -186,14 +201,27 @@ async function setupBotCommands() {
         ], { language_code: "en" });
 
         await bot.telegram.setMyCommands([
-            { command: "ask", description: "Спросить ассистента" },
             { command: "menu", description: "Главное меню" },
             { command: "water", description: "Записать воду" },
             { command: "subscribe", description: "Оформить подписку" },
             { command: "help", description: "Как пользоваться ботом" },
             { command: "start", description: "Начать заново" }
         ]);
-        console.log("[BOT] Commands registered via setMyCommands");
+        console.log("[BOT] Global commands registered via setMyCommands (without /ask)");
+
+        // Register /ask only for beta users in chat scope
+        if (CONFIG.FEATURE_ASSISTANT_BETA) {
+            const betaUsers = await prisma.user.findMany({
+                where: { assistant_beta: true, telegram_id: { not: null } },
+                select: { telegram_id: true, language: true }
+            });
+            for (const bu of betaUsers) {
+                if (bu.telegram_id) {
+                    await setupBetaUserCommands(bu.telegram_id, bu.language || "ru");
+                }
+            }
+            console.log(`[BOT] Beta assistant commands registered for ${betaUsers.length} user(s)`);
+        }
     } catch (e: any) {
         console.warn("[BOT] Failed to setMyCommands:", e?.message || e);
     }
@@ -2408,7 +2436,12 @@ bot.hears(['⭐ Подписка', '⭐ Subscription', '⭐️ Подписка'
     return showSubscriptionMenu(ctx);
 });
 
-bot.hears(['💬 Спросить ассистента', '💬 Ask Assistant', '/ask', '/assistant'], async (ctx: any) => {
+bot.hears([
+    '💬 Спросить ассистента', '💬 Спросить ассистент',
+    'Спросить ассистента', 'Спросить ассистент',
+    '💬 Ask Assistant', 'Ask Assistant',
+    '/ask', '/assistant'
+], async (ctx: any) => {
     await handleAskAssistantStart(ctx);
 });
 
@@ -2432,7 +2465,9 @@ bot.on('text', async (ctx: any) => {
         '📋 Меню', '📋 Menu',
         '⭐ Подписка', '⭐ Subscription',
         '⭐️ Подписка', '⭐️ Subscription',
-        '💬 Спросить ассистента', '💬 Ask Assistant'
+        '💬 Спросить ассистента', '💬 Спросить ассистент',
+        'Спросить ассистента', 'Спросить ассистент',
+        '💬 Ask Assistant', 'Ask Assistant'
     ];
     if (persistentButtons.includes(text)) {
         return;
@@ -3297,6 +3332,14 @@ async function handleAssistantQuestionMessage(ctx: any, user: any, queryText: st
             lang: (lang === 'en' ? 'en' : 'ru')
         });
 
+        if (result.redFlagCategory) {
+            try {
+                await bot.telegram.sendMessage('175269194', `[ASSISTANT RED_FLAG] ${result.redFlagCategory} user_id=${user.id}`);
+            } catch (alertErr: any) {
+                console.error('[Admin red-flag alert error]:', alertErr.message);
+            }
+        }
+
         const buttons: any[][] = [];
         buttons.push([Markup.button.callback(ASSISTANT_SCREENS.ASK_MODE.buttons.askMore, 'ast_ask_more')]);
 
@@ -3466,6 +3509,11 @@ bot.action('ast_ask_more', async (ctx: any) => {
         await ctx.answerCbQuery().catch(() => {});
         const user = ctx.state.user;
         if (!user) return;
+        if (!CONFIG.FEATURE_ASSISTANT_BETA || !user.assistant_beta) {
+            return ctx.reply(ctx.state.lang === 'en' 
+                ? 'The AI Assistant is currently in private beta testing.' 
+                : 'ИИ-ассистент сейчас находится на этапе закрытого бета-тестирования 💛');
+        }
         enterAssistantQuestionMode(ctx, user);
     } catch (err: any) {
         console.error('[ast_ask_more error]:', err);

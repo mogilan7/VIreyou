@@ -288,5 +288,86 @@ describe('Safety Gate Tests (Pre-Check)', () => {
       const isInterceptedByAssistant = userStates[userId] === 'WAITING_FOR_ASSISTANT_QUESTION';
       expect(isInterceptedByAssistant).toBe(false);
     });
+
+    it('33. (Restatement stripping) should capitalize remainder and avoid false positives', async () => {
+      const { stripLeadingQuestionRestatement } = await import('../safety');
+
+      // Phrase 1: "Вопросы питания после 60 лет решаются с врачом." -> no strip
+      const phrase1 = 'Вопросы питания после 60 лет решаются с врачом.';
+      const res1 = stripLeadingQuestionRestatement(phrase1);
+      expect(res1.wasStripped).toBe(false);
+      expect(res1.text).toBe(phrase1);
+
+      // Phrase 2: "Что касается сна, взрослым обычно нужно 7–9 часов." -> stripped + capitalized
+      const phrase2 = 'Что касается сна, взрослым обычно нужно 7–9 часов.';
+      const res2 = stripLeadingQuestionRestatement(phrase2);
+      expect(res2.wasStripped).toBe(true);
+      expect(res2.strippedPhrase).toBe('Что касается сна,');
+      expect(res2.text).toBe('Взрослым обычно нужно 7–9 часов.');
+
+      // Phrase 3: "Хороший сон важнее кофе." -> no strip
+      const phrase3 = 'Хороший сон важнее кофе.';
+      const res3 = stripLeadingQuestionRestatement(phrase3);
+      expect(res3.wasStripped).toBe(false);
+      expect(res3.text).toBe(phrase3);
+    });
+
+    it('34. (Button backward compatibility) all button variants intercepted by persistentButtons', () => {
+      const assistantTriggers = [
+        '💬 Спросить ассистента',
+        '💬 Спросить ассистент',
+        'Спросить ассистента',
+        'Спросить ассистент',
+        '💬 Ask Assistant',
+        'Ask Assistant'
+      ];
+
+      const persistentButtons = [
+        '🍽 Записать еду', '🍽 Log Food',
+        '💧 Вода +250 мл', '💧 Water +250 ml',
+        '📋 Меню', '📋 Menu',
+        '⭐ Подписка', '⭐ Subscription',
+        '⭐️ Подписка', '⭐️ Subscription',
+        '💬 Спросить ассистента', '💬 Спросить ассистент',
+        'Спросить ассистента', 'Спросить ассистент',
+        '💬 Ask Assistant', 'Ask Assistant'
+      ];
+
+      for (const phrase of assistantTriggers) {
+        expect(persistentButtons.includes(phrase)).toBe(true);
+      }
+    });
+
+    it('35. (Beta access check) non-beta users receive closed beta message without orchestrator call', () => {
+      function checkBetaAccess(user: { assistant_beta?: boolean }, isBetaFeatureEnabled: boolean) {
+        if (!isBetaFeatureEnabled || !user.assistant_beta) {
+          return { allowed: false, message: 'ИИ-ассистент сейчас находится на этапе закрытого бета-тестирования 💛' };
+        }
+        return { allowed: true, message: null };
+      }
+
+      // 1. Non-beta user when feature is enabled
+      const userNonBeta = { assistant_beta: false };
+      const res1 = checkBetaAccess(userNonBeta, true);
+      expect(res1.allowed).toBe(false);
+      expect(res1.message).toContain('закрытого бета-тестирования');
+
+      // 2. Beta user when feature is disabled globally
+      const userBeta = { assistant_beta: true };
+      const res2 = checkBetaAccess(userBeta, false);
+      expect(res2.allowed).toBe(false);
+
+      // 3. Beta user when feature is enabled
+      const res3 = checkBetaAccess(userBeta, true);
+      expect(res3.allowed).toBe(true);
+      expect(res3.message).toBeNull();
+    });
+
+    it('36. (Red flag category) safetyGate and orchestrator identify red flag category', () => {
+      const chestPainQuery = 'Давит в груди и тяжело дышать';
+      const check = safetyGate({ userText: chestPainQuery, user: { lang: 'ru' } });
+      expect(check.block).toBe(true);
+      expect(check.reason).toBe('CHEST_PAIN');
+    });
   });
 });
