@@ -33,13 +33,8 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
     let isSpecialist = false;
 
     if (user) {
-        const dbUser = await prisma.user.findFirst({
-            where: {
-                OR: [
-                    { id: user.id },
-                    ...(user.email ? [{ email: user.email }] : [])
-                ]
-            },
+        const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
             select: { id: true, role: true }
         });
 

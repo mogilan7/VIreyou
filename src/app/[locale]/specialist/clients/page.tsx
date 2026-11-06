@@ -21,13 +21,8 @@ export default async function ClientsPage() {
     let clients: any[] = [];
 
     if (user) {
-        const dbUser = await prisma.user.findFirst({
-            where: {
-                OR: [
-                    { id: user.id },
-                    ...(user.email ? [{ email: user.email }] : [])
-                ]
-            },
+        const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
             select: { id: true, role: true }
         });
 
