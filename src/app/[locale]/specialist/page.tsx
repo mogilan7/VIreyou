@@ -33,11 +33,20 @@ export default async function SpecialistDashboard(props: { params: Promise<{ loc
     let isSpecialist = false;
 
     if (user) {
-        isAdmin = user.email?.toLowerCase() === 'mogilev.andrey@gmail.com';
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-        isSpecialist = profile?.role === 'specialist' || profile?.role === 'admin';
+        const dbUser = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { id: user.id },
+                    ...(user.email ? [{ email: user.email }] : [])
+                ]
+            },
+            select: { id: true, role: true }
+        });
 
-        if (!isAdmin && !isSpecialist) {
+        isAdmin = dbUser?.role === 'admin';
+        isSpecialist = dbUser?.role === 'specialist' || isAdmin;
+
+        if (!isSpecialist) {
             const { notFound } = require('next/navigation');
             return notFound();
         }

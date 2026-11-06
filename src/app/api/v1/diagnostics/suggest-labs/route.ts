@@ -17,11 +17,19 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const isAdmin = authSessionUser.email?.toLowerCase() === "mogilev.andrey@gmail.com";
-        const { data: profileCheck } = await supabase.from("profiles").select("role").eq("id", authSessionUser.id).single();
-        const isSpecialist = profileCheck?.role === "specialist" || profileCheck?.role === "admin";
+        const dbUser = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { id: authSessionUser.id },
+                    ...(authSessionUser.email ? [{ email: authSessionUser.email }] : [])
+                ]
+            },
+            select: { id: true, role: true }
+        });
 
-        if (!isAdmin && !isSpecialist) {
+        const isSpecialist = dbUser?.role === "specialist" || dbUser?.role === "admin";
+
+        if (!isSpecialist) {
             return NextResponse.json({ error: "Forbidden: specialist or admin role required" }, { status: 403 });
         }
 

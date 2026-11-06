@@ -21,17 +21,20 @@ export default async function ClientsPage() {
     let clients: any[] = [];
 
     if (user) {
-        isAdmin = user.email?.toLowerCase() === 'mogilev.andrey@gmail.com';
-        
-        const { data: profile } = await supabase
-                            .from('profiles')
-                            .select('role')
-                            .eq('id', user.id)
-                            .single();
+        const dbUser = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { id: user.id },
+                    ...(user.email ? [{ email: user.email }] : [])
+                ]
+            },
+            select: { id: true, role: true }
+        });
 
-        isSpecialist = profile?.role === 'specialist' || profile?.role === 'admin';
+        isAdmin = dbUser?.role === 'admin';
+        isSpecialist = dbUser?.role === 'specialist' || isAdmin;
 
-        if (!isAdmin && !isSpecialist) {
+        if (!isSpecialist) {
             const { notFound } = require('next/navigation');
             return notFound();
         }
