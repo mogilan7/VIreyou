@@ -14,9 +14,28 @@ export async function requireUser() {
         throw new Error('Unauthorized: Authentication required');
     }
 
-    const dbUser = await prisma.user.findUnique({
+    let dbUser = await prisma.user.findUnique({
         where: { id: authUser.id }
     });
+
+    if (!dbUser && authUser.email) {
+        const existingByEmail = await prisma.user.findUnique({
+            where: { email: authUser.email }
+        });
+        if (existingByEmail) {
+            return existingByEmail;
+        }
+
+        dbUser = await prisma.user.create({
+            data: {
+                id: authUser.id,
+                email: authUser.email,
+                role: 'client',
+                full_name: authUser.user_metadata?.full_name || 'Пользователь',
+                balance: 0,
+            }
+        });
+    }
 
     if (!dbUser) {
         throw new Error('Unauthorized: User record not found in database');
