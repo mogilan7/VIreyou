@@ -73,7 +73,8 @@ ALTER TABLE "public"."AssistantMessage"
     ADD COLUMN IF NOT EXISTS "model" TEXT;
 
 -- 5. Backfill assistant_beta for users with start_param containing test_val
-UPDATE "public"."User"
-SET "assistant_beta" = true
-WHERE "start_param" ILIKE '%test_val%';
+-- (applied once 2026-11-05, do not re-run)
+-- UPDATE "public"."User"
+-- SET "assistant_beta" = true
+-- WHERE "start_param" ILIKE '%test_val%';
 

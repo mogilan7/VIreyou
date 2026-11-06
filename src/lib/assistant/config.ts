@@ -27,6 +27,7 @@ export const CONFIG = {
 
   // Feature Flags
   FEATURE_ASSISTANT_BETA: true,
+  FEATURE_DAILY_ACTION: false,
 };
 
 export const CRISIS_CONTACTS = {

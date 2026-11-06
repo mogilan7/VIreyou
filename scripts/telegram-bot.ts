@@ -4056,6 +4056,8 @@ async function getPendingTestsList(userId: string, lang: string): Promise<string
 // ----------------------------------------------------
 // Периодические задачи: Вечерний Опрос и Отчеты (объединены для оптимизации)
 // ----------------------------------------------------
+let lastDailyActionLogDate = '';
+
 cron.schedule('* * * * *', async () => {
     const now = new Date();
     
@@ -4394,6 +4396,14 @@ cron.schedule('* * * * *', async () => {
 
              // --- Утренний Daily Action (09:00) ---
              if (currentTime === '09:00' && (user as any).dailyActionEnabled) {
+                 if (!CONFIG.FEATURE_DAILY_ACTION) {
+                     const todayUtc = now.toISOString().slice(0, 10);
+                     if (lastDailyActionLogDate !== todayUtc) {
+                         lastDailyActionLogDate = todayUtc;
+                         console.log('[CRON] FEATURE_DAILY_ACTION is disabled; skipping daily action generation');
+                     }
+                     continue;
+                 }
                  try {
                      const context = await aggregateUserContext(user.id, 7);
                      const findings = evaluateLifestyle(context);
