@@ -9,19 +9,14 @@ async function requireAdmin() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Unauthorized: Authentication required");
     
-    const isAdmin = user.email?.toLowerCase() === 'mogilev.andrey@gmail.com';
-    
-    if (!isAdmin) {
-        // Also check if they have 'admin' role in db
-        const dbUser = await prisma.user.findUnique({ where: { email: user.email || '' } });
-        if (dbUser?.role !== 'admin') {
-            throw new Error("Unauthorized: Admin access required");
-        }
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+    if (dbUser?.role !== 'admin') {
+        throw new Error("Unauthorized: Admin access required");
     }
     
-    return true;
+    return dbUser;
 }
 
 export async function updateUserRole(userId: string, newRole: string) {

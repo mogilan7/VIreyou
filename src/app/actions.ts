@@ -1,10 +1,19 @@
 'use server';
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
+import { createClient } from '@/utils/supabase/server';
 
 export async function assignTestsToClient(clientId: string, testIds: string[], notes: string, telegramId?: string | null) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        throw new Error("Unauthorized: Authentication required");
+    }
+
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+    if (dbUser?.role !== 'admin' && dbUser?.role !== 'specialist') {
+        throw new Error("Unauthorized: Admin or Specialist access required");
+    }
     try {
         // 1. Grant Access_Permissions to unlock the tests for the client
         const permissions = testIds.map(testId => ({
