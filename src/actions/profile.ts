@@ -3,17 +3,13 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
+import { requireUser } from '@/lib/auth/guards';
 
 export async function updateProfile(formData: FormData): Promise<{ success: boolean; error?: string }> {
 
     try {
+        const user = await requireUser();
         const supabase = await createClient();
-
-        // Ensure user is authenticated
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
 
         const fullName = formData.get('fullName') as string;
         const dob = formData.get('dob') as string;
@@ -146,9 +142,7 @@ export async function getSidebarProfile(): Promise<{ full_name: string | null; a
 
 export async function saveWelcomePage1Data(data: { weight?: string; waist?: string; hips?: string }): Promise<{ success: boolean; error?: string }> {
     try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return { success: false, error: 'Unauthorized' };
+        const user = await requireUser();
 
         const profile = await prisma.profiles.findUnique({ where: { id: user.id } });
         const existingWelcome = (profile as any)?.welcome_data || {};

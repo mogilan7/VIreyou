@@ -273,14 +273,13 @@ ${dailyLogContext}
   };
 }
 
+import { requireUser } from "@/lib/auth/guards";
+
 /**
  * Fetch stage-2 analysis pre-data for user confirmation.
  */
 export async function fetchAnalysisPreData() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) return { success: false, error: "User not authenticated" };
+  const user = await requireUser();
 
   try {
     const data = await getAggregatedAnalysisData(user.id);
@@ -298,9 +297,7 @@ import { KNOWLEDGE_BASE } from "@/lib/knowledge-base";
  * Execute AI stage-2 analysis after user confirmation.
  */
 export async function generateStage2Analysis() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "User not authenticated" };
+  const user = await requireUser();
 
   try {
     const { dataContext, userId, period } = await getAggregatedAnalysisData(user.id);

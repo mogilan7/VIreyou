@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
+import { requireUser } from '@/lib/auth/guards'
 
 export async function saveTestResult({
     testType,
@@ -17,12 +18,8 @@ export async function saveTestResult({
 }) {
     const supabase = await createClient()
 
-    // 1. Get current user
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-        return { success: false, error: 'User not authenticated' }
-    }
+    // 1. Get current authenticated user strictly from session
+    const user = await requireUser();
 
     // 2. Insert test result
     const { error } = await supabase

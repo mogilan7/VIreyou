@@ -1,5 +1,7 @@
 'use server';
 
+import { requireRole } from '@/lib/auth/guards';
+
 import prisma from '@/lib/prisma';
 import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache';
 import { createClient } from '@/utils/supabase/server';
@@ -36,6 +38,7 @@ const _getProjectsCached = unstable_cache(
 );
 
 export async function getProjects() {
+  await requireRole('admin');
   try {
     const projects = await _getProjectsCached();
     return { success: true, projects };
@@ -46,6 +49,7 @@ export async function getProjects() {
 }
 
 export async function createProject(name: string) {
+  await requireRole('admin');
   try {
     if (!name.trim()) throw new Error('Project name cannot be empty');
     const project = await prisma.projects.create({
@@ -99,6 +103,7 @@ const _getWeeklyHubsCached = unstable_cache(
 );
 
 export async function getWeeklyHubsWithPosts(projectId?: string) {
+  await requireRole('admin');
   try {
     const data = await _getWeeklyHubsCached(projectId);
     return { success: true, ...data };
@@ -109,6 +114,7 @@ export async function getWeeklyHubsWithPosts(projectId?: string) {
 }
 
 export async function deletePostImage(postId: string) {
+  await requireRole('admin');
   try {
     await prisma.posts.update({
       where: { id: postId },
@@ -126,6 +132,7 @@ export async function updatePostStatus(
   postId: string,
   status: 'draft' | 'pending_review' | 'ready_for_review' | 'approved' | 'published' | 'failed'
 ) {
+  await requireRole('admin');
   try {
     const updatedPost = await prisma.posts.update({
       where: { id: postId },
@@ -143,6 +150,7 @@ export async function updatePostStatus(
 }
 
 export async function retriggerCarousel(postId: string) {
+  await requireRole('admin');
   try {
     const post = await prisma.posts.findUnique({
       where: { id: postId },
@@ -342,6 +350,7 @@ function splitTelegramMessage(text: string, maxLength: number = 4000): string[] 
 }
 
 export async function publishPost(postId: string, targetChatId?: string) {
+  await requireRole('admin');
   try {
     const post = await prisma.posts.findUnique({
       where: { id: postId },
@@ -1853,6 +1862,7 @@ function parseBriefs(rawText: string): ParsedWeek[] {
 }
 
 export async function uploadPdfAndExtractSlides(postId: string, formData: FormData, projectId?: string) {
+  await requireRole('admin');
   try {
     const file = formData.get('file') as File;
     if (!file) {
@@ -2443,6 +2453,7 @@ export async function updateCarouselSlide(
     list_items?: string[] | null;
   }
 ) {
+  await requireRole('admin');
   try {
     // 1. Update the specific slide in the database
     const slide = await prisma.carousel_slides.update({
@@ -2518,6 +2529,7 @@ export async function updateCarouselSlide(
 }
 
 export async function updatePostText(postId: string, bodyText: string) {
+  await requireRole('admin');
   try {
     const updatedPost = await prisma.posts.update({
       where: { id: postId },
@@ -2537,6 +2549,7 @@ export async function updatePostText(postId: string, bodyText: string) {
 }
 
 export async function updatePostExtras(postId: string, telegraphUrl: string | null, pollsData: any) {
+  await requireRole('admin');
   try {
     const updatedPost = await prisma.posts.update({
       where: { id: postId },
@@ -2556,6 +2569,7 @@ export async function updatePostExtras(postId: string, telegraphUrl: string | nu
 
 
 export async function updatePostChatId(postId: string, targetChatId: string) {
+  await requireRole('admin');
   try {
     const updatedPost = await prisma.posts.update({
       where: { id: postId },
@@ -2573,6 +2587,7 @@ export async function updatePostChatId(postId: string, targetChatId: string) {
 }
 
 export async function updatePostTitle(postId: string, title: string) {
+  await requireRole('admin');
   try {
     const updatedPost = await prisma.posts.update({
       where: { id: postId },
@@ -2591,6 +2606,7 @@ export async function updatePostTitle(postId: string, title: string) {
 }
 
 export async function updatePostSchedule(postId: string, scheduledAt: Date | null) {
+  await requireRole('admin');
   try {
     const updatedPost = await prisma.posts.update({
       where: { id: postId },
@@ -2609,6 +2625,7 @@ export async function updatePostSchedule(postId: string, scheduledAt: Date | nul
 }
 
 export async function uploadPostImage(postId: string, formData: FormData) {
+  await requireRole('admin');
   try {
     const file = formData.get('file') as File | null;
     if (!file || file.size === 0) {
@@ -2643,6 +2660,7 @@ export async function uploadPostImage(postId: string, formData: FormData) {
 
 
 export async function createVideoUploadUrl(postId: string, fileName: string) {
+  await requireRole('admin');
   try {
     const { createClient } = require('@supabase/supabase-js');
     const supabaseAdmin = createClient(
@@ -2663,6 +2681,7 @@ export async function createVideoUploadUrl(postId: string, fileName: string) {
 }
 
 export async function confirmVideoUpload(postId: string, fileName: string) {
+  await requireRole('admin');
   try {
     const { createClient } = require('@supabase/supabase-js');
     const supabaseAdmin = createClient(
@@ -2687,6 +2706,7 @@ export async function confirmVideoUpload(postId: string, fileName: string) {
 }
 
 export async function uploadPostButtonFile(postId: string, formData: FormData) {
+  await requireRole('admin');
   try {
     const file = formData.get('file') as File | null;
     if (!file || file.size === 0) {
@@ -2715,6 +2735,7 @@ export async function uploadPostButtonFile(postId: string, formData: FormData) {
 
 
 export async function syncGoogleDrive() {
+  await requireRole('admin');
   try {
     const { execSync } = require('child_process');
     console.log('[ACTIONS] Manual trigger of Google Drive sync started...');
