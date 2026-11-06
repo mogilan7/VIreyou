@@ -1,11 +1,22 @@
 "use server";
 
+import crypto from "crypto";
 import { getGeminiModel } from "@/lib/gemini";
+import { getClientIp, hashRateLimitKey, checkDbRateLimit } from "@/lib/rate-limit/dbRateLimit";
 
 export async function generateDiagnosticReport(formData: any, locale: string = 'ru') {
-
-
   const isEn = locale === 'en';
+
+  const ip = await getClientIp();
+  const rateCheck = await checkDbRateLimit(hashRateLimitKey(ip, 'generate_diagnostic_report_ip'), 10, 3600);
+  if (!rateCheck.allowed) {
+    return { 
+      success: false, 
+      error: isEn 
+        ? "Rate limit exceeded (max 10 reports per hour). Please try again later." 
+        : "Превышен лимит запросов на генерацию отчёта (максимум 10 в час). Попробуйте позже." 
+    };
+  }
 
   const bmi = formData.height && formData.weight 
     ? (formData.weight / Math.pow(formData.height / 100, 2)).toFixed(1)
@@ -78,7 +89,10 @@ export async function generateDiagnosticReport(formData: any, locale: string = '
     const aiResponse = await chat.sendMessage(userQuery);
     const content = aiResponse.response.text() || (isEn ? "Failed to get response from AI." : "Не удалось получить ответ от ИИ.");
 
-    return { success: true, data: content };
+    const secret = process.env.REPORT_HMAC_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'vireyou-diagnostic-hmac-secret-2026';
+    const signature = crypto.createHmac('sha256', secret).update(content.trim()).digest('hex');
+
+    return { success: true, data: content, signature };
   } catch (error: any) {
     console.error("Diagnostic Report Error:", error);
     return { success: false, error: error.message || (isEn ? "Error generating report" : "Ошибка при генерации отчета") };
