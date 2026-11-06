@@ -8,7 +8,7 @@ export async function generateDiagnosticReport(formData: any, locale: string = '
   const isEn = locale === 'en';
 
   const ip = await getClientIp();
-  const rateCheck = await checkDbRateLimit(hashRateLimitKey(ip, 'generate_diagnostic_report_ip'), 10, 3600);
+  const rateCheck = await checkDbRateLimit(hashRateLimitKey(ip, 'generate_diagnostic_report_ip'), 10, 3600, 'fail-open');
   if (!rateCheck.allowed) {
     return { 
       success: false, 
@@ -89,7 +89,10 @@ export async function generateDiagnosticReport(formData: any, locale: string = '
     const aiResponse = await chat.sendMessage(userQuery);
     const content = aiResponse.response.text() || (isEn ? "Failed to get response from AI." : "Не удалось получить ответ от ИИ.");
 
-    const secret = process.env.REPORT_HMAC_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'vireyou-diagnostic-hmac-secret-2026';
+    const secret = process.env.DIAGNOSTIC_REPORT_HMAC_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-diagnostic-report-hmac-secret-only-local');
+    if (!secret) {
+      throw new Error("Server configuration error: DIAGNOSTIC_REPORT_HMAC_SECRET is not configured");
+    }
     const signature = crypto.createHmac('sha256', secret).update(content.trim()).digest('hex');
 
     return { success: true, data: content, signature };

@@ -74,8 +74,8 @@ export default async function LifestylePage({
             return <div className="p-8 text-center text-red-500">Авторизация не удалась.</div>;
         }
 
-        const publicUser = await prisma.user.findUnique({ where: { email: user.email! } });
-        const userId = publicUser ? publicUser.id : user.id;
+        const publicUser = await prisma.user.findUnique({ where: { id: user.id } });
+        const userId = user.id;
 
         // Update norms based on user targets if available
         const currentNorms = JSON.parse(JSON.stringify(NUTRITION_NORMS));

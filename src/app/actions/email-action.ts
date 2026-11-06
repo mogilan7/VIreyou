@@ -37,21 +37,24 @@ export async function sendDiagnosticEmail(
       return { success: false, error: "Некорректный адрес электронной почты" };
     }
 
-    // 2. IP Rate Limit: max 3 emails per hour
+    // 2. IP Rate Limit: max 3 emails per hour (fail-closed)
     const ip = await getClientIp();
-    const ipCheck = await checkDbRateLimit(hashRateLimitKey(ip, 'send_diagnostic_email_ip'), 3, 3600);
+    const ipCheck = await checkDbRateLimit(hashRateLimitKey(ip, 'send_diagnostic_email_ip'), 3, 3600, 'fail-closed');
     if (!ipCheck.allowed) {
       return { success: false, error: "Превышен лимит отправки писем с вашего IP (максимум 3 в час)." };
     }
 
-    // 3. Recipient Rate Limit: max 2 emails per 24 hours to the same address
-    const emailCheck = await checkDbRateLimit(hashRateLimitKey(normalizedEmail, 'send_diagnostic_email_addr'), 2, 86400);
+    // 3. Recipient Rate Limit: max 2 emails per 24 hours to the same address (fail-closed)
+    const emailCheck = await checkDbRateLimit(hashRateLimitKey(normalizedEmail, 'send_diagnostic_email_addr'), 2, 86400, 'fail-closed');
     if (!emailCheck.allowed) {
       return { success: false, error: "Превышен суточный лимит писем на данный email (максимум 2 в сутки)." };
     }
 
     // 4. Verify server-side cryptographic signature of report contents
-    const secret = process.env.REPORT_HMAC_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'vireyou-diagnostic-hmac-secret-2026';
+    const secret = process.env.DIAGNOSTIC_REPORT_HMAC_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-diagnostic-report-hmac-secret-only-local');
+    if (!secret) {
+      throw new Error("Server configuration error: DIAGNOSTIC_REPORT_HMAC_SECRET is not configured");
+    }
     const trimmedMarkdown = (markdownText || '').trim();
     const expectedSignature = crypto.createHmac('sha256', secret).update(trimmedMarkdown).digest('hex');
 

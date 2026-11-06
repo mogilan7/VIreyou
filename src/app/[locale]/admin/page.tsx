@@ -18,7 +18,7 @@ export default async function AdminDashboard() {
     const isAdmin = user.email?.toLowerCase() === 'mogilev.andrey@gmail.com';
     let isRoleAdmin = false;
 
-    const dbUser = await prisma.user.findUnique({ where: { email: user.email || '' } });
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
     if (dbUser?.role === 'admin') {
         isRoleAdmin = true;
     }

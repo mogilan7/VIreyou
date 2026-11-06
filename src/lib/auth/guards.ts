@@ -19,11 +19,24 @@ export async function requireUser() {
     });
 
     if (!dbUser && authUser.email) {
-        const existingByEmail = await prisma.user.findUnique({
+        const emailLower = authUser.email.toLowerCase().trim();
+
+        // 1. Refuse internal / synthetic bot email domain
+        if (emailLower.endsWith('@vireyou.com')) {
+            throw new Error('Unauthorized: invalid registration domain');
+        }
+
+        // 2. Only allow auto-creation if email was confirmed
+        if (!authUser.email_confirmed_at) {
+            throw new Error('Unauthorized: email confirmation required');
+        }
+
+        // 3. Prevent account hijacking: do NOT return someone else's record by email
+        const conflictUser = await prisma.user.findUnique({
             where: { email: authUser.email }
         });
-        if (existingByEmail) {
-            return existingByEmail;
+        if (conflictUser) {
+            throw new Error('Account conflict: linking required');
         }
 
         dbUser = await prisma.user.create({

@@ -14,7 +14,7 @@ function escapeHtml(text: string): string {
 
 export async function submitContactForm(formData: FormData) {
     const ip = await getClientIp();
-    const rateCheck = await checkDbRateLimit(hashRateLimitKey(ip, 'submit_contact_form_ip'), 3, 3600);
+    const rateCheck = await checkDbRateLimit(hashRateLimitKey(ip, 'submit_contact_form_ip'), 3, 3600, 'fail-open');
     if (!rateCheck.allowed) {
         return { success: false, error: "Слишком много запросов. Пожалуйста, попробуйте позже." };
     }

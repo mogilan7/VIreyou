@@ -2,6 +2,8 @@
 -- Date: 2026-11-06
 -- Description: Rate limiting table for public and sensitive endpoints (email sending, AI reports, contact forms)
 
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS public."RateLimit" (
     key VARCHAR(64) PRIMARY KEY,
     count INTEGER NOT NULL DEFAULT 1,
@@ -18,3 +20,4 @@ ALTER TABLE public."RateLimit" ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public."RateLimit" FROM anon, authenticated;
 GRANT ALL ON TABLE public."RateLimit" TO service_role;
 
+COMMIT;
