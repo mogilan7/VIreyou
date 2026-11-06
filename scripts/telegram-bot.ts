@@ -2295,7 +2295,7 @@ bot.on('voice', async (ctx: any) => {
     console.log(`[VOICE] File saved to ${tempPath}`);
     
     const text = await transcribeVoiceWithAI(tempPath);
-    console.log(`[VOICE] Transcription text: ${text}`);
+    console.log(`[VOICE] transcribed, len=${text ? text.length : 0}`);
     await ctx.reply(t(lang, 'Processing.voiceTranscription', { text }));
 
     const user = ctx.state.user;
