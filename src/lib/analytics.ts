@@ -18,6 +18,7 @@ export async function trackEvent(
     try {
         const path = window.location.pathname;
         const sid = getCookie('vireyou_sid') || '';
+        const isInternal = getCookie('vireyou_internal') === '1';
 
         await fetch('/api/analytics/log', {
             method: 'POST',
@@ -26,7 +27,8 @@ export async function trackEvent(
                 event,
                 path,
                 source,
-                meta,
+                meta: isInternal ? { ...meta, is_internal: true } : meta,
+                is_internal: isInternal,
                 session_id: sid
             }),
             keepalive: true

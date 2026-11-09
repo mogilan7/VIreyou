@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
 import crypto from 'crypto';
+import { isInternalUserId } from '@/config/internal-traffic';
 
 export async function POST(req: NextRequest) {
     try {
@@ -35,6 +36,18 @@ export async function POST(req: NextRequest) {
         const utm_content = body.utm_content || req.cookies.get('vireyou_utm_content')?.value || null;
         const source = body.source || 'portal';
 
+        // Check internal traffic flag (cookie, body, or known team user_id)
+        const isInternalCookie = req.cookies.get('vireyou_internal')?.value === '1';
+        let isInternal = isInternalCookie || body.is_internal === true || meta?.is_internal === true;
+        if (!isInternal && userId && isInternalUserId(userId)) {
+            isInternal = true;
+        }
+
+        const eventMeta = {
+            ...(meta || {}),
+            ...(isInternal ? { is_internal: true } : {})
+        };
+
         // 4. Record event in AnalyticsEvent
         const record = await prisma.analyticsEvent.create({
             data: {
@@ -47,7 +60,7 @@ export async function POST(req: NextRequest) {
                 utm_campaign: utm_campaign,
                 utm_content: utm_content,
                 path: path || null,
-                meta: meta || {}
+                meta: eventMeta
             }
         });
 
