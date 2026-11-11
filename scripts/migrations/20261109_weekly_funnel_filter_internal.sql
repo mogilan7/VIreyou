@@ -30,8 +30,11 @@ internal_ids AS (
 ),
 internal_sessions AS (
     SELECT DISTINCT session_id FROM "AnalyticsEvent"
-    WHERE meta->>'is_internal' = 'true'
-       OR user_id IN (SELECT id FROM internal_ids)
+    WHERE session_id IS NOT NULL
+      AND (
+        meta->>'is_internal' = 'true'
+        OR user_id IN (SELECT id FROM internal_ids)
+      )
 )
 SELECT period,
     (start_date)::date AS period_start,
@@ -40,9 +43,9 @@ SELECT period,
     -- 0. Трафик и Визиты портала
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'portal_visit' AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS portal_visits,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
@@ -51,9 +54,9 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'portal_visit' AND ae.utm_source IS NOT NULL AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS portal_visits_utm,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
@@ -87,9 +90,9 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'bot_start' AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS bot_start_total,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
@@ -98,22 +101,22 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'bot_start' AND ae.utm_source = 'youtube' AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS bot_start_yt,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'bot_signup' AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_bot_signups,
 
     -- 2. Диагностика и Тесты
     ( SELECT count(*)::integer FROM test_results tr
       WHERE tr.created_at >= p.start_date AND tr.created_at < p.end_date
-        AND tr.user_id::text NOT IN (SELECT id FROM internal_ids)
+        AND (tr.user_id IS NULL OR tr.user_id::text NOT IN (SELECT id FROM internal_ids))
     ) AS tests_completed_total,
 
     ( SELECT count(*)::integer FROM test_results tr
@@ -122,7 +125,7 @@ SELECT period,
 
     ( SELECT count(DISTINCT tr.user_id)::integer FROM test_results tr
       WHERE tr.created_at >= p.start_date AND tr.created_at < p.end_date
-        AND tr.user_id::text NOT IN (SELECT id FROM internal_ids)
+        AND (tr.user_id IS NULL OR tr.user_id::text NOT IN (SELECT id FROM internal_ids))
     ) AS tests_unique_users,
 
     ( SELECT count(DISTINCT tr.user_id)::integer FROM test_results tr
@@ -133,9 +136,9 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'test_start' AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_tests_started,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
@@ -144,9 +147,9 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'test_complete' AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_tests_completed_all,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
@@ -155,14 +158,14 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'test_complete' AND ae.user_id IS NULL AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_tests_completed_anon,
 
     -- Тесты по типам (test_results)
     ( SELECT count(*)::integer FROM test_results tr
       WHERE tr.test_type = 'systemic-bio-age' AND tr.created_at >= p.start_date AND tr.created_at < p.end_date
-        AND tr.user_id::text NOT IN (SELECT id FROM internal_ids)
+        AND (tr.user_id IS NULL OR tr.user_id::text NOT IN (SELECT id FROM internal_ids))
     ) AS test_systemic_bio_age,
     ( SELECT count(*)::integer FROM test_results tr
       JOIN "User" u ON u.id = tr.user_id::text
@@ -172,7 +175,7 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM test_results tr
       WHERE tr.test_type = 'functional-reserve' AND tr.created_at >= p.start_date AND tr.created_at < p.end_date
-        AND tr.user_id::text NOT IN (SELECT id FROM internal_ids)
+        AND (tr.user_id IS NULL OR tr.user_id::text NOT IN (SELECT id FROM internal_ids))
     ) AS test_functional_reserve,
     ( SELECT count(*)::integer FROM test_results tr
       JOIN "User" u ON u.id = tr.user_id::text
@@ -182,7 +185,7 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM test_results tr
       WHERE tr.test_type = 'energy' AND tr.created_at >= p.start_date AND tr.created_at < p.end_date
-        AND tr.user_id::text NOT IN (SELECT id FROM internal_ids)
+        AND (tr.user_id IS NULL OR tr.user_id::text NOT IN (SELECT id FROM internal_ids))
     ) AS test_energy,
     ( SELECT count(*)::integer FROM test_results tr
       JOIN "User" u ON u.id = tr.user_id::text
@@ -192,7 +195,7 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM test_results tr
       WHERE tr.test_type = 'circadian' AND tr.created_at >= p.start_date AND tr.created_at < p.end_date
-        AND tr.user_id::text NOT IN (SELECT id FROM internal_ids)
+        AND (tr.user_id IS NULL OR tr.user_id::text NOT IN (SELECT id FROM internal_ids))
     ) AS test_circadian,
     ( SELECT count(*)::integer FROM test_results tr
       JOIN "User" u ON u.id = tr.user_id::text
@@ -202,7 +205,7 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM test_results tr
       WHERE tr.test_type = 'insomnia' AND tr.created_at >= p.start_date AND tr.created_at < p.end_date
-        AND tr.user_id::text NOT IN (SELECT id FROM internal_ids)
+        AND (tr.user_id IS NULL OR tr.user_id::text NOT IN (SELECT id FROM internal_ids))
     ) AS test_insomnia,
     ( SELECT count(*)::integer FROM test_results tr
       JOIN "User" u ON u.id = tr.user_id::text
@@ -212,7 +215,7 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM test_results tr
       WHERE tr.test_type = 'sarc-f' AND tr.created_at >= p.start_date AND tr.created_at < p.end_date
-        AND tr.user_id::text NOT IN (SELECT id FROM internal_ids)
+        AND (tr.user_id IS NULL OR tr.user_id::text NOT IN (SELECT id FROM internal_ids))
     ) AS test_sarc_f,
     ( SELECT count(*)::integer FROM test_results tr
       JOIN "User" u ON u.id = tr.user_id::text
@@ -223,44 +226,44 @@ SELECT period,
     -- Тесты по типам (AnalyticsEvent test_start)
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'test_start' AND (ae.meta->>'testType' = 'systemic-bio-age') AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_start_systemic_bio_age,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'test_start' AND (ae.meta->>'testType' = 'functional-reserve') AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_start_functional_reserve,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'test_start' AND (ae.meta->>'testType' = 'energy') AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_start_energy,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'test_start' AND (ae.meta->>'testType' = 'circadian') AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_start_circadian,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'test_start' AND (ae.meta->>'testType' = 'insomnia') AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_start_insomnia,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'test_start' AND (ae.meta->>'testType' = 'sarc-f') AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_start_sarc_f,
 
     -- 3. Активация и продукт
@@ -272,9 +275,9 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'first_meal_logged' AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_first_meals_logged,
 
     -- 4. Retention D7
@@ -298,9 +301,9 @@ SELECT period,
     -- 5. Монетизация и Пейвол
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'paywall_view' AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_paywall_views,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
@@ -309,23 +312,23 @@ SELECT period,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'paywall_view' AND ae.source = 'portal' AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_paywall_portal,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'paywall_view' AND ae.source = 'telegram_bot' AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_paywall_bot,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
       WHERE ae.event = 'checkout_click' AND ae.created_at >= p.start_date AND ae.created_at < p.end_date
-        AND (ae.meta->>'is_internal' IS NULL OR ae.meta->>'is_internal' != 'true')
+        AND ae.meta->>'is_internal' IS DISTINCT FROM 'true'
         AND (ae.user_id IS NULL OR ae.user_id NOT IN (SELECT id FROM internal_ids))
-        AND ae.session_id NOT IN (SELECT session_id FROM internal_sessions)
+        AND NOT EXISTS (SELECT 1 FROM internal_sessions s WHERE s.session_id = ae.session_id)
     ) AS event_checkout_clicks,
 
     ( SELECT count(*)::integer FROM "AnalyticsEvent" ae
