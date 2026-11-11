@@ -262,6 +262,11 @@ async function exportYouTubeMetrics() {
     let reportingStatusMsg = 'отчёт ещё не сформирован';
     let reportsAvailable = false;
 
+    // Масштаб CTR из YouTube Reporting API.
+    // При получении первого файла будут показаны 5 строк для подтверждения масштаба.
+    // По умолчанию Reporting API возвращает CTR в процентах (0.0..100.0).
+    const CTR_IS_FRACTION = false;
+
     try {
         const reporting = google.youtubereporting({ version: 'v1', auth: oauth2Client });
         const jobsRes = await reporting.jobs.list();
@@ -286,8 +291,6 @@ async function exportYouTubeMetrics() {
 
             if (reportsToProcess.length > 0) {
                 const token = (await oauth2Client.getAccessToken()).token;
-                let ctrScaleDetermined = false;
-                let isFraction = true; // по умолчанию проверяем долю [0, 1]
 
                 for (const report of reportsToProcess) {
                     if (!report.downloadUrl) continue;
@@ -295,6 +298,12 @@ async function exportYouTubeMetrics() {
                         const res = await fetch(report.downloadUrl, {
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
+                        if (!res.ok) {
+                            const errBody = await res.text().catch(() => '');
+                            reportingStatusMsg = `ошибка Reporting API: [${res.status}] ${errBody.slice(0, 80) || res.statusText}`;
+                            console.warn(`[YOUTUBE EXPORT] Предупреждение: ошибка загрузки отчета ${report.id}:`, reportingStatusMsg);
+                            continue;
+                        }
                         const csvText = await res.text();
                         const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
                         if (lines.length <= 1) continue;
@@ -311,30 +320,13 @@ async function exportYouTubeMetrics() {
                         }
 
                         if (vIdIdx !== -1 && impIdx !== -1) {
-                            // Определение шкалы CTR (доли 0..1 или проценты 0..100) по первому файлу
-                            if (!ctrScaleDetermined && ctrIdx !== -1) {
-                                for (let i = 1; i < lines.length; i++) {
-                                    const sampleCols = lines[i].split(',');
-                                    const rawVal = parseFloat(sampleCols[ctrIdx]?.trim() || '0');
-                                    if (rawVal > 1.0) {
-                                        isFraction = false; // уже в процентах (например 5.4)
-                                        ctrScaleDetermined = true;
-                                        break;
-                                    } else if (rawVal > 0 && rawVal <= 1.0) {
-                                        isFraction = true; // доля (например 0.054)
-                                        ctrScaleDetermined = true;
-                                        break;
-                                    }
-                                }
-                            }
-
                             for (let i = 1; i < lines.length; i++) {
                                 const cols = lines[i].split(',');
                                 const vId = cols[vIdIdx]?.trim();
                                 const imp = Number(cols[impIdx]) || 0;
                                 let rawCtr = ctrIdx !== -1 ? (parseFloat(cols[ctrIdx]?.trim() || '0') || 0) : 0;
-                                // Приводим к процентам
-                                const ctrPct = isFraction ? (rawCtr * 100) : rawCtr;
+                                // Приводим к процентам согласно константе масштаба
+                                const ctrPct = CTR_IS_FRACTION ? (rawCtr * 100) : rawCtr;
 
                                 if (vId && imp > 0) {
                                     const prev = impressionsData.get(vId) || { impressions: 0, weightedCtrSum: 0 };
@@ -345,15 +337,25 @@ async function exportYouTubeMetrics() {
                                 }
                             }
                         }
-                    } catch (fetchErr) {
-                        console.warn(`[YOUTUBE EXPORT] Предупреждение: не удалось скачать отчет ${report.id}:`, fetchErr);
+                    } catch (fetchErr: any) {
+                        console.warn(`[YOUTUBE EXPORT] Предупреждение: не удалось скачать отчет ${report.id}:`, fetchErr?.message || fetchErr);
                     }
                 }
+            } else {
+                reportingStatusMsg = 'отчёт ещё не сформирован';
             }
+        } else {
+            reportingStatusMsg = 'отчёт ещё не сформирован';
         }
     } catch (impErr: any) {
-        console.warn(`[YOUTUBE EXPORT] Предупреждение Reporting API: ${impErr?.message || impErr}`);
-        reportingStatusMsg = 'отчёт ещё не сформирован';
+        console.warn(`[YOUTUBE EXPORT] Предупреждение Reporting API:`, impErr?.message || impErr);
+        const status = impErr?.status || impErr?.code || impErr?.response?.status || '';
+        const rawMsg = impErr?.response?.data?.error?.message 
+            || impErr?.response?.data?.error_description 
+            || impErr?.message 
+            || String(impErr);
+        const shortText = rawMsg.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 100);
+        reportingStatusMsg = `ошибка Reporting API: ${status ? `[${status}] ` : ''}${shortText}`;
     }
 
     try {
@@ -409,13 +411,22 @@ async function exportYouTubeMetrics() {
             const shares = row[8];
 
             const impObj = impressionsData.get(vId);
-            const impText = reportsAvailable 
-                ? (impObj && impObj.impressions !== undefined ? impObj.impressions : 0) 
-                : reportingStatusMsg;
-            const avgCtr = (impObj && impObj.impressions > 0) ? (impObj.weightedCtrSum / impObj.impressions) : null;
-            const ctrText = reportsAvailable 
-                ? (avgCtr !== null ? `${avgCtr.toFixed(2)}%` : '0.00%') 
-                : reportingStatusMsg;
+            let impText: string | number;
+            let ctrText: string;
+
+            if (reportsAvailable) {
+                if (impObj && impObj.impressions !== undefined && impObj.impressions > 0) {
+                    impText = impObj.impressions;
+                    const avgCtr = impObj.weightedCtrSum / impObj.impressions;
+                    ctrText = `${avgCtr.toFixed(2)}%`;
+                } else {
+                    impText = 'нет в отчёте охвата';
+                    ctrText = 'нет в отчёте охвата';
+                }
+            } else {
+                impText = reportingStatusMsg;
+                ctrText = reportingStatusMsg;
+            }
 
             csvLines.push([
                 vId,
