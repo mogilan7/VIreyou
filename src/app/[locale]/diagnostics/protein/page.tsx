@@ -61,6 +61,7 @@ export default function ProteinCalculatorPage() {
 
     // Analytics tracking refs
     const hasStartedRef = useRef(false);
+    const hasCompletedRef = useRef(false);
 
     // Track if form changed since last calculation
     const currentSnapshot = useMemo(() => {
@@ -168,12 +169,26 @@ export default function ProteinCalculatorPage() {
             setLastCalculatedSnapshot(currentSnapshot);
             setSaveStatus('idle');
 
-            // Send test_complete analytics event (without raw weight/height)
+            // Send test_complete on first calculation in visit, test_recalculate on subsequent
+            const sessionCompletedKey = 'vireyou_protein_completed';
+            const alreadyCompletedInSession = typeof window !== 'undefined' && sessionStorage.getItem(sessionCompletedKey) === '1';
+            const isFirstCalc = !hasCompletedRef.current && !alreadyCompletedInSession;
+
+            if (isFirstCalc) {
+                hasCompletedRef.current = true;
+                if (typeof window !== 'undefined') {
+                    sessionStorage.setItem(sessionCompletedKey, '1');
+                }
+            }
+
+            const eventType = isFirstCalc ? 'test_complete' : 'test_recalculate';
+
+            // Send analytics event (without raw weight/height)
             const ageGroup = parsedAge < 40 ? '<40' : (parsedAge <= 64 ? '40–64' : '65+');
             const utmCampaign = getCookie('vireyou_utm_campaign') || null;
             const utmContent = getCookie('vireyou_utm_content') || null;
 
-            trackEvent('test_complete', {
+            trackEvent(eventType, {
                 testType: 'protein',
                 slug: 'protein',
                 status: res.status,

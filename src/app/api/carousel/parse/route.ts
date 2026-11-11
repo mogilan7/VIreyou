@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@/utils/supabase/server';
+import prisma from '@/lib/prisma';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -15,11 +16,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const isAdmin = user.email?.toLowerCase() === 'mogilev.andrey@gmail.com';
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    const isSpecialist = profile?.role === 'specialist' || profile?.role === 'admin';
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { id: true, role: true }
+    });
 
-    if (!isAdmin && !isSpecialist) {
+    const isSpecialist = dbUser?.role === 'specialist' || dbUser?.role === 'admin';
+
+    if (!isSpecialist) {
       return NextResponse.json({ error: 'Forbidden: admin or specialist role required' }, { status: 403 });
     }
 

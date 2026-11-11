@@ -253,21 +253,109 @@ async function exportYouTubeMetrics() {
         'CTR показов (%)'
     ].map(escapeCsv).join(';'));
 
-    // Проверка поддержки показов и CTR в API
-    let impressionsSupported = false;
-    let impressionsErrorMsg = 'Не отдаётся API (Ошибка: The query is not supported; метрики показов доступны только в YouTube Studio)';
+    // Получение показов и CTR через YouTube Reporting API
+    interface VideoReachAccumulator {
+        impressions: number;
+        weightedCtrSum: number; // sum of (impressions * ctr_percentage)
+    }
+    const impressionsData = new Map<string, VideoReachAccumulator>();
+    let reportingStatusMsg = 'отчёт ещё не сформирован';
+    let reportsAvailable = false;
+
+    // Масштаб CTR из YouTube Reporting API.
+    // При получении первого файла будут показаны 5 строк для подтверждения масштаба.
+    // По умолчанию Reporting API возвращает CTR в процентах (0.0..100.0).
+    const CTR_IS_FRACTION = false;
+
     try {
-        await youtubeAnalytics.reports.query({
-            ids: `channel==${CHANNEL_ID}`,
-            startDate: lastStart,
-            endDate: lastEnd,
-            dimensions: 'video',
-            metrics: 'views,videoThumbnailImpressions,videoThumbnailImpressionsClickRate',
-            maxResults: 1
-        });
-        impressionsSupported = true;
+        const reporting = google.youtubereporting({ version: 'v1', auth: oauth2Client });
+        const jobsRes = await reporting.jobs.list();
+        const jobs = jobsRes.data.jobs || [];
+        const reachJob = jobs.find(j => j.reportTypeId === 'channel_reach_basic_a1') 
+            || jobs.find(j => j.reportTypeId === 'channel_reach_combined_a1');
+
+        if (reachJob && reachJob.id) {
+            const reportsRes = await reporting.jobs.reports.list({ jobId: reachJob.id });
+            const allReports = reportsRes.data.reports || [];
+
+            // Фильтруем все дневные отчёты за период выгрузки [lastStart, lastEnd]
+            // Формат startTime / endTime в API: ISO string (например 2026-11-02T00:00:00Z)
+            const targetReports = allReports.filter(r => {
+                if (!r.startTime && !r.endTime) return true;
+                const rStart = r.startTime ? r.startTime.slice(0, 10) : '';
+                const rEnd = r.endTime ? r.endTime.slice(0, 10) : '';
+                return (rStart >= lastStart && rStart <= lastEnd) || (rEnd >= lastStart && rEnd <= lastEnd);
+            });
+
+            const reportsToProcess = targetReports.length > 0 ? targetReports : allReports;
+
+            if (reportsToProcess.length > 0) {
+                const token = (await oauth2Client.getAccessToken()).token;
+
+                for (const report of reportsToProcess) {
+                    if (!report.downloadUrl) continue;
+                    try {
+                        const res = await fetch(report.downloadUrl, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (!res.ok) {
+                            const errBody = await res.text().catch(() => '');
+                            reportingStatusMsg = `ошибка Reporting API: [${res.status}] ${errBody.slice(0, 80) || res.statusText}`;
+                            console.warn(`[YOUTUBE EXPORT] Предупреждение: ошибка загрузки отчета ${report.id}:`, reportingStatusMsg);
+                            continue;
+                        }
+                        const csvText = await res.text();
+                        const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
+                        if (lines.length <= 1) continue;
+
+                        reportsAvailable = true;
+
+                        const headers = lines[0].split(',').map(h => h.trim());
+                        const vIdIdx = headers.indexOf('video_id');
+                        const impIdx = headers.indexOf('video_thumbnail_impressions');
+                        // По спецификации поле называется video_thumbnail_impressions_ctr
+                        let ctrIdx = headers.indexOf('video_thumbnail_impressions_ctr');
+                        if (ctrIdx === -1) {
+                            ctrIdx = headers.indexOf('video_thumbnail_impressions_click_through_rate');
+                        }
+
+                        if (vIdIdx !== -1 && impIdx !== -1) {
+                            for (let i = 1; i < lines.length; i++) {
+                                const cols = lines[i].split(',');
+                                const vId = cols[vIdIdx]?.trim();
+                                const imp = Number(cols[impIdx]) || 0;
+                                let rawCtr = ctrIdx !== -1 ? (parseFloat(cols[ctrIdx]?.trim() || '0') || 0) : 0;
+                                // Приводим к процентам согласно константе масштаба
+                                const ctrPct = CTR_IS_FRACTION ? (rawCtr * 100) : rawCtr;
+
+                                if (vId && imp > 0) {
+                                    const prev = impressionsData.get(vId) || { impressions: 0, weightedCtrSum: 0 };
+                                    impressionsData.set(vId, {
+                                        impressions: prev.impressions + imp,
+                                        weightedCtrSum: prev.weightedCtrSum + (imp * ctrPct)
+                                    });
+                                }
+                            }
+                        }
+                    } catch (fetchErr: any) {
+                        console.warn(`[YOUTUBE EXPORT] Предупреждение: не удалось скачать отчет ${report.id}:`, fetchErr?.message || fetchErr);
+                    }
+                }
+            } else {
+                reportingStatusMsg = 'отчёт ещё не сформирован';
+            }
+        } else {
+            reportingStatusMsg = 'отчёт ещё не сформирован';
+        }
     } catch (impErr: any) {
-        impressionsErrorMsg = `Не отдаётся API (Ошибка: ${impErr?.message || 'The query is not supported'}; показы доступны только в YouTube Studio)`;
+        console.warn(`[YOUTUBE EXPORT] Предупреждение Reporting API:`, impErr?.message || impErr);
+        const status = impErr?.status || impErr?.code || impErr?.response?.status || '';
+        const rawMsg = impErr?.response?.data?.error?.message 
+            || impErr?.response?.data?.error_description 
+            || impErr?.message 
+            || String(impErr);
+        const shortText = rawMsg.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 100);
+        reportingStatusMsg = `ошибка Reporting API: ${status ? `[${status}] ` : ''}${shortText}`;
     }
 
     try {
@@ -322,6 +410,24 @@ async function exportYouTubeMetrics() {
             const comments = row[7];
             const shares = row[8];
 
+            const impObj = impressionsData.get(vId);
+            let impText: string | number;
+            let ctrText: string;
+
+            if (reportsAvailable) {
+                if (impObj && impObj.impressions !== undefined && impObj.impressions > 0) {
+                    impText = impObj.impressions;
+                    const avgCtr = impObj.weightedCtrSum / impObj.impressions;
+                    ctrText = `${avgCtr.toFixed(2)}%`;
+                } else {
+                    impText = 'нет в отчёте охвата';
+                    ctrText = 'нет в отчёте охвата';
+                }
+            } else {
+                impText = reportingStatusMsg;
+                ctrText = reportingStatusMsg;
+            }
+
             csvLines.push([
                 vId,
                 meta.title,
@@ -334,8 +440,8 @@ async function exportYouTubeMetrics() {
                 likes,
                 comments,
                 shares,
-                impressionsSupported ? '' : impressionsErrorMsg,
-                impressionsSupported ? '' : impressionsErrorMsg
+                impText,
+                ctrText
             ].map(escapeCsv).join(';'));
         }
     } catch (e: any) {

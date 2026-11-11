@@ -19,12 +19,21 @@ export function TelegramAutoLinker() {
                 if (user.id) {
                     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
                     console.log('[TelegramAutoLinker] Found Telegram User:', user.id, 'TZ:', tz);
-                    linkTelegramAction(user.id.toString(), user.username, tz).then(res => {
-                        if (res.success) {
-                            console.log('[TelegramAutoLinker] Successfully linked Telegram account and timezone!');
-                            setIsLinked(true);
-                        }
-                    });
+                    try {
+                        linkTelegramAction(user.id.toString(), user.username, tz)
+                            .then(res => {
+                                if (res?.success) {
+                                    console.log('[TelegramAutoLinker] Successfully linked Telegram account and timezone!');
+                                    setIsLinked(true);
+                                }
+                            })
+                            .catch(err => {
+                                // Silent: linkTelegramAction is disabled pending server-side HMAC validation
+                                console.debug('[TelegramAutoLinker] Link action suppressed:', err?.message || err);
+                            });
+                    } catch (e) {
+                        // Silent catch
+                    }
                 }
             }
         };

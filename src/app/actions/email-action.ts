@@ -1,18 +1,73 @@
 "use server";
 
+import crypto from 'crypto';
 import { Resend } from 'resend';
 import { marked } from 'marked';
+import { getClientIp, hashRateLimitKey, checkDbRateLimit } from '@/lib/rate-limit/dbRateLimit';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function sendDiagnosticEmail(email: string, markdownText: string, userName: string) {
+function sanitizeUserName(name: string): string {
+  return (name || '').replace(/[^\p{L}\s\d-]/gu, '').slice(0, 50).trim();
+}
+
+function sanitizeReportMarkdown(raw: string): string {
+  // Strip any raw HTML tags
+  let text = raw.replace(/<\/?[^>]+(>|$)/g, '');
+  // Strip external links in markdown [label](url) -> label
+  text = text.replace(/\[([^\]]+)\]\((?:https?:\/\/[^\)]+)\)/gi, '$1');
+  return text;
+}
+
+export async function sendDiagnosticEmail(
+  email: string,
+  markdownText: string,
+  userName: string,
+  signature?: string
+) {
   try {
     if (!process.env.RESEND_API_KEY) {
       throw new Error("Не настроен API ключ для почты (RESEND_API_KEY)");
     }
 
+    // 1. Strict email validation
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(normalizedEmail) || normalizedEmail.length > 254) {
+      return { success: false, error: "Некорректный адрес электронной почты" };
+    }
+
+    // 2. IP Rate Limit: max 3 emails per hour (fail-closed)
+    const ip = await getClientIp();
+    const ipCheck = await checkDbRateLimit(hashRateLimitKey(ip, 'send_diagnostic_email_ip'), 3, 3600, 'fail-closed');
+    if (!ipCheck.allowed) {
+      return { success: false, error: "Превышен лимит отправки писем с вашего IP (максимум 3 в час)." };
+    }
+
+    // 3. Recipient Rate Limit: max 2 emails per 24 hours to the same address (fail-closed)
+    const emailCheck = await checkDbRateLimit(hashRateLimitKey(normalizedEmail, 'send_diagnostic_email_addr'), 2, 86400, 'fail-closed');
+    if (!emailCheck.allowed) {
+      return { success: false, error: "Превышен суточный лимит писем на данный email (максимум 2 в сутки)." };
+    }
+
+    // 4. Verify server-side cryptographic signature of report contents
+    const secret = process.env.DIAGNOSTIC_REPORT_HMAC_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-diagnostic-report-hmac-secret-only-local');
+    if (!secret) {
+      throw new Error("Server configuration error: DIAGNOSTIC_REPORT_HMAC_SECRET is not configured");
+    }
+    const trimmedMarkdown = (markdownText || '').trim();
+    const expectedSignature = crypto.createHmac('sha256', secret).update(trimmedMarkdown).digest('hex');
+
+    if (!signature || signature !== expectedSignature) {
+      return { success: false, error: "Отправка отклонена: содержимое отчёта не подтверждено сервером." };
+    }
+
+    // 5. Sanitize text and user name: no custom HTML and no external links allowed
+    const cleanMarkdown = sanitizeReportMarkdown(trimmedMarkdown);
+    const safeUserName = sanitizeUserName(userName);
+
     // Convert Markdown to HTML
-    const htmlContent = marked(markdownText);
+    const htmlContent = marked(cleanMarkdown);
 
     const emailTemplate = `
       <!DOCTYPE html>
@@ -112,7 +167,7 @@ export async function sendDiagnosticEmail(email: string, markdownText: string, u
             <h1>Персональный план обследования</h1>
           </div>
           <div class="content">
-            <p>Здравствуйте, ${userName || 'дорогой друг'}!</p>
+            <p>Здравствуйте, ${safeUserName || 'дорогой друг'}!</p>
             <p>Мы сформировали для вас индивидуальный список анализов на основе ваших данных. Сдайте их, чтобы получить полную картину состояния вашего здоровья и начать работу над продлением активного долголетия.</p>
             
             <hr style="border:0; border-top:1px solid #e2e8f0; margin: 30px 0;">

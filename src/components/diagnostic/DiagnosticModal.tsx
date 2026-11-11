@@ -30,6 +30,7 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [reportSignature, setReportSignature] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
 
@@ -119,6 +120,9 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
       const res = await generateDiagnosticReport(formData, locale);
       if (res.success) {
         setResult(res.data || "");
+        if ((res as any).signature) {
+          setReportSignature((res as any).signature);
+        }
         setStep(4);
       } else {
         setError(res.error || t('errorTitle'));
@@ -134,7 +138,7 @@ const DiagnosticModal: React.FC<DiagnosticModalProps> = ({ isOpen, onClose }) =>
     setSendingEmail(true);
     try {
       const { sendDiagnosticEmail } = await import('@/app/actions/email-action');
-      const res = await sendDiagnosticEmail(regData.email, result || "", formData.name);
+      const res = await sendDiagnosticEmail(regData.email, result || "", formData.name, reportSignature || undefined);
       if (res.success) {
         alert("План успешно отправлен на вашу почту!");
         setStep(4); // go back to results

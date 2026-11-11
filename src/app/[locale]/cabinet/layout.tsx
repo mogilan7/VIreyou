@@ -22,15 +22,29 @@ export default async function CabinetLayout({
         redirect({ href: '/login', locale });
     }
 
-    // Sync with Prisma: Ensure a user record exists in the database
-    // We use email as the primary lookup to avoid conflicts if IDs ever get out of sync,
-    // but we use the Supabase ID as the record ID for consistency.
+    // Sync with Prisma: Ensure a user record exists in the database strictly by user.id
     const dbUser = await prisma.user.findUnique({
-        where: { email: user.email || '' }
+        where: { id: user.id }
     });
 
     if (!dbUser && user.email) {
-        console.log(`[AUTH] Syncing new user to Prisma: ${user.email}`);
+        const emailLower = user.email.toLowerCase().trim();
+        if (emailLower.endsWith('@vireyou.com')) {
+            redirect({ href: '/login?error=invalid_registration_domain', locale });
+        }
+
+        if (!user.email_confirmed_at) {
+            redirect({ href: '/login?error=email_not_confirmed', locale });
+        }
+
+        const conflictUser = await prisma.user.findUnique({
+            where: { email: user.email }
+        });
+        if (conflictUser) {
+            redirect({ href: '/login?error=account_conflict_linking_required', locale });
+        }
+
+        console.log(`[AUTH] Syncing new verified user to Prisma: ${user.email}`);
         
         // Check for referral code in cookies
         const cookieStore = await cookies();
@@ -85,10 +99,6 @@ export default async function CabinetLayout({
                     });
                 }
             }
-        }
-
-        if (user && dbUser.id !== user.id) {
-            console.warn(`[AUTH] User ID mismatch for ${user?.email}: Supabase=${user?.id}, Prisma=${dbUser.id}`);
         }
     }
 

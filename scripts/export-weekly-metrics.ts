@@ -14,7 +14,6 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
-import * as path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -50,19 +49,26 @@ interface FunnelRow {
     period_start: string;
     period_end: string;
     portal_visits: number;
+    portal_visits_total?: number;
     portal_visits_utm: number;
+    portal_visits_utm_total?: number;
     bot_reg_total: number;
+    bot_reg_total_all?: number;
     bot_reg_with_referrer: number;
     bot_reg_with_start_param: number;
     bot_reg_organic: number;
     bot_start_total: number;
+    bot_start_total_all?: number;
     bot_start_yt: number;
     event_bot_signups: number;
     tests_completed_total: number;
+    tests_completed_total_all?: number;
     tests_unique_users: number;
     tests_unique_users_in_bot: number;
     event_tests_started: number;
+    event_tests_started_total?: number;
     event_tests_completed_all: number;
+    event_tests_completed_all_total?: number;
     event_tests_completed_anon: number;
     test_systemic_bio_age: number;
     test_systemic_bio_age_in_bot: number;
@@ -89,12 +95,17 @@ interface FunnelRow {
     d7_cohort_size: number;
     d7_active_users: number;
     event_paywall_views: number;
+    event_paywall_views_total?: number;
     event_paywall_portal: number;
     event_paywall_bot: number;
     event_checkout_clicks: number;
+    event_checkout_clicks_total?: number;
     checkout_clicks_pending: number;
+    checkout_clicks_pending_total?: number;
     successful_payments_count: number;
-    successful_payments_sum: number;
+    successful_payments_count_total?: number;
+    successful_payments_sum: string | number;
+    successful_payments_sum_total?: string | number;
 }
 
 interface CampaignRow {
@@ -204,7 +215,16 @@ async function exportWeeklyMetrics() {
             prev: Number(prev.portal_visits || 0),
             change: calcChange(Number(last.portal_visits || 0), Number(prev.portal_visits || 0)),
             status: 'Активно',
-            note: 'Первый заход в уникальной сессии за период'
+            note: 'Первый заход в уникальной сессии (без внутренней команды)'
+        },
+        {
+            category: '0. Трафик и Визиты портала',
+            metric: 'Визиты портала (всего)',
+            last: Number(last.portal_visits_total ?? last.portal_visits ?? 0),
+            prev: Number(prev.portal_visits_total ?? prev.portal_visits ?? 0),
+            change: calcChange(Number(last.portal_visits_total ?? last.portal_visits ?? 0), Number(prev.portal_visits_total ?? prev.portal_visits ?? 0)),
+            status: 'Активно',
+            note: 'Все сессии portal_visit (включая команду)'
         },
         {
             category: '0. Трафик и Визиты портала',
@@ -233,7 +253,16 @@ async function exportWeeklyMetrics() {
             prev: Number(prev.bot_start_total || 0),
             change: calcChange(Number(last.bot_start_total || 0), Number(prev.bot_start_total || 0)),
             status: 'Активно',
-            note: 'События /start бота в Telegram'
+            note: 'События /start бота в Telegram (без команды)'
+        },
+        {
+            category: '1. Привлечение и Бот',
+            metric: 'Запуски бота (всего)',
+            last: Number(last.bot_start_total_all ?? last.bot_start_total ?? 0),
+            prev: Number(prev.bot_start_total_all ?? prev.bot_start_total ?? 0),
+            change: calcChange(Number(last.bot_start_total_all ?? last.bot_start_total ?? 0), Number(prev.bot_start_total_all ?? prev.bot_start_total ?? 0)),
+            status: 'Активно',
+            note: 'Все события /start бота в Telegram'
         },
         {
             category: '1. Привлечение и Бот',
@@ -293,21 +322,39 @@ async function exportWeeklyMetrics() {
         // 2. Диагностика и Тесты (Общие)
         {
             category: '2. Диагностика и Тесты (Общие)',
-            metric: 'Начатые тесты на портале (всего, с анонимами)',
+            metric: 'Начатые тесты на портале (test_start)',
             last: Number(last.event_tests_started || 0),
             prev: Number(prev.event_tests_started || 0),
             change: calcChange(Number(last.event_tests_started || 0), Number(prev.event_tests_started || 0)),
             status: 'Активно',
-            note: 'События test_start из AnalyticsEvent'
+            note: 'События test_start из AnalyticsEvent (без команды)'
         },
         {
             category: '2. Диагностика и Тесты (Общие)',
-            metric: 'Завершенные тесты (всего, с анонимами)',
+            metric: 'Начатые тесты на портале (всего)',
+            last: Number(last.event_tests_started_total ?? last.event_tests_started ?? 0),
+            prev: Number(prev.event_tests_started_total ?? prev.event_tests_started ?? 0),
+            change: calcChange(Number(last.event_tests_started_total ?? last.event_tests_started ?? 0), Number(prev.event_tests_started_total ?? prev.event_tests_started ?? 0)),
+            status: 'Активно',
+            note: 'Все события test_start из AnalyticsEvent'
+        },
+        {
+            category: '2. Диагностика и Тесты (Общие)',
+            metric: 'Завершенные тесты (test_complete)',
             last: Number(last.event_tests_completed_all || 0),
             prev: Number(prev.event_tests_completed_all || 0),
             change: calcChange(Number(last.event_tests_completed_all || 0), Number(prev.event_tests_completed_all || 0)),
             status: 'Активно',
-            note: 'События test_complete из AnalyticsEvent'
+            note: 'События test_complete из AnalyticsEvent (без команды)'
+        },
+        {
+            category: '2. Диагностика и Тесты (Общие)',
+            metric: 'Завершенные тесты (всего)',
+            last: Number(last.event_tests_completed_all_total ?? last.event_tests_completed_all ?? 0),
+            prev: Number(prev.event_tests_completed_all_total ?? prev.event_tests_completed_all ?? 0),
+            change: calcChange(Number(last.event_tests_completed_all_total ?? last.event_tests_completed_all ?? 0), Number(prev.event_tests_completed_all_total ?? prev.event_tests_completed_all ?? 0)),
+            status: 'Активно',
+            note: 'Все события test_complete из AnalyticsEvent'
         },
         {
             category: '2. Диагностика и Тесты (Общие)',

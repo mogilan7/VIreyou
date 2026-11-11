@@ -1,10 +1,10 @@
 'use server';
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
+import { requireRole } from '@/lib/auth/guards';
 
 export async function assignTestsToClient(clientId: string, testIds: string[], notes: string, telegramId?: string | null) {
+    await requireRole('admin', 'specialist');
     try {
         // 1. Grant Access_Permissions to unlock the tests for the client
         const permissions = testIds.map(testId => ({

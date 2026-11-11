@@ -20,6 +20,19 @@ export async function middleware(request: NextRequest) {
         const utm_campaign = searchParams.get('utm_campaign');
         const utm_content = searchParams.get('utm_content');
 
+        // Check internal team query parameter (?internal=1)
+        const internalParam = searchParams.get('internal');
+        if (internalParam === '1') {
+            response.cookies.set('vireyou_internal', '1', {
+                maxAge: 365 * 24 * 60 * 60, // 365 days
+                path: '/',
+                sameSite: 'lax',
+                httpOnly: false
+            });
+        } else if (internalParam === '0') {
+            response.cookies.delete('vireyou_internal');
+        }
+
         // Check or generate session_id
         let sid = request.cookies.get('vireyou_sid')?.value;
         const isNewSession = !sid;

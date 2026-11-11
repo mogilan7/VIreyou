@@ -1,23 +1,12 @@
 'use server';
 
-import { createClient } from '@/utils/supabase/server';
 import prisma from '@/lib/prisma';
 import { createSquad, removeParticipant } from '@/lib/squads/squadService';
 import { revalidatePath } from 'next/cache';
+import { requireUser } from '@/lib/auth/guards';
 
 export async function createSquadAction() {
-    const supabase = await createClient();
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-
-    if (!authUser) throw new Error('Unauthorized');
-
-    const user = await prisma.user.findUnique({
-        where: { id: authUser.id },
-    }) || await prisma.user.findFirst({
-        where: { email: authUser.email || undefined }
-    });
-
-    if (!user) throw new Error('User not found');
+    const user = await requireUser();
 
     const squadCount = await prisma.squad.count({ where: { creator_id: user.id } });
     const squadName = `Марафон #${squadCount + 1} (${user.full_name || 'Участник'})`;
@@ -29,18 +18,7 @@ export async function createSquadAction() {
 }
 
 export async function removeParticipantAction(squadId: string, participantId: string) {
-    const supabase = await createClient();
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-
-    if (!authUser) throw new Error('Unauthorized');
-
-    const user = await prisma.user.findUnique({
-        where: { id: authUser.id },
-    }) || await prisma.user.findFirst({
-        where: { email: authUser.email || undefined }
-    });
-
-    if (!user) throw new Error('User not found');
+    const user = await requireUser();
 
     // Security check: Only creator can remove
     const squad = await prisma.squad.findUnique({ where: { id: squadId } });

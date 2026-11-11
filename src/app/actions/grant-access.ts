@@ -2,15 +2,13 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { requireRole } from '@/lib/auth/guards';
 
 export async function grantSpecialistAccess(targetUserId: string) {
-    const supabase = await createClient();
-    
     // 1. Verify current user is Admin
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || user.email !== 'mogilev.andrey@gmail.com') {
-        throw new Error("Unauthorized: Only Admin can grant access.");
-    }
+    await requireRole('admin');
+
+    const supabase = await createClient();
 
     // 2. Update target user's role in profiles
     const { error } = await supabase
