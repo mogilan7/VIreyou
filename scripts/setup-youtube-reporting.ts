@@ -21,46 +21,70 @@ async function setupReporting() {
 
     const reporting = google.youtubereporting({ version: 'v1', auth: oauth2Client });
 
-    console.log('--- 1. Checking reportTypes.list ---');
-    try {
-        const typesRes = await reporting.reportTypes.list();
-        const types = typesRes.data.reportTypes || [];
-        console.log(`Available report types (${types.length}):`);
-        for (const t of types) {
-            console.log(`- ID: ${t.id} | Name: ${t.name}`);
+    console.log('=== 1. reportTypes.list ===');
+    const typesRes = await reporting.reportTypes.list();
+    const types = typesRes.data.reportTypes || [];
+    console.log(`Всего типов отчетов: ${types.length}`);
+    for (const t of types) {
+        console.log(`- ID: ${t.id} | Name: ${t.name}`);
+    }
+
+    const reachTypes = types.filter(t => t.id && t.id.startsWith('channel_reach_'));
+    if (reachTypes.length === 0) {
+        console.log('\n⚠️ Внимание: channel_reach_* в списке reportTypes отсутствует!');
+        console.log('Никакие задания не создаются.');
+        return;
+    }
+
+    console.log('\nНайденные типы channel_reach_*:');
+    for (const rt of reachTypes) {
+        console.log(`- ID: ${rt.id} | Name: ${rt.name}`);
+    }
+
+    console.log('\n=== 2. Создание заданий на channel_reach_basic_a1 и channel_reach_combined_a1 ===');
+    const targetTypes = ['channel_reach_basic_a1', 'channel_reach_combined_a1'];
+    
+    // Проверяем существующие задания
+    const initialJobsRes = await reporting.jobs.list();
+    const existingJobs = initialJobsRes.data.jobs || [];
+
+    for (const typeId of targetTypes) {
+        const typeAvailable = types.some(t => t.id === typeId);
+        if (!typeAvailable) {
+            console.log(`Тип '${typeId}' недоступен в reportTypes.list! Пропуск.`);
+            continue;
         }
 
-        console.log('\n--- 2. Checking existing jobs ---');
-        const jobsRes = await reporting.jobs.list();
-        const existingJobs = jobsRes.data.jobs || [];
-        console.log(`Existing jobs (${existingJobs.length}):`);
-        for (const j of existingJobs) {
-            console.log(`- Job ID: ${j.id} | ReportType: ${j.reportTypeId} | Name: ${j.name} | Created: ${j.createTime}`);
+        const exists = existingJobs.find(j => j.reportTypeId === typeId);
+        if (exists) {
+            console.log(`Задание для '${typeId}' уже существует: ID = ${exists.id} (Name: ${exists.name})`);
+        } else {
+            console.log(`Создание задания для '${typeId}'...`);
+            const newJob = await reporting.jobs.create({
+                requestBody: {
+                    reportTypeId: typeId,
+                    name: `VIReYou ${typeId}`
+                }
+            });
+            console.log(`✅ Создано задание для '${typeId}': ID = ${newJob.data.id} (Name: ${newJob.data.name})`);
         }
+    }
 
-        const targetTypes = ['channel_reach_basic_a1', 'channel_reach_combined_a1'];
-        for (const typeId of targetTypes) {
-            const exists = existingJobs.find(j => j.reportTypeId === typeId);
-            if (exists) {
-                console.log(`\nJob for '${typeId}' already exists: ${exists.id}`);
-            } else {
-                console.log(`\nCreating job for '${typeId}'...`);
-                const newJob = await reporting.jobs.create({
-                    requestBody: {
-                        reportTypeId: typeId,
-                        name: `VIReYou ${typeId}`
-                    }
-                });
-                console.log(`✅ Created job for '${typeId}': ID = ${newJob.data.id}`);
-            }
-        }
-    } catch (err: any) {
-        console.error('Error querying YouTube Reporting API:', err.message);
-        if (err?.response?.data) {
-            console.error('Details:', JSON.stringify(err.response.data, null, 2));
-        }
+    console.log('\n=== 3. jobs.list после создания ===');
+    const finalJobsRes = await reporting.jobs.list();
+    const finalJobs = finalJobsRes.data.jobs || [];
+    console.log(`Всего заданий (${finalJobs.length}):`);
+    for (const j of finalJobs) {
+        console.log(`- Job ID: ${j.id} | ReportType: ${j.reportTypeId} | Name: ${j.name} | Created: ${j.createTime}`);
     }
 }
 
-setupReporting();
+setupReporting().catch(err => {
+    console.error('Error in setup-youtube-reporting:', err?.message || err);
+    if (err?.response?.data) {
+        console.error('Details:', JSON.stringify(err.response.data, null, 2));
+    }
+    process.exit(1);
+});
+
 

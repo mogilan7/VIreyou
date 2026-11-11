@@ -259,7 +259,8 @@ async function exportYouTubeMetrics() {
         weightedCtrSum: number; // sum of (impressions * ctr_percentage)
     }
     const impressionsData = new Map<string, VideoReachAccumulator>();
-    let reportingStatusMsg = 'Reporting API отключен в GCP (проект 487077146445)';
+    let reportingStatusMsg = 'отчёт ещё не сформирован';
+    let reportsAvailable = false;
 
     try {
         const reporting = google.youtubereporting({ version: 'v1', auth: oauth2Client });
@@ -298,6 +299,8 @@ async function exportYouTubeMetrics() {
                         const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
                         if (lines.length <= 1) continue;
 
+                        reportsAvailable = true;
+
                         const headers = lines[0].split(',').map(h => h.trim());
                         const vIdIdx = headers.indexOf('video_id');
                         const impIdx = headers.indexOf('video_thumbnail_impressions');
@@ -320,6 +323,7 @@ async function exportYouTubeMetrics() {
                                     } else if (rawVal > 0 && rawVal <= 1.0) {
                                         isFraction = true; // доля (например 0.054)
                                         ctrScaleDetermined = true;
+                                        break;
                                     }
                                 }
                             }
@@ -345,19 +349,11 @@ async function exportYouTubeMetrics() {
                         console.warn(`[YOUTUBE EXPORT] Предупреждение: не удалось скачать отчет ${report.id}:`, fetchErr);
                     }
                 }
-                reportingStatusMsg = impressionsData.size > 0 ? 'Данные отсутствуют' : 'Данные в отчётах за период отсутствуют';
-            } else {
-                reportingStatusMsg = 'Ожидается генерация первого отчёта (24-48ч)';
             }
-        } else {
-            reportingStatusMsg = 'Задание не создано (запустите setup-youtube-reporting.ts)';
         }
     } catch (impErr: any) {
-        if (impErr?.message?.includes('disabled') || impErr?.code === 403) {
-            reportingStatusMsg = 'Reporting API отключен в GCP (проект 487077146445)';
-        } else {
-            reportingStatusMsg = `Ошибка Reporting API: ${impErr?.message || impErr}`;
-        }
+        console.warn(`[YOUTUBE EXPORT] Предупреждение Reporting API: ${impErr?.message || impErr}`);
+        reportingStatusMsg = 'отчёт ещё не сформирован';
     }
 
     try {
@@ -413,9 +409,13 @@ async function exportYouTubeMetrics() {
             const shares = row[8];
 
             const impObj = impressionsData.get(vId);
-            const impText = (impObj && impObj.impressions !== undefined) ? impObj.impressions : reportingStatusMsg;
+            const impText = reportsAvailable 
+                ? (impObj && impObj.impressions !== undefined ? impObj.impressions : 0) 
+                : reportingStatusMsg;
             const avgCtr = (impObj && impObj.impressions > 0) ? (impObj.weightedCtrSum / impObj.impressions) : null;
-            const ctrText = avgCtr !== null ? `${avgCtr.toFixed(2)}%` : reportingStatusMsg;
+            const ctrText = reportsAvailable 
+                ? (avgCtr !== null ? `${avgCtr.toFixed(2)}%` : '0.00%') 
+                : reportingStatusMsg;
 
             csvLines.push([
                 vId,
